@@ -14,8 +14,9 @@ branch are not live regardless of correctness — serve the directory locally to
 
 `WebApp2/` (hub controller) and `Flasher/` (code uploader) are canonical. `ChatBroadcast/` is the
 Bag3 Wand & Station Coder (chat → MicroPython → Box/Dial); it needs the sibling `Simulator/`
-tree for the wand preview and example games. Both are verbatim copies of
-`Bag3/Code/ChatBroadcast` and `Bag3/Code/Simulator`, which are
+tree for the wand preview and example games, and (from the next promotion) the sibling
+`IconEditor/webapp/` for its icon editor. The three are one suite: verbatim copies of
+`Bag3/Code/ChatBroadcast`, `Bag3/Code/Simulator` and `Bag3/Code/IconEditor/webapp`, which are
 siblings there as here, so relative paths between them resolve the same in both places. Edit
 the Bag3 trees for day-to-day work, then re-copy into Live_Page when promoting a build to Pages;
 don't edit the copies. Paths from ChatBroadcast to other Bag3 folders (the firmware installer in

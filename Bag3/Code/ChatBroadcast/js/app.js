@@ -418,10 +418,10 @@ class App {
         const frame = document.getElementById('icon-maker-frame');
         if (!view || !frame) return;
         // ?embed=1 tells the Maker it is a panel inside this app rather than
-        // its own page -- see iconmaker/js/api.js. Its capabilities are
+        // its own page -- see IconEditor/webapp/js/api.js. Its capabilities are
         // reachable as frame.contentWindow.iconMaker.
         if (!frame.getAttribute('src')) {
-            frame.setAttribute('src', 'iconmaker/?embed=1');
+            frame.setAttribute('src', '../IconEditor/webapp/?embed=1');
             frame.addEventListener('load', () => this.wireIconMaker(frame), { once: true });
         } else {
             // Already loaded: re-point it, because the open game may have
@@ -540,7 +540,7 @@ class App {
 
     /**
      * The drawer's own toolbar. The editor iframe shows the canvas only, so
-     * these are its verbs -- each one a call into iconmaker/js/api.js rather
+     * these are its verbs -- each one a call into IconEditor/webapp/js/api.js rather
      * than a click synthesised on chrome this app does not own.
      */
     bindIconToolbar() {
@@ -639,7 +639,7 @@ class App {
     wireIconMaker(frame) {
         const api = frame.contentWindow?.iconMaker;
         if (!api) {
-            dbgWarn('app', 'icons view: iconMaker API not present — is iconmaker/js/api.js loaded?');
+            dbgWarn('app', 'icons view: iconMaker API not present — is IconEditor/webapp/js/api.js loaded?');
             return;
         }
         api.library.setBackend({

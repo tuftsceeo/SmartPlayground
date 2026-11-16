@@ -41,6 +41,11 @@ import { createDocumentSwatches } from "./components/documentSwatches.js";
 import { CropModal } from "./components/cropModal.js";
 import { PalettePicker } from "./components/palettePicker.js";
 import { showToast } from "./components/toast.js";
+// Save/open against ChatBroadcast's named-icon library. See libraryBridge.js:
+// the rest of this app does not know it exists.
+import { attachLibraryBar, saveToLibrary, onLibraryBackendChange, flatToPixels } from "./libraryBridge.js";
+import { DEFAULT_ICONS } from "../../../ChatBroadcast/js/ledicons/defaultIcons.js";
+import { createIconMakerApi, attachMessageBridge } from "./api.js";
 import { OFF_DUTY } from "./pipeline/ledGamut.js";
 import { advancedLayoutHtml } from "./layouts/advancedLayout.js";
 import { simpleLayoutHtml } from "./layouts/simpleLayout.js";
@@ -50,8 +55,23 @@ import { FrameThrottle, suggestSafeIntensity } from "./device/frameThrottle.js";
 import { SerialMonitor } from "./components/serialMonitor.js";
 import { logInfo, logError } from "./device/serialLog.js";
 
-const FIXTURES = ["apple", "cherries", "grapes", "lemon", "orange", "watermelon"];
 const GRID_BACKING = 640;
+
+/**
+ * Embedded mode: the Maker is running inside a host's panel
+ * (`IconEditor/webapp/?embed=1`) rather than as its own page.
+ *
+ * Reported through the API as `embedded` and nothing more -- this flag does
+ * not itself hide anything. It is here so a UI can decide what a panel-sized,
+ * host-owned context should show. The case that matters is the hardware plug:
+ * ChatBroadcast owns the serial port, so a second link opened from inside its
+ * drawer would be two apps contending for one device.
+ *
+ * Opt-in by query string rather than an iframe check, so nothing changes for
+ * anyone who embeds the page without asking for it.
+ */
+const EMBED = new URLSearchParams(location.search).get("embed") === "1";
+if (EMBED) document.body.classList.add("embed");
 
 function downloadText(filename, text, mime) {
   downloadBlob(filename, new Blob([text], { type: mime }));
@@ -112,7 +132,49 @@ class App {
     this.applyDrawerVisibility();
     onStateChange(() => this.renderReactive());
     this.renderReactive();
+    // The game-library row belongs to embedded (teacher) mode only: standalone
+    // there is no open game, and Save writes the repo library instead.
+    if (EMBED) this.attachLibrary();
+    else this.showDevBadge();
     this.loadFixture("apple").catch((e) => showToast(String(e.message || e), { kind: "error" }));
+  }
+
+  /** Wire the game-library row: browse and reopen what has been saved.
+   *  Writing to the library is saveIcon()'s job, via the top bar's Save. */
+  attachLibrary() {
+    onLibraryBackendChange(() => this.library?.refreshList?.());
+    this.library = attachLibraryBar(this.root, {
+      loadDoc: (name, pixels) => this.loadFromLibrary(name, pixels),
+      say: (msg, isError) => showToast(msg, isError ? { kind: "error" } : {}),
+    });
+  }
+
+  /**
+   * Replace the document with an icon from the library.
+   *
+   * The pixels become the raster and the overlay is dropped, so the grid
+   * shows exactly what was stored and every later edit is an overlay on top
+   * of it -- the same shape an imported image produces.
+   */
+  loadFromLibrary(name, pixels) {
+    doc.rasterPixels = pixels.map((p) => p.slice());
+    doc.overlay.clear();
+    doc.source = null;
+    // A stored icon is a map, not a photo. Without clearing these the panel
+    // keeps showing -- and offering to crop -- whichever image happened to be
+    // segmented before, which has nothing to do with the icon now open.
+    doc.imageData = null;
+    setState({
+      mode: "exact",
+      iconName: name,
+      fills: [],
+      decisions: [],
+      problems: [],
+      sourceInfo: null,
+      transformLabel: "",
+      sourcePath: `library:${name}`,
+    });
+    this.recomputePixelsFromOverlay();
   }
 
   // ── device wiring ───────────────────────────────────────────────────
@@ -311,6 +373,119 @@ class App {
     }
   }
 
+  /**
+   * Save the icon where it is actually useful, from one button.
+   *
+   * The Maker has three export paths -- a .json segment map, a downloaded
+   * .py, and a push over USB -- and a fourth destination that matters more
+   * than any of them here: ChatBroadcast's named-icon library, which is what
+   * lets a generated display game refer to the picture BY NAME and what the
+   * send path pushes to the Box. Downloading a .py leaves the icon in the
+   * teacher's downloads folder, where nothing reads it.
+   *
+   * So Save writes the library always, and the device too when one is
+   * attached, and says which. The .py, the map and the preview stay
+   * available under Export for the cases that want a file.
+   */
+  async saveIcon() {
+    if (!doc.pixels) {
+      showToast("Nothing to save yet -- import or open an icon first.", { kind: "error" });
+      return;
+    }
+    if (!EMBED) return this.saveToRepo();
+    let saved;
+    try {
+      saved = saveToLibrary(state.iconName, doc.pixels);
+    } catch (e) {
+      showToast(String(e.message || e), { kind: "error" });
+      return;
+    }
+    this.library?.refreshList?.(saved);
+
+    // Embedded, saving means "into the open game" and stops there: the only
+    // route to hardware is the host's own Send to Box/Dial, which writes the
+    // game's icons under /flash/games/<slug>_icons/ and never to a wand.
+    if (EMBED || !state.deviceRunning) {
+      showToast(`saved ${saved} to the game library`, { kind: "success" });
+      return;
+    }
+    // The library save already happened, so a device failure is reported as
+    // exactly that rather than as "save failed".
+    try {
+      await this.device.saveIcon(saved, flattenPixels(doc.pixels), { overwrite: true });
+      this.refreshDeviceIcons();
+      showToast(`saved ${saved} to the game library and the device`, { kind: "success" });
+    } catch (e) {
+      showToast(`saved ${saved} to the game library, but the device refused it: `
+                + String(e.message || e), { kind: "error" });
+    }
+  }
+
+  /** Standalone (dev) mode's top-left label, so the two modes can't be confused. */
+  showDevBadge() {
+    const b = document.createElement("div");
+    b.className = "dev-badge";
+    b.textContent = "Icon library (dev)";
+    b.title = "Save writes Stations/IconDisplay/icons/ and regenerates defaultIcons.js (via serve.py)";
+    document.body.appendChild(b);
+  }
+
+  /**
+   * Dev-mode Save: write the icon into the repo library
+   * (Stations/IconDisplay/icons/<name>.py), which serve.py follows with
+   * sync_icons.py so ChatBroadcast's defaultIcons.js -- the samples overlay
+   * and the starter library -- picks it up. Then the device too, when one is
+   * running. An existing icon is only replaced after a confirm: the library
+   * holds hand-redrawn icons.
+   *
+   * Not served by serve.py (no /api/icon): falls back to downloading the .py.
+   */
+  async saveToRepo() {
+    const name = String(state.iconName || "").trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_");
+    if (!name) {
+      showToast("Name the icon before saving.", { kind: "error" });
+      return;
+    }
+    const text = iconText(doc.pixels, "Generated by Icon Maker (web) from " + (state.sourcePath || "an imported image"));
+    const post = (overwrite) => fetch("/api/icon", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, text, overwrite }),
+    });
+    let res;
+    try {
+      res = await post(false);
+      if (res.status === 409) {
+        if (!confirm(`"${name}" is already in the icon library. Replace it?`)) return;
+        res = await post(true);
+      }
+    } catch (e) {
+      res = null;
+    }
+    if (!res || res.status === 404 || res.status === 501) {
+      this.exportIcon();
+      showToast("Not served by IconEditor/serve.py, so the .py was downloaded instead. Copy it into Stations/IconDisplay/icons/ and run ChatBroadcast/tools/sync_icons.py.", { kind: "error" });
+      return;
+    }
+    const reply = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast(`Library save failed: ${reply.error || res.status}`, { kind: "error" });
+      return;
+    }
+    let where = `saved ${name} to the icon library`;
+    if (state.deviceRunning) {
+      try {
+        await this.device.saveIcon(name, flattenPixels(doc.pixels), { overwrite: true });
+        this.refreshDeviceIcons();
+        where += " and the device";
+      } catch (e) {
+        showToast(`${where}, but the device refused it: ${e.message || e}`, { kind: "error" });
+        return;
+      }
+    }
+    showToast(where, { kind: "success" });
+  }
+
   // ── live push ───────────────────────────────────────────────────────
   maybePushLiveFrame(force = false) {
     if (!doc.pixels) return;
@@ -443,6 +618,7 @@ class App {
   setUiMode(next) {
     if (next === state.uiMode) return;
     if (this.crop.el) return;
+    if (EMBED) return; // ChatBroadcast's editor stays in simple mode
     localStorage.setItem("iconmaker.uiMode", next);
     state.uiMode = next;
     state.devicePanelOpen = false;
@@ -514,6 +690,7 @@ class App {
             onUiModeChange: (mode) => this.setUiMode(mode),
             onNew: () => this.confirmNewIcon(),
             onOpen: fileOpen,
+            onSave: () => this.saveIcon(),
             onSaveMap: () => this.exportMap(),
             onToggleAdjust: () => setState({ showAdjust: !state.showAdjust }),
             onUndo: () => this.undo(),
@@ -522,6 +699,7 @@ class App {
           })
         : createTopBar(state, {
             onMaxSegmentsChange: (n) => this.changeMaxSegments(n),
+            onSave: () => this.saveIcon(),
             onSaveMap: () => this.exportMap(),
             onExportIcon: () => this.exportIcon(),
             onDownloadPreview: () => this.exportPreview(),
@@ -611,7 +789,8 @@ class App {
     }
 
     this.deviceMount.innerHTML = "";
-    this.deviceMount.appendChild(
+    // Embedded, the host owns the serial port -- see EMBED above. No plug.
+    if (!EMBED) this.deviceMount.appendChild(
       simple
         ? createSimpleDeviceBar(state, {
             onTogglePanel: () => setState({ devicePanelOpen: !state.devicePanelOpen }),
@@ -653,6 +832,7 @@ class App {
       ceilingMa: state.deviceTwelveV ? profile.ceiling12vMa : profile.ceilingMa,
     });
 
+    document.body.classList.toggle("no-source", !state.sourceInfo);
     this.applyDrawerVisibility();
     window.lucide?.createIcons?.();
   }
@@ -699,43 +879,17 @@ class App {
   }
 
   // ── load / resegment ────────────────────────────────────────────────
+  /** Open a saved device icon (defaultIcons.js, from IconDisplay/icons/).
+   *  The source photos in assets/ are never reconverted: they predate the
+   *  current designs and the measured white. */
   async loadFixture(name) {
-    setState({ loading: true, statusText: `loading ${name}…`, customPaletteColors: [] });
+    const flat = DEFAULT_ICONS[name];
+    if (!flat) throw new Error(`No saved icon named "${name}".`);
     releaseSource();
-    const { imageData, source, transform } = await decodeUrlToWorking(`../assets/${name}.png`);
-    doc.source = source;
-    doc.transform = transform;
-    let existingMap = null;
-    try {
-      const res = await fetch(`../maps/${name}.json`);
-      if (res.ok) existingMap = await res.json();
-    } catch {
-      /* no map yet -- fine */
-    }
-    this.applyLoad(imageData, existingMap, existingMap?.max_segments, name, `assets/${name}.png`);
+    this.loadFromLibrary(name, flatToPixels(flat));
   }
 
-  /** Replace the document with raw pixels (no segmentation): the grid shows exactly
-   *  what was given and later edits are an overlay on top, as for a stored icon. */
-  loadPixels(name, pixels) {
-    doc.rasterPixels = pixels.map((p) => p.slice());
-    doc.overlay.clear();
-    doc.source = null;
-    doc.imageData = null;
-    setState({
-      mode: "exact",
-      iconName: name,
-      fills: [],
-      decisions: [],
-      problems: [],
-      sourceInfo: null,
-      transformLabel: "",
-      sourcePath: `json:${name}`,
-    });
-    this.recomputePixelsFromOverlay();
-  }
-
-  /** Open a rows+pal JSON icon pixel-for-pixel. See pipeline/jsonIcon.js. */
+  /** Open a rows+pal JSON icon pixel-for-pixel (no segmentation). See pipeline/jsonIcon.js. */
   async loadJsonFile(file) {
     const parsed = parseIconJson(await file.text());
     let id = null;
@@ -753,7 +907,7 @@ class App {
     releaseSource();
     const base = file.name.replace(/\.[^.]+$/, "");
     const name = (icon.id || base).replace(/[^a-z0-9_]+/gi, "_").toLowerCase();
-    this.loadPixels(name, icon.pixels);
+    this.loadFromLibrary(name, icon.pixels);
     showToast(`Opened ${name} from JSON (${icon.w}x${icon.h})`, { kind: "success" });
   }
 
@@ -1064,4 +1218,13 @@ class App {
   }
 }
 
-new App();
+const app = new App();
+
+/* The editor's capabilities, reachable without its chrome -- see api.js.
+   Additive: no existing button goes through this. */
+window.iconMaker = createIconMakerApi(app, { embedded: EMBED });
+attachMessageBridge(window.iconMaker);
+window.dispatchEvent(new CustomEvent("iconmaker:ready", { detail: { version: window.iconMaker.version } }));
+if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: "iconmaker:event", name: "ready", detail: { version: window.iconMaker.version } }, "*");
+}

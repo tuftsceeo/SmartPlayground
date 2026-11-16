@@ -20,9 +20,20 @@ function collectDocumentColors(decisions, overlay, intensity, customColors) {
     if (!alreadySeen(duty)) out.push({ duty: duty.slice(), off: false });
   }
 
-  for (const d of decisions) {
-    if (d.role !== "color" || !d.color || isOff(d.color)) continue;
-    if (!alreadySeen(d.color)) out.push({ duty: d.color.slice(), off: false });
+  const segmentColors = decisions.filter((d) => d.role === "color" && d.color && !isOff(d.color));
+  if (segmentColors.length) {
+    for (const d of segmentColors) {
+      if (!alreadySeen(d.color)) out.push({ duty: d.color.slice(), off: false });
+    }
+  } else if (doc.pixels) {
+    // An icon opened from the library arrives as finished pixels with no
+    // segmentation behind them, so there are no decisions to read. Its
+    // palette is simply the colours it is drawn with -- exactly those, not a
+    // leftover set from whatever was segmented before it.
+    for (const px of doc.pixels) {
+      if (isOff(px)) continue;
+      if (!alreadySeen(px)) out.push({ duty: px.slice(), off: false });
+    }
   }
 
   for (const duty of overlay.values()) {
@@ -30,12 +41,17 @@ function collectDocumentColors(decisions, overlay, intensity, customColors) {
     if (!alreadySeen(duty)) out.push({ duty: duty.slice(), off: false });
   }
 
+  // "Off" is a real colour to paint with -- the unlit pixel. It counts
+  // whether it came from a brush stroke or from the icon as drawn.
   let hasOff = false;
   for (const duty of overlay.values()) {
     if (isOff(duty)) {
       hasOff = true;
       break;
     }
+  }
+  if (!hasOff && !segmentColors.length && doc.pixels) {
+    hasOff = doc.pixels.some((px) => isOff(px));
   }
   if (hasOff) out.push({ duty: OFF_DUTY.slice(), off: true });
 

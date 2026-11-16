@@ -1,9 +1,22 @@
-# Icon Maker (web app) -- work in progress
+# Icon Maker (web app)
 
-Pure-JS, no-build-step port of `icon_editor.py` / `image_to_icon.py`, aiming for standalone
-browser use (any PNG/JPEG/etc, no Python required) plus live Web Serial preview on the ESP32-C6
-matrix. See the top-level plan for the full design:
-`/Users/jcross04/.claude/plans/whimsical-whistling-hoare.md`.
+Pure-JS, no-build-step port of `tools/icon_editor.py` / `tools/image_to_icon.py`: browser icon
+authoring (any PNG/JPEG/etc, no Python required) plus live Web Serial preview on the icon display.
+This is the only copy. ChatBroadcast embeds it in place (`../IconEditor/webapp/?embed=1`), the
+same way it loads `../Simulator/`; the old `ChatBroadcast/iconmaker/` copy was removed 2026-11-15.
+
+## Modes
+
+| | Embedded (teachers) | Standalone (dev team) |
+|---|---|---|
+| Opened as | ChatBroadcast's Icons view, `?embed=1` | `python3 serve.py` → `http://localhost:8757/IconEditor/webapp/` |
+| UI | Simple mode only, no device bar, game-library row | Simple or advanced, device bar, "Icon library (dev)" badge |
+| Save | Adds or replaces the icon **in the open game** (ChatBroadcast passes its per-game store in through `iconMaker.library.setBackend`); nothing else | Writes **`Stations/IconDisplay/icons/<name>.py`** via `serve.py`'s `POST /api/icon`, which runs `sync_icons.py` so `defaultIcons.js` (ChatBroadcast's starter icons and samples overlay) and `IconEditor/icons/` follow; then the device too, when one is running. Replacing an existing icon asks first. Without `serve.py`, downloads the `.py` instead |
+| Open list | The game's icons, then the starter set | The repo set (`defaultIcons.js`) |
+
+The capability API for the host is `js/api.js` (`window.iconMaker`); the library seam is
+`js/libraryBridge.js`. The browser firmware install is retired: the Broadcast icon display
+(`Stations/IconDisplay/`) answers the editor over USB while idle; flash it from its own tree.
 
 ## Status
 
@@ -61,5 +74,6 @@ round-based model would diverge between toolchain and device.
 
 ## Running it
 
-Web Serial and the File System Access-adjacent APIs need a secure context; `localhost` via
-`python3 -m http.server` qualifies. Chrome/Edge only (same constraint as Web Serial).
+Web Serial needs a secure context; `localhost` qualifies. Use `python3 serve.py` from
+`IconEditor/` (no-cache headers, serves `Bag3/Code/` so the `ChatBroadcast/js/ledicons/` imports
+resolve, and provides the dev Save endpoint). Chrome/Edge only (same constraint as Web Serial).

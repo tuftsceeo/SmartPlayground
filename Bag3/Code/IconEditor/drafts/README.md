@@ -43,7 +43,7 @@ their paths are fixed:
 
 **Python editor** (edits the committed map in place, live LED preview):
 
-    python3 icon_editor.py assets/<name>.png     # http://localhost:8756
+    python3 tools/icon_editor.py assets/<name>.png     # http://localhost:8756
 
 **Web editor** (16x16 grid painting, undo, downloads `.py`/`.json`/`.png`):
 
@@ -51,8 +51,8 @@ their paths are fixed:
 
 Then regenerate the icon and preview from the edited map:
 
-    python3 image_to_icon.py assets/<name>.png
-    python3 image_to_icon.py --check assets/<name>.png   # lint
+    python3 tools/image_to_icon.py assets/<name>.png
+    python3 tools/image_to_icon.py --check assets/<name>.png   # lint
 
 Hand-painting in the web editor writes per-cell overrides into the map's
 `overlay`, so those survive a re-run of `image_to_icon.py` — edit the map, not
@@ -77,14 +77,8 @@ missing from every generated game.
 
    A display game may only name icons in that list; `app.js` refuses one that
    names anything else at send time. Nothing runs this check automatically.
-4. To make it editable in ChatBroadcast's Icon Maker too, copy its source and
-   map into that hand-kept peer and add the name to its `fixtures.js`:
-
-       cp assets/<name>.png ../../ChatBroadcast/iconmaker/assets/
-       cp maps/<name>.json ../../ChatBroadcast/iconmaker/maps/
-
-   Skip for a hand-authored icon — it has no source image, so there is
-   nothing for the Maker's loadFixture() to decode.
+4. Nothing to copy for the Icon Maker: it opens every icon in `defaultIcons.js`,
+   which step 3 regenerated.
 5. Add a row to the `ICONS` array in `gallery.html`: `["<name>", "<category>", true]`.
 6. Delete the three draft files for it from `drafts/`.
 

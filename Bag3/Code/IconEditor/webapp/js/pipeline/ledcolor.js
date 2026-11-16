@@ -61,12 +61,17 @@ export function dELinear(c1, c2) {
   return dE(oklabFromLinear(c1), oklabFromLinear(c2));
 }
 
+// Duty that looks white on the panel (measured 2026-10-31, see
+// Stations/IconDisplay/README.md "Measured white"). Screen previews scale
+// each channel by 255/MEASURED_WHITE so that duty shows as screen white.
+export const MEASURED_WHITE = [185, 255, 150];
+
 export function predictLedAppearance(rgb, intensity) {
-  // authored byte -> xINTENSITY -> truncate -> /255 linear -> sRGB-encode
+  // authored byte -> xINTENSITY -> truncate -> white-balance -> /255 linear -> sRGB-encode
   const out = [];
-  for (const c of rgb) {
-    const duty = Math.trunc(c * intensity);   // device does this (see icon_matrix.js)
-    const linear = duty / 255;
+  for (let i = 0; i < 3; i++) {
+    const duty = Math.trunc(rgb[i] * intensity);   // device does this (see icon_matrix.js)
+    const linear = Math.min(1, duty / MEASURED_WHITE[i]);
     const srgb = linearToSrgb(linear);
     out.push(Math.round(srgb * 255));
   }

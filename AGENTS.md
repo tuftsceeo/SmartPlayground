@@ -84,8 +84,9 @@ The 16x16 icon set is the same shape of problem. `Stations/IconDisplay/icons/` i
 source of truth, and three things copy from it by hand or by script:
 `ChatBroadcast/js/ledicons/defaultIcons.js` (generated — run
 `ChatBroadcast/tools/sync_icons.py`, and `--check` to detect drift), the icon editor's working copy
-`IconEditor/icons/`, and `ChatBroadcast/iconmaker/`, which keeps its own
-`assets/`, `maps/` and `fixtures.js`. The generated list is what tells the chat model which
+`IconEditor/icons/` (`sync_icons.py --station`), and the Icon Maker web app
+(`IconEditor/webapp/`, the only copy; ChatBroadcast embeds it with `?embed=1`), which
+reads `defaultIcons.js`. The generated list is what tells the chat model which
 icons exist — a game naming one outside it is refused at send time, so an icon added only to
 the device is unusable in a generated game. Nothing runs the check automatically.
 
@@ -128,7 +129,7 @@ or the team), the Bag3 `M5Paper Remote`, and the Broadcast Box and Dial (`Broadc
 `WirelessFileTransferBak`, `EmulatedTagDial`, `EspnowModem`, `ProgrammableTag`, and the earlier Bag3
 `Wand Module`). Despite some names, none of these are stations.
 
-Likewise, `goalrace`, `splatecho`, and `jumpin1`–`jumpin5` (code-slot experiment) are bench-only
+Likewise, `goalrace`, `splatecho`, `halloween` (icon display), and `jumpin1`–`jumpin5` (code-slot experiment) are bench-only
 games, not classroom games. The Bag3 wand (`Bag3/Code/Wand Module/`, the Mock Wand) uses plain NDEF text tags; `opcodes.py` is not used there.
 
 ## Hardware Testing Rules

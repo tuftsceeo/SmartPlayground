@@ -374,14 +374,17 @@ Hardware: one short hands-on block for step 3, to flash and look at the screens.
 cannot see the display, so it asks the user for a photo or a description of each screen.
 ```
 
-### S9. Promote ChatBroadcast and the Simulator to Live_Page (after S3, S5, S6, S7)
+### S9. Promote ChatBroadcast, the Simulator and the Icon Maker to Live_Page (after S3, S5, S6, S7)
 
 ```
 Task: make the hosted copy match the bench-tested Bag3 trees. Volunteers use the hosted site.
 Read Live_Page/AGENTS.md first.
 1. Replace Live_Page/ChatBroadcast/ and Live_Page/Simulator/ with copies of
-   Bag3/Code/ChatBroadcast/ and Bag3/Code/Simulator/. Leave out bak/, REPLY_HANDLING.md, the
-   .code-workspace file, __pycache__ and test caches. The two are siblings in both places, so
+   Bag3/Code/ChatBroadcast/ and Bag3/Code/Simulator/, and add Live_Page/IconEditor/webapp/ from
+   Bag3/Code/IconEditor/webapp/ (ChatBroadcast embeds it as ../IconEditor/webapp/?embed=1 and
+   iconView.js imports its preview.js; since 2026-11-15 there is no ChatBroadcast/iconmaker/).
+   Delete the old Live_Page/ChatBroadcast/iconmaker/. Leave out bak/, REPLY_HANDLING.md, the
+   .code-workspace file, __pycache__ and test caches. The three are siblings in both places, so
    make no path edits; if a path edit seems needed, stop and report it instead.
 2. Serve Live_Page/ locally and check in a browser with Playwright: the ChatBroadcast page
    loads with no console errors, the practice window starts for one solo game and one host

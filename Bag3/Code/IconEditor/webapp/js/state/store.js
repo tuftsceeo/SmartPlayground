@@ -6,6 +6,9 @@
  */
 
 function loadUiMode() {
+  // Embedded in ChatBroadcast (?embed=1): always simple, whatever the
+  // standalone page last saved -- the two share this origin's localStorage.
+  if (new URLSearchParams(location.search).get("embed") === "1") return "simple";
   try {
     const stored = localStorage.getItem("iconmaker.uiMode");
     if (stored === "advanced" || stored === "simple") return stored;

@@ -31,9 +31,7 @@
  *   - Blue carries ~0.139 of white luminance here vs ~0.072 in sRGB, i.e.
  *     about twice the weight. Dim blues look far brighter than sRGB suggests.
  *   - Equal duty is NOT white: (255,255,255) lands at xy(0.224,0.256), a
- *     blue-cyan. Neutral D65 needs roughly duty (255,171,93) by datasheet;
- *     measured on the panel it reads pink -- (185,255,150) looked white
- *     (2026-10-31, see Stations/IconDisplay/README.md "Measured white").
+ *     blue-cyan. Neutral D65 needs roughly duty (255,171,93).
  *   - All three primaries are outside sRGB, so screen output clips to the
  *     gamut boundary. That is the honest best a monitor can do.
  *
@@ -90,8 +88,16 @@ export function xyzToSrgb(X, Y, Z) {
  * stay legible when the panel is running at 5%. The live-brightness
  * appearance is the preview canvas's job, not the palette's.
  */
+// Measured on the panel (2026-10-31, Stations/IconDisplay/README.md "Measured
+// white"): duty (185,255,150) looks white, not the datasheet's (255,171,93).
+// Screen colours are white-balanced so the measured white lands on the
+// datasheet neutral; the XYZ/OKLab distance maths above stay unbalanced.
+export const MEASURED_WHITE = [185, 255, 150];
+const DATASHEET_WHITE = [255, 171, 93];
+const BALANCE = MEASURED_WHITE.map((m, i) => DATASHEET_WHITE[i] / m);
+
 export function ledSwatchHex(duty) {
-  const [r, g, b] = xyzToSrgb(...authoredToXYZ(duty, 1));
+  const [r, g, b] = xyzToSrgb(...authoredToXYZ(duty.map((c, i) => c * BALANCE[i]), 1));
   const h = (n) => n.toString(16).padStart(2, "0");
   return `#${h(r)}${h(g)}${h(b)}`;
 }

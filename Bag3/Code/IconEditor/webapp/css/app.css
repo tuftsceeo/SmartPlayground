@@ -595,3 +595,82 @@ input[type="color"] {
 .toast.toast-success {
   background: var(--teal);
 }
+
+/* ── Game library row (libraryBridge.js) ──────────────────────────────
+   Saving here is what lets a generated display game refer to an icon by
+   name; the Maker's own .py export goes to the downloads folder instead. */
+.library-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--border, #e3e0e8);
+    font-size: 12px;
+    flex-wrap: wrap;
+}
+.library-bar select,
+.library-bar button {
+    font: inherit;
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border, #e3e0e8);
+    background: #fff;
+    cursor: pointer;
+}
+.library-bar button:disabled { opacity: 0.5; cursor: default; }
+.library-bar-label {
+    font-weight: 700;
+    color: var(--muted, #6b6680);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+}
+.library-bar #libMsg { color: var(--muted, #6b6680); }
+.library-bar #libMsg.err { color: #b3261e; font-weight: 700; }
+
+/* Embedded in ChatBroadcast's icon drawer: the host's drawer header owns the
+   chrome, so the Maker shows only the editing surface. Saving happens when
+   the drawer closes -- see app.js closeIconDrawer(). */
+body.embed #topBarMount,
+body.embed #deviceMount,
+body.embed .library-bar,
+body.embed #adjustDrawerToggle,
+/* the empty row the two mounts left behind, and its divider */
+body.embed .app-card > .flex.items-stretch,
+/* the sample picker only -- crop & scale and import stay */
+body.embed #importMount #fixtureSelect,
+/* LED preview + brightness: the host already shows this icon on the display
+   simulator behind the drawer, at the same brightness */
+body.embed .panel:has([data-canvas-slot="preview"]) { display: none !important; }
+
+/* No outer card either: the drawer IS the card. */
+body.embed .app-card {
+  margin: 0;
+  width: 100%;
+  max-height: none;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* No photo behind the open icon (it came from a stored map): hide the source
+   thumbnail and its label. The import control stays -- that is how a
+   replacement photo gets in. */
+body.no-source [data-canvas-slot="source"],
+body.no-source [data-source-label] { display: none !important; }
+
+/* Standalone (dev) mode label -- see main.js showDevBadge(). */
+.dev-badge {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    z-index: 50;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--red-soft, #fde8e4);
+    color: #8a3a30;
+    border: 1px solid var(--red, #d9705f);
+    pointer-events: none;
+}

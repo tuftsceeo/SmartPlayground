@@ -13,7 +13,7 @@ or a progress bar doesn't need a file per value.
 
 Everything writes into a 768-byte authored frame -- normally panel.src --
 laid out exactly as icons/<name>.py is: row-major from the top-left, three
-bytes per pixel, linear PWM duty (NOT sRGB; see IconEditor/iconlib/ledcolor.py). Values are unscaled: the panel applies INTENSITY when
+bytes per pixel, linear PWM duty (NOT sRGB; see IconEditor/tools/iconlib/ledcolor.py). Values are unscaled: the panel applies INTENSITY when
 it draws, so keep authored colours in the same range the icon files use.
 
 Nothing here touches hardware, so none of it reaches the LEDs until the

@@ -6,8 +6,16 @@
 
 const FIRMWARE_FILES = ["icon_matrix.py", "json_link.py", "icon_store.py", "icon_server.py", "main.py"];
 
-/** Fetch the five firmware source files from the station folder (one level up from webapp/). */
+/**
+ * These five files were the old USB-only station firmware, deleted on
+ * 2026-11-15. The Broadcast icon display (Stations/IconDisplay/) already
+ * answers this editor over USB while idle, and installing these over it would
+ * replace its game-playing main.py -- so the browser install is refused.
+ * Flash the display from its own tree instead.
+ */
 export async function loadFirmwareFiles() {
+  throw new Error("Browser install is retired: flash Stations/IconDisplay/ with mpremote (see its README). It already answers the editor over USB while idle.");
+  // eslint-disable-next-line no-unreachable
   const files = [];
   for (const name of FIRMWARE_FILES) {
     const res = await fetch(`../${name}`, { cache: "no-store" });
