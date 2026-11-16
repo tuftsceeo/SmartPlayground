@@ -25,3 +25,9 @@ The user judged this very unlikely in real use (a teacher re-sending a game whil
 pulling the same game) and not needed for the stress-test plan. Check it in pre-classroom tests:
 start a pull of a large game, re-send the same game from ChatBroadcast, and see whether the wand
 retries cleanly.
+
+## 2026-11-16: re-send clears `<slug>_icons/` (commit ed11e36)
+`game_upload.begin` on a top-level `/flash/games/<slug>.py` removes `<slug>_icons/` before the
+new files arrive (the app always sends the main file first). Same exposure as above: a wand
+mid-pull of an icon file can lose it. A failed upload leaves the game with no icons.
+Host-tested only.

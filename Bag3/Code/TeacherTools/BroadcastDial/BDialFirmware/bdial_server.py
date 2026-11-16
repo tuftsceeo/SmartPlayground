@@ -108,6 +108,7 @@ class BdialServer:
         self._input = None      # DialInput, built in run()
         self.ui = None          # StationUI, built in run()
         self.st = None          # station.Station, built in run()
+        self._rescan_pending = False
         self.link = JsonLink(self.dispatch, debug=debug)
         self.code = CodeLink()
         self.nfc = None
@@ -398,13 +399,24 @@ class BdialServer:
     def do_games_rescan(self, cmd, rid):
         if self.code.sender is not None:
             self.code.sender._digest = (None, None, None)
-        self._boot_scan_games()
+        self._boot_scan_games(reload=False)
         want = cmd.get("active")
         if want and want in self._index:
             self._set_active(want)
             self.code.set_game(want)
         self.link.send({"type": "ok", "id": rid, "cmd": "games.rescan",
                         "active": self._active, "games": len(self._index)})
+        # Only move the screens (and mode) from a menu screen; a teacher on
+        # the keyboard or a held result is left alone until they get back
+        # to one (_apply_rescan from the main loop).
+        self._rescan_pending = True
+        if self.st is None or self.st.serving():
+            self._apply_rescan()
+
+    def _apply_rescan(self):
+        self._rescan_pending = False
+        if self.st is not None:
+            self.st.reload()
         if self._payload_ready():
             self._set_mode(MODE_WRITE)
         else:
@@ -540,7 +552,7 @@ class BdialServer:
             print("# stats load failed: %s" % str(e))
             self._written = {}
 
-    def _boot_scan_games(self):
+    def _boot_scan_games(self, reload=True):
         """Merge /flash/games/*.py into index.json; pick active.
 
         New-this-boot files (not in previous index) become active; if several,
@@ -607,7 +619,7 @@ class BdialServer:
 
         if self._active:
             self.code.set_game(self._active)
-        self._rebuild_entries()
+        self._rebuild_entries(reload)
         print("# games: %d active=%s" % (len(self._index), self._active))
 
     def _pick_active_fallback(self):
@@ -620,7 +632,7 @@ class BdialServer:
             self.code.set_game(slug)
             return
 
-    def _rebuild_entries(self):
+    def _rebuild_entries(self, reload=True):
         """One group per game -- Code (getcode:<slug>), Play (<slug>), then
         the tags the game pushed in <slug>.tags.json, with All -- then
         Utility (stop, battery)."""
@@ -644,7 +656,7 @@ class BdialServer:
             if k in live:
                 keep[k] = v
         self._written = keep
-        if self.st is not None:
+        if self.st is not None and reload:
             self.st.reload()
 
     # ─────────────────────────────────────────────
@@ -874,6 +886,8 @@ class BdialServer:
             while self.running:
                 self.link.pump(idle_ms=20, drain_ms=40)
                 self.st.step()
+                if self._rescan_pending and self.st.serving():
+                    self._apply_rescan()
                 self.ui.tick()
                 self._serve()
                 now = time.ticks_ms()

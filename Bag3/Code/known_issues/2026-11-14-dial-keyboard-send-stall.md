@@ -52,3 +52,12 @@ Right after the soft reset that ends a raw-REPL game upload, about 20 lines of
 program's first output, then USB dropped. Source unknown. S11 step 4 captures these lines.
 A game sent over the JSON link (S5 step 4, `game_upload.py`) does no soft reset, so it should not
 trigger D3; the raw-REPL fallback still can.
+
+## 2026-11-16: upload no longer moves the screens (commit ed11e36, branch ccr-f088eeaa-v7hily)
+`do_games_rescan` updates the index and replies at once, but the screen reload and the
+IDLE/WRITE change wait (`_apply_rescan`) until `Station.serving()` is true (HOME, GAMES or TAGS
+with no held result), checked each main-loop pass. A teacher on the keyboard or a result screen
+stays put. IDLE/WRITE is only reported; it does not gate serving. Host-tested only
+(`tools/test_game_upload.py`); not yet run on hardware. Fallback if the bench block fails:
+make `supportsJsonUpload` in `ChatBroadcast/js/device/jsonGameUpload.js` return `false`
+(back to raw-REPL upload, which restarts the Dial and can still trigger D3).

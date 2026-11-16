@@ -41,6 +41,28 @@ def _mkdirs(path):
             pass
 
 
+def _rm_icons(path):
+    # A game's main file (/flash/games/<slug>.py) comes first in an upload;
+    # clear its old <slug>_icons/ so a re-sent game keeps no stale icons.
+    rest = path[len(ROOT):]
+    if "/" in rest or not rest.endswith(".py"):
+        return
+    d = ROOT + rest[:-3] + "_icons"
+    try:
+        names = os.listdir(d)
+    except OSError:
+        return
+    for n in names:
+        try:
+            os.remove(d + "/" + n)
+        except OSError:
+            pass
+    try:
+        os.rmdir(d)
+    except OSError:
+        pass
+
+
 class Upload:
     def __init__(self):
         self.f = None
@@ -73,6 +95,7 @@ class Upload:
         if not isinstance(size, int) or size < 0 or size > MAX_BYTES:
             return {"code": "bad_size", "msg": "size 0..%d" % MAX_BYTES}
         self._drop()
+        _rm_icons(path)
         _mkdirs(path)
         try:
             self.f = open(path + ".part", "wb")
