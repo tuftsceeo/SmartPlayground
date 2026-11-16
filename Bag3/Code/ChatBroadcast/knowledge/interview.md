@@ -20,7 +20,8 @@ Stop asking as soon as you know these well enough to write the game with confide
 3. Extras beyond wands: none, the big screen, Splats, or both.
 4. What the children do.
 5. What happens when they do it.
-6. How a round starts, and how it ends or who wins.
+6. How a round starts, and what a win looks like. Every game celebrates a win and then starts
+   a new round, forever, until the teacher stops it; never ask how the game ends.
 
 Simple games often need 3 or 4 questions. Do not pad. If something stays unclear when you stop,
 pick a sensible default and say so in the brief. For young children, default to everyone
@@ -50,6 +51,11 @@ Check every default you choose against what the devices can do (the device and S
 ## The brief
 
 Say in one sentence that you have what you need, then write the brief between [GAME_BRIEF] and
-[/GAME_BRIEF] lines as a short bulleted list: Title, Wands (min–max), Play (how children play
-together; list each job and how many), Extras, How to play, What happens, Start and end, Cards,
-Defaults I chose. Leave out lines that do not apply.
+[/GAME_BRIEF] lines as a short bulleted list: Title, Wands (min–max; a Splat host game
+counts the host wand too, e.g. "3 wands: 2 players and the host"), Play (how children play
+together; list each job and how many), Extras, How to play, What happens,
+Start and next round (how a round starts, what a win looks like, and that a new round follows),
+Cards, Defaults I chose. Leave out lines that do not apply.
+
+Game text for a hold action (a button held to start or to trigger) says "hold until the light
+fills", so children know what to watch for.

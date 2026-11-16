@@ -21,7 +21,8 @@ import {
 } from './editor.js';
 import { uploadPayload, validateGameCode, validateGameSignature, codeBytes, MAX_WAND_GAME_BYTES } from './upload.js';
 import { ROLES as ROLE_TABLE, roleInfo, DEFAULT_ROLE } from './roles.js';
-import { listSplatActions } from './splat/splatActionCheck.js';
+import { listSplatActions, unknownSplatActionsIn } from './splat/splatActionCheck.js';
+import { splatGameProblems } from './splat/splatGameCheck.js';
 import { updateTagChecklist, setCardWriter, cardWriteEnded } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
@@ -141,10 +142,11 @@ function makeActivatable(el) {
 function savedGameDevices(g) {
     const code = g.code || '';
     const settings = g.simSettings || {};
-    const wands = settings.wands || 1;
     const lobby = isLobbyGame(code);
-    // A Splat host game's Splats are all on its host (settings.splat_host).
+    // A Splat host game's Splats are all on its host (settings.splat_host),
+    // and the host is one more wand than the children's (settings.wands).
     const host = /^SPLAT_HOST\s*=\s*True/m.test(code);
+    const wands = (settings.wands || 1) + (host ? 1 : 0);
     const local = /^SPLATS_LOCAL\s*=/m.test(code);
     const splats = host ? Math.max(1, settings.splat_host || 1)
         : local ? Math.max(1, settings.splats || 1) : 0;
@@ -327,7 +329,7 @@ class App {
             setSendProgress(pct, `${p.status}: ${p.file}`);
         };
 
-        setWorkspaceHandler((code) => {
+        setWorkspaceHandler(async (code) => {
             const drawer = document.getElementById('code-drawer');
             // A block that is already some device's code just shows it.
             const role = rolesWithCode().find((r) => getCode(r).trim() === code.trim());
@@ -343,6 +345,7 @@ class App {
             addProcessMsg(`Code sent to editor (v${getVersionCount()})`);
             document.getElementById('code-drawer').classList.remove('hidden');
             this.updatePreview();
+            await this.checkNewGame();
         });
 
         this.updatePreview();
@@ -2225,7 +2228,9 @@ class App {
                 this.interview = null;
                 dbg('chat', `interview finished after ${iv.asked} question(s)`, { brief });
                 if (lead) addMsg(lead, 'bot');
-                addMsg(brief, 'bot');
+                // Simple mode shows a short summary; the full brief, written
+                // for the model, still goes with "Make this game".
+                addMsg(getUiMode() === 'simple' ? briefSummary(brief) : brief, 'bot');
                 this.renderBriefChips(brief);
                 return;
             }
@@ -2699,7 +2704,15 @@ class App {
         const log = err.phase === 'run' && this._simRecentLog?.length
             ? `\n\nRecent simulator log:\n${this._simRecentLog.join('\n')}` : '';
         const ask = `The simulator failed while ${when}. Please find the problem in the current code and fix it.`;
-        const details = `${err.message}${log}`;
+        await this.sendProblemToChat(ask, `${err.message}${log}`);
+    }
+
+    /** The "fix it" request shared by the Simulator failure and the game
+     * check: the ask is shown as the teacher's message, the details below
+     * it collapsed, and both go to the chat. `shown` replaces the ask on
+     * screen only (Simple mode's wording without code terms). */
+    async sendProblemToChat(ask, details, shown = ask) {
+        if (this.isGenerating) return;
         const msg = `${ask}\n\n<error>\n${details}\n</error>`;
         if (!this.simNotes) {
             try {
@@ -2711,9 +2724,74 @@ class App {
         }
         document.querySelector('.starter-chips')?.remove();
         document.querySelectorAll('.choice-chips').forEach(el => el.remove());
-        addMsg(ask, 'user').appendChild(buildCodeBlock('error', details, { collapsed: true, editor: false }));
+        addMsg(shown, 'user').appendChild(buildCodeBlock('error', details, { collapsed: true, editor: false }));
         this.dirty = true;
         await this.callClaude(msg);
+    }
+
+    /** Send-time wand checks (upload.js validateGameCode: Splat
+     * declarations, `net` use, Splat action names) as plain sentences;
+     * none when the game passes. Size is warned about separately. */
+    gameCheckProblems() {
+        const code = getCode('wand');
+        if (!code.trim() || !validateGameSignature(code, 'wand')[0]) return [];
+        const out = splatGameProblems(code);
+        const unknown = unknownSplatActionsIn(code);
+        if (unknown.length) out.push(`The wand game uses Splat action names the Splats do not have: ${unknown.join(', ')}.`);
+        return out;
+    }
+
+    /**
+     * Run the game check on a newly generated or edited game. A failure
+     * shows the problems with a "Fix it" chip that asks the chat to fix
+     * them. In Simple mode the request goes automatically, once per game
+     * the teacher asked for (reset in onSend); if that version still fails
+     * the problems are shown and nothing more is sent.
+     * @returns {Promise<void>}
+     */
+    async checkNewGame() {
+        const problems = this.gameCheckProblems();
+        if (!problems.length) return;
+        dbgWarn('chat', 'game check failed', problems);
+        const ask = 'The game check found problems that would stop this game from being sent. '
+            + 'Please fix them in the current code.';
+        const details = problems.join('\n');
+        const simple = getUiMode() === 'simple';
+        if (simple && !this._autoFixSent) {
+            this._autoFixSent = true;
+            await this.sendProblemToChat(ask, details,
+                'I found something in the game that would stop it from working. Fixing it now.');
+            return;
+        }
+        // Simple mode keeps code terms out of sight: the problem sentences
+        // (worded for the chat) go in a collapsed block.
+        if (simple) {
+            addMsg('This game still has a problem I could not fix on my own.', 'system')
+                .appendChild(buildCodeBlock('error', details, { collapsed: true, editor: false }));
+        } else {
+            const note = addMsg('This game has problems to fix before it can be sent:', 'system');
+            const list = document.createElement('ul');
+            for (const p of problems) {
+                const li = document.createElement('li');
+                li.textContent = p;
+                list.appendChild(li);
+            }
+            note.appendChild(list);
+        }
+        this.renderChoiceChips([]);
+        const wrap = document.querySelector('#chat-box .choice-chips:last-child');
+        const fix = document.createElement('button');
+        fix.type = 'button';
+        fix.className = 'starter-chip starter-chip-guided';
+        fix.dataset.gameCheckFix = '';
+        fix.textContent = 'Fix it';
+        fix.addEventListener('click', () => {
+            if (this.isGenerating) return;
+            wrap.remove();
+            this.sendProblemToChat(ask, details);
+        });
+        wrap.appendChild(fix);
+        wrap.scrollIntoView({ block: 'end' });
     }
 
     /**
@@ -3464,6 +3542,8 @@ class App {
         document.querySelector('.starter-chips')?.remove();
         document.querySelectorAll('.choice-chips').forEach(el => el.remove());
         addMsg(msg, 'user');
+        // A new request from the teacher earns one automatic fix again.
+        this._autoFixSent = false;
         if (getUiMode() === 'simple') collapseEarlier(this.gameName);
         if (this.interview) {
             await this.answerInterview(msg);
@@ -3533,6 +3613,9 @@ class App {
         // Set when this reply wrote a game file and named another device
         // whose file is still to come; requested once this call has finished.
         let nextRole = null;
+        // Set when this reply put a game file in the editor; the game check
+        // runs once the reply (and any next-device request) is done.
+        let wroteGame = false;
 
         this.chatHistory.push(hidden ? { role: 'user', content: userMsg, hidden: true } : { role: 'user', content: userMsg });
         addThinkingMsg();
@@ -3708,6 +3791,7 @@ class App {
                 if (!chain && !retried) this.gameDesc = userMsg;
                 this.dirty = true;
                 this.updatePreview();
+                wroteGame = true;
 
                 // A multi-device game is written one device per reply. When
                 // this reply names the device that comes next, ask for it now
@@ -3752,8 +3836,29 @@ class App {
             await this.callClaude(`Now write the ${label.toLowerCase()} file `
                 + `([DEVICE: ${nextRole}]) for this game, matching the files already in the editor.`,
                 { hidden: true, chain: chain + 1 });
+            return;
         }
+        if (wroteGame) await this.checkNewGame();
     }
+}
+
+/**
+ * The brief for Simple mode: the game's name, what players do, and the
+ * devices it needs, from the "- Label: text" lines (BRIEF_FIELDS labels).
+ * Falls back to the whole brief when those lines are missing.
+ * @param {string} brief
+ */
+function briefSummary(brief) {
+    const field = {};
+    for (const line of brief.split('\n')) {
+        const m = line.match(/^\s*[-*]\s*([^:]+):\s*(.+)$/);
+        if (m) field[m[1].trim().toLowerCase()] = m[2].trim();
+    }
+    const play = field['how to play'] || field.play;
+    if (!field.title || !play) return brief;
+    const devices = [field.wands, field.extras].filter((t) => t && !/^none\b/i.test(t)).join('; ');
+    return [`- Name: ${field.title}`, `- What players do: ${play}`,
+        devices ? `- Devices: ${devices}` : null].filter(Boolean).join('\n');
 }
 
 /** An icon for a follow-up chip, picked by keyword in its text; null when none matches. */

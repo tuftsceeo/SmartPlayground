@@ -19,6 +19,11 @@ Read this whenever a game involves more than one wand, or a wand plus the icon d
 - **Messages can be missed.** A device in charge that sets the state ("everyone freeze") should
   repeat that state about once a second, so a wand that missed it, or joined late, catches up.
 - **Every file exits** on `"stop"` / `"start_game"`, whatever its role.
+- **Games repeat.** Every game celebrates a win and then starts a new round, forever, until a
+  stop message (`"stop"`, `"start_game"`, an exit card, or `("end",)` in a lobby game). Never
+  return from `play()` because someone won.
+- **Hold actions fill a light.** Game text for any hold (a button held to start or to trigger)
+  says "hold until the light fills".
 - **Say how many wands it is for.** A game played on more than one wand writes
   `[GAME_SETTINGS: {"wands": N}]` after the code (platform rules), N from 2 to 4, so the practice
   window starts with that many wands. A Splat host game also gives `splat_host`; a solo Splat game gives `splats` (1-2) and `"wands": 1`.

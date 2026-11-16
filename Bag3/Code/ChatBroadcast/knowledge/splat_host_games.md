@@ -6,7 +6,7 @@ A **Splat host** is one extra wand, set up beforehand, that holds all the game's
 Declare `SPLAT_HOST = True`, `SPLATS_MIN` (1..4), `SPLATS_MAX` (at most 4), `PLAYERS_MIN` (at least
 1) and `GAME_ICON`; never `SPLATS_LOCAL`. `play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None)`.
 Say how it starts in the description: the teacher taps the game card on the host, each child taps
-it on their wand, the teacher holds the host's button to start.
+it on their wand, the teacher holds the host's button until the light fills to start.
 `[GAME_SETTINGS: {"splat_host": n, "wands": m}]`: Splats on the host (1..4), children's wands.
 
 ## Template rules
@@ -16,6 +16,8 @@ it on their wand, the teacher holds the host's button to start.
   `finally`. The wand turns Splats off itself.
 - `if net.is_host:` the host decides everything and drives `net.splat(i)`. A player wand shows
   state and sends input with `net.send(0, {...})`.
+- **A win starts the next round.** Celebrate on every wand, reset the scores, and play on until
+  `("end",)`; never return after a win.
 - **Handle `splat_lost` and `wand_lost`** (pause, skip or carry on); a host game that ignores
   them is refused at send time. Prefer turn-based play and small dicts.
 
@@ -86,8 +88,10 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
                     scores[target[1]] += 1
                     net.splat(ev[1]).play(["turnyellow", "cow"])
                     if scores[target[1]] >= WIN_SCORE:
+                        # celebrate, then a new round: games never end on a win
                         net.send(None, {"win": target[1]})
-                        return
+                        scores = [0] * len(net.wands)
+                        time.sleep_ms(3000)
                     target, at = None, time.ticks_ms()
                 # host on timer
                 waited = time.ticks_diff(time.ticks_ms(), at)
@@ -106,7 +110,7 @@ def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
                 # player on message
                 leds.fill(WAND_COLOR[net.wands[ev[2]["win"]][1]])
                 time.sleep_ms(3000)
-                return
+                leds.off()       # next round
             time.sleep_ms(LOOP_MS)
             frame += 1
     finally:
