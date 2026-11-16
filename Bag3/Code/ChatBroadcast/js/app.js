@@ -329,7 +329,7 @@ class App {
             setSendProgress(pct, `${p.status}: ${p.file}`);
         };
 
-        setWorkspaceHandler((code) => {
+        setWorkspaceHandler(async (code) => {
             const drawer = document.getElementById('code-drawer');
             // A block that is already some device's code just shows it.
             const role = rolesWithCode().find((r) => getCode(r).trim() === code.trim());
@@ -345,7 +345,7 @@ class App {
             addProcessMsg(`Code sent to editor (v${getVersionCount()})`);
             document.getElementById('code-drawer').classList.remove('hidden');
             this.updatePreview();
-            this.checkNewGame();
+            await this.checkNewGame();
         });
 
         this.updatePreview();
@@ -2709,8 +2709,9 @@ class App {
 
     /** The "fix it" request shared by the Simulator failure and the game
      * check: the ask is shown as the teacher's message, the details below
-     * it collapsed, and both go to the chat. */
-    async sendProblemToChat(ask, details) {
+     * it collapsed, and both go to the chat. `shown` replaces the ask on
+     * screen only (Simple mode's wording without code terms). */
+    async sendProblemToChat(ask, details, shown = ask) {
         if (this.isGenerating) return;
         const msg = `${ask}\n\n<error>\n${details}\n</error>`;
         if (!this.simNotes) {
@@ -2723,7 +2724,7 @@ class App {
         }
         document.querySelector('.starter-chips')?.remove();
         document.querySelectorAll('.choice-chips').forEach(el => el.remove());
-        addMsg(ask, 'user').appendChild(buildCodeBlock('error', details, { collapsed: true, editor: false }));
+        addMsg(shown, 'user').appendChild(buildCodeBlock('error', details, { collapsed: true, editor: false }));
         this.dirty = true;
         await this.callClaude(msg);
     }
@@ -2755,19 +2756,28 @@ class App {
         const ask = 'The game check found problems that would stop this game from being sent. '
             + 'Please fix them in the current code.';
         const details = problems.join('\n');
-        if (getUiMode() === 'simple' && !this._autoFixSent) {
+        const simple = getUiMode() === 'simple';
+        if (simple && !this._autoFixSent) {
             this._autoFixSent = true;
-            await this.sendProblemToChat(ask, details);
+            await this.sendProblemToChat(ask, details,
+                'I found something in the game that would stop it from working. Fixing it now.');
             return;
         }
-        const note = addMsg('This game has problems to fix before it can be sent:', 'system');
-        const list = document.createElement('ul');
-        for (const p of problems) {
-            const li = document.createElement('li');
-            li.textContent = p;
-            list.appendChild(li);
+        // Simple mode keeps code terms out of sight: the problem sentences
+        // (worded for the chat) go in a collapsed block.
+        if (simple) {
+            addMsg('This game still has a problem I could not fix on my own.', 'system')
+                .appendChild(buildCodeBlock('error', details, { collapsed: true, editor: false }));
+        } else {
+            const note = addMsg('This game has problems to fix before it can be sent:', 'system');
+            const list = document.createElement('ul');
+            for (const p of problems) {
+                const li = document.createElement('li');
+                li.textContent = p;
+                list.appendChild(li);
+            }
+            note.appendChild(list);
         }
-        note.appendChild(list);
         this.renderChoiceChips([]);
         const wrap = document.querySelector('#chat-box .choice-chips:last-child');
         const fix = document.createElement('button');
