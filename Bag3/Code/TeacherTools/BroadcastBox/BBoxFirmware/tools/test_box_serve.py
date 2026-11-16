@@ -139,10 +139,22 @@ check("fleet.scan during a scan: not_serving",
       srv.link.sent[-1].get("code"), "not_serving")
 srv._to_menu()
 
-# arm / disarm are gone.
-srv.handlers = {}
-check("no do_arm", hasattr(srv, "do_arm"), False)
-check("no do_disarm", hasattr(srv, "do_disarm"), False)
+# arm / disarm: accepted no-ops (reply ok, change nothing).
+# (__new__ skips __init__, so check the dispatch table in the source.)
+_src = open(os.path.join(BB, "bbox_server.py")).read()
+check("arm in handlers", '"arm": self.do_arm,' in _src)
+check("disarm in handlers", '"disarm": self.do_disarm,' in _src)
+srv._serve()
+before = (srv.code.is_on, srv._nfc_field_on, srv._mode, srv._active)
+srv.do_arm({}, 11)
+r = srv.link.sent[-1]
+check("arm replies ok", (r.get("type"), r.get("id"), r.get("cmd")), ("ok", 11, "arm"))
+check("arm reports radio state", r.get("armed"), srv.code.is_on)
+srv.do_disarm({}, 12)
+r = srv.link.sent[-1]
+check("disarm replies ok", (r.get("type"), r.get("id"), r.get("cmd")), ("ok", 12, "disarm"))
+check("arm/disarm change nothing",
+      (srv.code.is_on, srv._nfc_field_on, srv._mode, srv._active), before)
 
 print("\n%s" % ("box serve OK" if not fail else "%d FAILED" % fail))
 sys.exit(1 if fail else 0)
