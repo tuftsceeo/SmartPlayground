@@ -37,3 +37,11 @@ in `_boot()` after `enow.init()`).
   and the reset, so the game sits in `/games` unrecorded and is not launched.
 - Icon editor save (`icon_server.do_save`): caught, replies
   `{"type":"error","code":"io"}`; the `.tmp` file is left behind.
+
+## Fix (2026-11-16, IconDisplay copy only; hardware untested)
+
+`_fetch_safe()` wraps `_fetch()`: a write `OSError` removes `.part`, sends
+`code_done` with `ok: false`, and returns `write failed: <err>`. A write
+failure in the icon leg stops it, deletes the just-promoted game and restores
+its `.bak`; `receive()` returns False, so `main.py` shows the red X and does
+not record or launch the game. The wand's `espnow_code.py` is unchanged.
