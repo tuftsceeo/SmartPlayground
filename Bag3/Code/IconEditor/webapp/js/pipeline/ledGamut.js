@@ -154,11 +154,15 @@ export function swatchStyle(duty) {
 // Hue directions in duty space, chosen to land on reasonably even steps of
 // LED-appearance hue. Each is a unit-ish direction; magnitude comes from the
 // level, and `desat` mixes toward the panel's white for pastel columns.
+// The neutral duty mix: the MEASURED white (185,255,150), as a unit direction.
+// Was the datasheet's (255,171,93), which reads pale pink on the panel.
+const WHITE_DIR = MEASURED_WHITE.map((c) => c / 255);
+
 const HUE_DIRECTIONS = [
   // Neutrals lead so the leftmost column is always the same place to find
   // "off" and "white" -- the two you reach for most and shouldn't have to
   // hunt for. OFF is injected at the head of this column by buildPalette().
-  ["white", [1, 0.67, 0.36]], // the duty mix that is actually neutral, see header
+  ["white", WHITE_DIR], // measured on the panel, see MEASURED_WHITE
   ["red", [1, 0, 0]],
   ["orange", [1, 0.28, 0]],
   ["amber", [1, 0.55, 0]],
@@ -199,9 +203,9 @@ export function buildPalette(intensity, { levels = 4, pastel = true, jnd = JND, 
       for (let mag = 255; mag >= CH_FLOOR; mag -= 1) {
         let duty = dir.map((c) => Math.round(c * mag));
         if (variant === "pastel") {
-          // Mix toward the NEUTRAL duty mix, not toward equal-RGB: equal duty
+          // Mix toward the measured white, not toward equal-RGB: equal duty
           // is blue-cyan on this panel (see header).
-          const w = [1, 0.67, 0.36].map((c) => c * mag * 0.55);
+          const w = WHITE_DIR.map((c) => c * mag * 0.55);
           duty = duty.map((c, i) => Math.round(Math.min(255, c * 0.6 + w[i])));
         }
         duty = floorDuty(duty);

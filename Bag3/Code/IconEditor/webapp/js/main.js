@@ -173,6 +173,10 @@ class App {
       sourceInfo: null,
       transformLabel: "",
       sourcePath: `library:${name}`,
+      // Custom colours belong to the icon they were added for. Every open --
+      // New, a saved/library icon, a JSON icon, the API -- comes through here
+      // (image import clears them in loadFile).
+      customPaletteColors: [],
     });
     this.recomputePixelsFromOverlay();
   }
@@ -1106,11 +1110,12 @@ class App {
     setState({ problems });
   }
 
-  /** Persist a brush-picked colour into the Palette panel (dedup by perceptual distance). */
+  /** Persist a brush-picked colour into the Palette panel. Exact-match dedup
+   *  only: a deliberately chosen colour stays, however close to another. */
   addCustomPaletteColor(duty) {
     if (!duty || isOff(duty)) return;
     const list = state.customPaletteColors || [];
-    const dup = list.some((c) => ledDeltaE(c, duty, state.intensity) < JND);
+    const dup = list.some((c) => c[0] === duty[0] && c[1] === duty[1] && c[2] === duty[2]);
     if (dup) return;
     setState({ customPaletteColors: [...list, duty.slice()] });
   }

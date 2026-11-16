@@ -188,9 +188,10 @@ Applied 2026-11-01 to `icons/` and `IconEditor/icons/` (72 files)
 with `drafts/remap_white.py`, which rewrites any colour on the old neutral
 ratio to WHITE at the same brightness, then `sync_icons.py` for
 ChatBroadcast. `games/halloween_frames.bin` gets the same swap from
-`drafts/export_halloween.py`. Not yet changed: the editor (`ledGamut.js`
-still offers and previews the old white), `hand_author_icons.py`, the
-image pipeline and the simulator, so a newly authored or regenerated icon
+`drafts/export_halloween.py`. The web editor's palette and its image-import
+white use the measured white since 2026-11-15 (`ledGamut.js` `WHITE_DIR`,
+`palette.js` `WHITE`). Not yet changed: the Python tools
+(`hand_author_icons.py`, `tools/iconlib/`) and the simulator, so a newly authored or regenerated icon
 comes out pink again -- run `remap_white.py` on it. One photo against one
 laptop is a rough reading; recheck it on another panel.
 

@@ -11,13 +11,20 @@ import { crayonSwatchHtml } from "../utils/toolArt.js";
 function collectDocumentColors(decisions, overlay, intensity, customColors) {
   const out = [];
 
+  // Colours the user chose are kept exactly: they are never merged into, or
+  // hidden behind, a perceptually close swatch. Derived colours (segments,
+  // pixels, painted cells) still merge among themselves within one JND.
+  const same = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+  const custom = [];
   function alreadySeen(duty) {
-    return out.some((e) => !e.off && !isOff(e.duty) && ledDeltaE(e.duty, duty, intensity) < JND);
+    if (custom.some((c) => same(c, duty))) return true;
+    return out.some((e) => !e.custom && !e.off && !isOff(e.duty) && ledDeltaE(e.duty, duty, intensity) < JND);
   }
 
   for (const duty of customColors || []) {
-    if (isOff(duty)) continue;
-    if (!alreadySeen(duty)) out.push({ duty: duty.slice(), off: false });
+    if (isOff(duty) || custom.some((c) => same(c, duty))) continue;
+    custom.push(duty);
+    out.push({ duty: duty.slice(), off: false, custom: true });
   }
 
   const segmentColors = decisions.filter((d) => d.role === "color" && d.color && !isOff(d.color));

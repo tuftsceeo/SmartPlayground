@@ -120,14 +120,21 @@ export class PalettePicker {
       if (snapped.deltaE < JND / 2) {
         note.innerHTML = `<span style="color:var(--teal)">already a panel colour</span>`;
       } else {
+        const verb = simple ? "snaps to" : "nearest panel colour:";
         note.innerHTML = snapped.off
-          ? `snaps to off`
-          : `snaps to <span style="color:${snapped.hex}">${snapped.name}</span>`;
+          ? `${verb} off`
+          : `${verb} <span style="color:${snapped.hex}">${snapped.name}</span>`;
       }
     };
     raw.addEventListener("input", updateSnap);
     updateSnap();
     useBtn.addEventListener("click", () => {
+      // Advanced mode uses the exact custom colour; simple mode snaps it.
+      if (!simple) {
+        this.onPick?.(displayHexToAuthored(raw.value));
+        this.close();
+        return;
+      }
       if (snapped) {
         this.onPick?.(snapped.duty.slice());
         this.close();
@@ -170,8 +177,9 @@ export class PalettePicker {
       el.querySelector("[data-usergb]")?.addEventListener("click", () => {
         const hex = rgbToHex(rr, gg, bb);
         const duty = displayHexToAuthored(hex);
-        const sn = snapToPalette(duty, palette);
-        this.onPick?.((sn?.duty || duty).slice());
+        // Advanced (dev) mode draws with exactly the colour chosen; the
+        // panel-gamut swatches above are a guide, not a constraint.
+        this.onPick?.(duty.slice());
         this.close();
       });
     }
