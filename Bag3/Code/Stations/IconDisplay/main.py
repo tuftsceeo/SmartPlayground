@@ -490,6 +490,9 @@ def _boot():
         print("  [WARN] ESP-NOW:")
         sys.print_exception(e)
 
+    import fsinfo        # after the radio claim; one free-space line
+    fsinfo.report()
+
     # ── Stage 1: panel ── the boot screen can only start once it exists.
     import icon_matrix
     import icon_store

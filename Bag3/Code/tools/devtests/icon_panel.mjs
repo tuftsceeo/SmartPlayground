@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-// BroadcastBox/, two levels up from tools/devtests/.
+// Bag3/Code/, two levels up from tools/devtests/.
 const BB = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 /**
  * Check the icon panel picks the right icon out of a display game, and that
@@ -40,7 +40,7 @@ globalThis.document = {
 
 const lib = await import(`${CB}/js/ledicons/iconLibrary.js`);
 const panel = await import(`${CB}/js/ledicons/iconPanel.js`);
-const bridge = await import(`${CB}/iconmaker/js/libraryBridge.js`);
+const bridge = await import(`${BB}/IconEditor/webapp/js/libraryBridge.js`);
 
 const fails = [];
 const check = (l, ok, d = '') => {
