@@ -119,7 +119,8 @@ wands, mixed device types, and both together.
 
 Every game must stop promptly when told to, so the teacher can switch games at any time:
 
-- Return from `play()` on enow `"stop"` or `"start_game"`.
+- Return from `play()` on enow `"stop"` or `"start_game"`. These, and an exit card, are the only reasons a
+  game ends: every game celebrates a win and then starts a new round, forever.
 - On devices whose `play()` receives an NFC reader, also return when an exit card is tapped (see
   that device's section). Read cards only every 10–15 loop iterations: a card read takes 200–500 ms
   and would stall the game.

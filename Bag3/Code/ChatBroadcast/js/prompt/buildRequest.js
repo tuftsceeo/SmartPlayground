@@ -163,7 +163,7 @@ export const BRIEF_FIELDS = [
     ['extras', 'Extras'],
     ['how_to_play', 'How to play'],
     ['what_happens', 'What happens'],
-    ['start_and_end', 'Start and end'],
+    ['start_and_end', 'Start and next round'],
     ['cards', 'Cards'],
     ['defaults', 'Defaults I chose'],
 ];
