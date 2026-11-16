@@ -50,7 +50,7 @@ reopen `2026-09-01-bbox-usb-reboots.md` and record the `reset_log.py` lines ther
 ## Range at reduced TX power (added 2026-11-16)
 `bbox_server.py` sets `TX_POWER_DBM = 8` because full power reset the Box on USB mid-transfer
 (PWRON); it stays at 8. That value was chosen for wands held next to the Box. **Scan, find and
-distribute range from a Box at 8 dBm is unmeasured**: a fleet command reaches wands across a
+distribute range from a Box at 8 dBm is unmeasured**: fleet commands are meant to reach wands across a
 room, not at arm's length. The S12 bench block measures it: scan and distribute to two wands at
 table distance, then from across the room, and once with the Box on battery.
 
