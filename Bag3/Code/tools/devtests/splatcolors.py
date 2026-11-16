@@ -1,6 +1,7 @@
 """
 splatcolors.py -- BENCH: step one Splat through candidate palette colors.
 
+Bench script for the stress-test prep, block A (palette size).
 Copy to a player wand's /games/splatcolors.py (a pulled-game slot; not part
 of the wand bundle). Pair one Splat to that wand, then start the game with
 an NDEF text card reading "splatcolors" or a start_game naming it.
