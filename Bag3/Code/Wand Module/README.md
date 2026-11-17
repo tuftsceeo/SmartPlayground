@@ -41,8 +41,10 @@ set is in `BroadcastDial/README.md`, "Serving over ESP-NOW".
 
 ## Boot grace
 
-`GRACE_S` seconds of countdown (0 by default) at the top of `main()` before
-NFC/ESP-NOW init. Ctrl-C during the window reaches the REPL.
+`GRACE_S` seconds of countdown (2) at the top of `main()` before NFC/ESP-NOW
+init. Ctrl-C during the window reaches the REPL. The main loop also answers
+Ctrl-C, because it drains stdin (`lib/stdin_drain.py`); never send Ctrl-C
+during `_boot()` itself (see `known_issues/2026-11-17-wand-ctrlc-boot-crash.md`).
 
 ## Driving the pull path without a person
 

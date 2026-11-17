@@ -7,7 +7,9 @@ Why: opening a wand's port resets it (rst:0x15), and main.py then counts down
 GRACE_S before taking the board. mpremote's raw-REPL entry sends a few Ctrl-C
 while the chip is still resetting and gives up. This opens the port once,
 waits for the "# booting -- Ctrl-C within" countdown line, then sends Ctrl-C every
-200 ms until ">>>" or the countdown ends (45 s limit), then does every
+200 ms until ">>>" or the countdown ends. If the countdown is missed, it waits for
+"Boot complete" and sends Ctrl-C every 200 ms from there (the main loop drains
+stdin since 0530700a; never during _boot()). 45 s limit. Then it does every
 operation over raw REPL in the same session, checks each copied file's size,
 and finishes with a plain reset (machine.reset()) unless --no-reset.
 
@@ -30,8 +32,9 @@ import time
 
 import serial
 
-BREAK_LIMIT_S = 45  # reset + GRACE_S (30) countdown + margin
+BREAK_LIMIT_S = 45  # covers older wands with GRACE_S 30; returns at ">>>"
 COUNTDOWN = b"# booting -- Ctrl-C within"  # main.py _boot_grace()
+BOOT_DONE = b"Boot complete"               # main.py _boot(), end of boot
 CHUNK = 256
 
 _log = None
@@ -90,6 +93,7 @@ def break_in(port, rts_reset=False):
     seen = b""
     go = False
     done = False
+    late = False
     last = 0
     while time.time() - t0 < BREAK_LIMIT_S:
         try:
@@ -101,6 +105,14 @@ def break_in(port, rts_reset=False):
                 done = True
                 L("# breakin: countdown ended without REPL; no more Ctrl-C")
             if go and not done and now - last >= 0.2:
+                s.write(b"\x03")
+                last = now
+            # Missed the countdown: the main loop drains stdin (since
+            # 0530700a), so Ctrl-C after "Boot complete" is safe and works.
+            if done and not late and BOOT_DONE in seen:
+                late = True
+                L("# breakin: boot complete; Ctrl-C every 200 ms")
+            if late and now - last >= 0.2:
                 s.write(b"\x03")
                 last = now
             d = s.read(4096)
