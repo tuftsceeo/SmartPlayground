@@ -51,6 +51,7 @@ import {
     setGameIcons, getGameIcons, onIconsChange,
 } from './ledicons/iconLibrary.js';
 import { gameIconEntries, startingIcon, drawIcon } from './ledicons/iconView.js';
+import { groupIcons } from './ledicons/iconCategories.js';
 import { gameIconThumb, gameTint } from './ledicons/thumb5.js';
 import { GAME_ICONS } from './ledicons/shapes5.js';
 
@@ -552,7 +553,12 @@ class App {
         const run = async (fn) => { try { await fn(); } catch (e) { fail(e); } };
 
         const fileInput = document.getElementById('icon-file-input');
-        document.getElementById('btn-icon-import')?.addEventListener('click', () => fileInput?.click());
+        // Open = the categorised sample library; a photo upload is offered inside it.
+        document.getElementById('btn-icon-import')?.addEventListener('click', () => this.openIconSamples());
+        document.getElementById('btn-icon-upload-photo')?.addEventListener('click', () => {
+            hideOverlay('icon-samples-overlay');
+            fileInput?.click();
+        });
         fileInput?.addEventListener('change', (e) => {
             const file = e.target.files?.[0];
             e.target.value = '';
@@ -584,11 +590,21 @@ class App {
             api()?.exportFile.icon();
             this.closeIconMenu();
         }));
-        document.getElementById('btn-icon-samples')?.addEventListener('click', () => {
-            const grid = document.getElementById('icon-samples-grid');
-            if (!grid) return;
-            if (!grid.dataset.filled) {
-                for (const name of api()?.source.listSamples() || []) {
+        document.getElementById('icon-samples-close-x')?.addEventListener('click', () => hideOverlay('icon-samples-overlay'));
+    }
+
+    /** Sample library overlay: device icons grouped by category (iconCategories.js). */
+    openIconSamples() {
+        const api = () => this.iconApi();
+        const grid = document.getElementById('icon-samples-grid');
+        if (!grid) return;
+        if (!grid.dataset.filled) {
+            for (const group of groupIcons(api()?.source.listSamples() || [])) {
+                const head = document.createElement('h3');
+                head.className = 'samples-cat';
+                head.textContent = group.title;
+                grid.appendChild(head);
+                for (const name of group.names) {
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.className = 'samples-item';
@@ -597,22 +613,23 @@ class App {
                     canvas.width = 64;
                     canvas.height = 64;
                     const label = document.createElement('span');
-                    label.textContent = name;
+                    label.textContent = name.replace(/_/g, ' ');
                     btn.append(canvas, label);
-                    btn.addEventListener('click', () => run(async () => {
-                        await api()?.source.loadSample(name);
-                        hideOverlay('icon-samples-overlay');
-                    }));
+                    btn.addEventListener('click', async () => {
+                        try {
+                            await api()?.source.loadSample(name);
+                            hideOverlay('icon-samples-overlay');
+                        } catch (e) { toast(String(e?.message || e), true); }
+                    });
                     // Only names with a saved icon: a stale Maker build can still
                     // list photo-only samples, which would draw blank.
                     if (drawIcon(canvas, name, 0.3).ok) grid.appendChild(btn);
                 }
-                grid.dataset.filled = '1';
             }
-            this.closeIconMenu();
-            showOverlay('icon-samples-overlay');
-        });
-        document.getElementById('icon-samples-close-x')?.addEventListener('click', () => hideOverlay('icon-samples-overlay'));
+            grid.dataset.filled = '1';
+        }
+        this.closeIconMenu();
+        showOverlay('icon-samples-overlay');
     }
 
     closeIconMenu() {

@@ -1,14 +1,14 @@
 {
   "files": {
     "display/games/goalrace.py": {
-      "sha256": "2f5ae7abcf923bcc5217e069360bbcb934cc85126c487f7a04980080a294f947",
+      "sha256": "bd93f2d0437461b4649e4758f1ec60a731401b977737fca319cfdcd13cb3324f",
       "source": "Bag3/Code/Stations/IconDisplay/games/goalrace.py",
-      "vendor_sha256": "2f5ae7abcf923bcc5217e069360bbcb934cc85126c487f7a04980080a294f947"
+      "vendor_sha256": "bd93f2d0437461b4649e4758f1ec60a731401b977737fca319cfdcd13cb3324f"
     },
-    "display/games/goalrace_icons/ready.py": {
-      "sha256": "f10f81409fbbc66bac4bea61a39ce32cea674c4b6ea8d642589d157745f88cc3",
-      "source": "Bag3/Code/Stations/IconDisplay/icons/ready.py",
-      "vendor_sha256": "f10f81409fbbc66bac4bea61a39ce32cea674c4b6ea8d642589d157745f88cc3"
+    "display/games/goalrace_icons/ready_green_check.py": {
+      "sha256": "bc1ffc79abd56be0921d940afe7995c87fb14fa53390311aaf18740173c76ed5",
+      "source": "Bag3/Code/Stations/IconDisplay/icons/ready_green_check.py",
+      "vendor_sha256": "bc1ffc79abd56be0921d940afe7995c87fb14fa53390311aaf18740173c76ed5"
     },
     "display/games/goalrace_icons/tree.py": {
       "sha256": "361a9e69217bee33ec5cc0d45c571244c14c13b23b7e57cfe6bc6bc8232e5390",

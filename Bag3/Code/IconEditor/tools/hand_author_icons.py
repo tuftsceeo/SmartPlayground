@@ -474,7 +474,7 @@ RECIPES = [
     ("butterfly", "animals", draw_butterfly),
     ("surprised", "emotions", draw_surprised),
     ("sleepy", "emotions", draw_sleepy),
-    ("love", "emotions", draw_love),
+    ("heart_eyes", "emotions", draw_love),
     ("silly", "emotions", draw_silly),
     ("flower", "plants", draw_flower),
     ("sunflower", "plants", draw_sunflower),

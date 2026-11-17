@@ -44,7 +44,7 @@ _EXIT_TAGS = exit_tags_excluding("goalrace")
 COMMANDS = _EXIT_TAGS
 
 # Icon names, resolved from icons/<name>.py by icon_store.read_icon().
-ICON_READY = "ready"
+ICON_READY = "ready_green_check"
 TEAM_ICON = {
     "green": "tree",
     "blue": "whale",

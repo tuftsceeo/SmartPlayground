@@ -1159,6 +1159,11 @@ body:not(.ui-advanced) #btn-station-catalog { display: none; }
     padding: 6px; border: 1px solid var(--border-soft); border-radius: 8px;
     background: #fff; cursor: pointer; font: 12px 'Nunito', ui-rounded, system-ui, sans-serif;
 }
+.samples-cat {
+    grid-column: 1 / -1; margin: 10px 0 0; font-size: 13px; font-weight: 700; color: var(--muted);
+}
+.samples-cat:first-child { margin-top: 0; }
+.samples-intro { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .samples-item:hover { border-color: var(--muted); }
 .samples-item canvas { width: 64px; height: 64px; border-radius: 4px; }
 .samples-item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
