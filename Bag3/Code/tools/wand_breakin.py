@@ -6,7 +6,8 @@ Host-side tool. Not firmware; never upload this to a device.
 Why: opening a wand's port resets it (rst:0x15), and main.py then counts down
 GRACE_S before taking the board. mpremote's raw-REPL entry sends a few Ctrl-C
 while the chip is still resetting and gives up. This opens the port once,
-waits for "Boot complete", then sends one Ctrl-C a second until ">>>" (35 s limit), then does every
+waits for the "# booting -- Ctrl-C within" countdown line, then sends Ctrl-C every
+200 ms until ">>>" or the countdown ends (45 s limit), then does every
 operation over raw REPL in the same session, checks each copied file's size,
 and finishes with a plain reset (machine.reset()) unless --no-reset.
 
@@ -29,7 +30,8 @@ import time
 
 import serial
 
-BREAK_LIMIT_S = 35
+BREAK_LIMIT_S = 45  # reset + GRACE_S (30) countdown + margin
+COUNTDOWN = b"# booting -- Ctrl-C within"  # main.py _boot_grace()
 CHUNK = 256
 
 _log = None
@@ -70,7 +72,7 @@ DTR = False
 
 
 def break_in(port, rts_reset=False):
-    """Open the port, Ctrl-C every 100 ms until '>>>'. Returns the open port."""
+    """Open the port; during the boot countdown, Ctrl-C every 200 ms until '>>>'. Returns the open port."""
     s = open_port(port)
     L("# breakin: port opened (dtr=%s)" % DTR)
     if rts_reset:
@@ -78,21 +80,27 @@ def break_in(port, rts_reset=False):
         time.sleep(0.1)
         s.rts = False
         L("# breakin: RTS reset pulse")
-    # Ctrl-C during early boot is lost or crashes the wand (11:08 Guru Meditation).
-    # Wait until boot is done ("Boot complete", or the GRACE_S countdown line),
-    # then send one Ctrl-C per second until ">>>". With no marker by 20 s, send anyway.
+    # Ctrl-C outside the GRACE_S countdown is lost or crashes the wand
+    # (2026-11-17 11:08 Load access fault right after "ESPNow: active").
+    # Send nothing until main.py prints its countdown line, then one Ctrl-C
+    # every 200 ms, and stop when the countdown reaches "# 1..." so no Ctrl-C
+    # lands in _boot(). No countdown line means no Ctrl-C at all.
     t0 = time.time()
     buf = b""
     seen = b""
     go = False
+    done = False
     last = 0
     while time.time() - t0 < BREAK_LIMIT_S:
         try:
             now = time.time()
-            if not go and (b"Boot complete" in seen or b"Ctrl-C within" in seen or now - t0 > 20):
+            if not go and COUNTDOWN in seen:
                 go = True
-                L("# breakin: boot done (%.1f s); sending Ctrl-C once a second" % (now - t0))
-            if go and now - last >= 1.0:
+                L("# breakin: countdown seen (%.1f s); Ctrl-C every 200 ms" % (now - t0))
+            if go and not done and b"# 1..." in seen:
+                done = True
+                L("# breakin: countdown ended without REPL; no more Ctrl-C")
+            if go and not done and now - last >= 0.2:
                 s.write(b"\x03")
                 last = now
             d = s.read(4096)
