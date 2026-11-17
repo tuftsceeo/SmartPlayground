@@ -171,20 +171,29 @@ push during a game is queued in `main._pending_push`, which `splat_host._loop` n
 ## After the run (user requests, 2026-11-17)
 
 - The user asked for a rule that a host wand goes back to player after two restarts without a
-  Splat. It is written in `Wand Module/lib/splat_host.py` and is **not on the wand**:
+  Splat. It is written in `Wand Module/lib/splat_host.py`:
   - The count is kept in `/host_nosplat`.
   - A Splat connecting, a Splat card tap, or any role change clears it.
-  - Both copy attempts failed while the wand was in its 30 s boot countdown, so its
-    `/lib/splat_host.py` may be partly written. Check or re-copy it before using that wand.
+
+  Copying it to the wand went badly:
+  - Two `mpremote` copies failed ("could not enter raw repl", then "could not exec command").
+  - A hand-written raw-REPL copy hung and was killed. It wrote only to `/lib/splat_host.tmp`.
+  - A boot captured at about 08:20 then shows the wand **booting as a player**: no
+    `Splat pairing` line, no `Splat host:` line, `Tap a TRIGGER tag`, heartbeats. The likeliest
+    reason: the second copy wrote the file in full, and the boots caused by the later port opens
+    tripped the new rule. **Not verified:** the file size and `/role.txt` were not read. The
+    next run re-flashes the wand and checks sizes.
+  - The wand opened a port without resetting once (at about 08:15, heartbeat at 85 s uptime). So
+    "opening the port resets the wand" is usual, not certain.
+- A port nobody identified, `/dev/cu.usbmodem101`, appeared at about 08:15. It was not opened.
 - The user unplugged the CrowPanel to charge the laptop.
 - Requested follow-up, not done: the Box and the CrowPanel should detect which reader is fitted
   (WS1850S at 0x28, PN532 at 0x24). The readers move between them.
 
 ## What you need to do by hand
 
-1. Before use, check the wand's `/lib/splat_host.py`: it should be 11992 bytes, or copy it again.
-2. Make the bench wand a player: a `player` card, or the new rule. Then repeat test 4's launch and
-   test 6.
+1. The wand's `/lib/splat_host.py` and `/role.txt` need checking. The next unattended run does this.
+2. Repeat test 4's launch and test 6 with the wand as a player (the next run does this).
 3. Re-pair Splats to a host wand for block 1 (a player wand forgets its pairing on its next boot).
 4. Decide on reader detection for the Box and the CrowPanel.
 5. Range and battery tests for the Box (block 3).

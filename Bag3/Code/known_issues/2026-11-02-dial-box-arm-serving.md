@@ -1,7 +1,7 @@
 ---
 title: Broadcast Dial and Box still gate code serving behind arm/disarm
 date: 2026-11-02
-status: Dial fixed 2026-11-14, Box fixed 2026-11-15 (off-device tests only, untested on hardware)
+status: Dial fixed 2026-11-14, Box fixed 2026-11-15, confirmed on hardware 2026-11-16 (radio true with no arm; arm/disarm accepted as no-ops)
 devices: [BroadcastDial, BroadcastBox]
 components: [BDialFirmware/bdial_server.py, BDialFirmware/code_link.py, BBoxFirmware/bbox_server.py, BBoxFirmware/code_link.py, BBoxFirmware/bbox_ui.py]
 code:

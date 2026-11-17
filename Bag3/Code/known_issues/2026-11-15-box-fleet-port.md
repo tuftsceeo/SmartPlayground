@@ -1,7 +1,7 @@
 ---
 title: Broadcast Box fleet scan, find and distribute (port from the Dial)
 date: 2026-11-15
-status: untested on hardware
+status: scan and distribute pass on hardware 2026-11-16 (USB, arm's length); range, battery and NFC-during-distribute untested
 devices: [BroadcastBox]
 components: [BBoxFirmware/fleet.py, BBoxFirmware/bbox_server.py, BBoxFirmware/bbox_ui.py, ChatBroadcast/js/app.js]
 code:
@@ -10,7 +10,7 @@ code:
   - Bag3/Code/TeacherTools/BroadcastBox/BBoxFirmware/bbox_ui.py
   - Bag3/Code/ChatBroadcast/js/app.js
 open:
-  - Not run on a Box: scan, find, distribute, NFC tap during a distribute
+  - Not run on a Box: find, NFC tap during a distribute
   - Power earmark (below)
   - Range from a Box at TX_POWER_DBM = 8 unmeasured (below)
 keywords: [range, tx_power, TX_POWER_DBM, fleet, scan, find, distribute, status_report, code_push, show_progress, Box, broadcast_box, power, reset]
@@ -56,3 +56,13 @@ table distance, then from across the room, and once with the Box on battery.
 
 Also 2026-11-16: `arm` and `disarm` are back in `bbox_server.py` as accepted no-ops (reply ok,
 change nothing), as on the Dial; `tools/test_box_serve.py` checks them.
+
+## Hardware, 2026-11-16/17 (unattended, `Bag3/STRESS_TEST_UNATTENDED_2026-11-16.md`)
+The log shows, on USB at arm's length with one wand:
+- `fleet.scan` 10/10; distribute and slots pass.
+- A 60 min soak with scan and distribute alternating every 30 s: scans 59/60, distributes 58/60
+  (2 `no_ack`). **No Box reset**; longest heartbeat gap 7 s; `info.mem` flat at 8.164–8.168 MB;
+  uptime about 3.3 h by the end.
+
+This Box has a PN532 fitted, so `identify` gives `nfc: false` (the firmware expects a WS1850S).
+Range and battery are still unmeasured.

@@ -27,9 +27,9 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-10-28-crowpanel5-display.md](2026-10-28-crowpanel5-display.md) | CrowPanel5_Display touch I2C pins, soft-reset lockup, RGB drift, row shift | open (workarounds) | — |
 | [2026-10-29-live-page-stale-paths.md](2026-10-29-live-page-stale-paths.md) | Live_Page ChatBroadcast/Simulator copies point at nonexistent Bag3 paths | open | — |
 | [2026-11-10-crowpanel-teacher-tool-ui.md](2026-11-10-crowpanel-teacher-tool-ui.md) | CrowPanel Teacher Tool screens vs revised canvas designs (toasts, 1B, game picker, send list, NFC layout, 7.3) | open | — |
-| [2026-11-02-dial-box-arm-serving.md](2026-11-02-dial-box-arm-serving.md) | Dial and Box serving still gated by arm/disarm, radio off outside NFC | Dial fixed 2026-11-14, Box fixed 2026-11-15 (both untested on hardware) | — |
+| [2026-11-02-dial-box-arm-serving.md](2026-11-02-dial-box-arm-serving.md) | Dial and Box serving still gated by arm/disarm, radio off outside NFC | Dial fixed 2026-11-14; Box fixed 2026-11-15, on hardware 2026-11-16 | — |
 | [2026-11-16-icon-store-full.md](2026-11-16-icon-store-full.md) | IconDisplay icon store never pruned; ENOSPC during a pull | open (pruning); ENOSPC fixed 2026-11-16, untested on hardware | — |
-| [2026-11-15-box-fleet-port.md](2026-11-15-box-fleet-port.md) | Box fleet scan, find, distribute ported from the Dial; power earmark | untested on hardware | — |
+| [2026-11-15-box-fleet-port.md](2026-11-15-box-fleet-port.md) | Box fleet scan, find, distribute ported from the Dial; power earmark | scan/distribute pass on hardware 2026-11-16, 1 h soak no reset; range untested | — |
 | [2026-11-17-splat-host-push-dropped.md](2026-11-17-splat-host-push-dropped.md) | Wand in the Splat host role ends a game on a mid-game `code_push` but never pulls | open (seen once on hardware 2026-11-16) | — |
 | [2026-11-11-game-start-signature.md](2026-11-11-game-start-signature.md) | Game start signature (GAME_ICON): app display, wand pull icon, example games | open | — |
 | [2026-11-12-wand-mpremote-copy-fails.md](2026-11-12-wand-mpremote-copy-fails.md) | Wand deploy: mpremote cannot break into the Splat host | open | — |
