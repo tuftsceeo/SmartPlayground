@@ -190,16 +190,12 @@ def game_module(name):
 # Output-only: there is no command listener here. ChatBroadcast drives file
 # pushes and resets from the raw REPL, same as for the Box's firmware install.
 #
-# The main loop still reads and discards stdin (_drain_stdin, every
-# STDIN_DRAIN_MS) so that Ctrl-C keeps working. On MicroPython v1.28 (esp32
-# port, USB-Serial-JTAG) the RX interrupt only moves bytes out of the USB FIFO
-# while the 259-byte stdin ring buffer has room, and Ctrl-C is detected only
-# as bytes are moved (ports/esp32/usb_serial_jtag.c usb_serial_jtag_handle_rx).
-# A program that never reads stdin fills that buffer with whatever the host
-# sends (Thonny's connect probes, raw-REPL attempts, typed text) and from then
-# on every Ctrl-C stays in the FIFO unseen, until a reset. Reading stdin calls
-# usb_serial_jtag_poll_rx(), which moves the waiting bytes and so sees a 0x03
-# and raises KeyboardInterrupt as normal.
+# The main loop and the boot countdown still read and discard stdin
+# (lib/stdin_drain.py, every 250 ms) so that Ctrl-C keeps working: on
+# MicroPython v1.28 a program that never reads stdin over USB-Serial-JTAG
+# fills its 259-byte buffer with whatever the host sends, and from then on
+# every Ctrl-C is left unseen in the USB FIFO. lib/stdin_drain.py has the
+# source details; known_issues/2026-11-17-wand-ctrlc-stdin-full.md the test.
 WAND_VERSION = "0.1.0"
 
 
@@ -839,9 +835,17 @@ def _boot_grace():
     if GRACE_S <= 0:
         return
     print("# booting -- Ctrl-C within %ds to stay at the REPL" % GRACE_S)
+    # Drain stdin here too: on the bench a full stdin survived a reset by
+    # port reopen (not a power-off), which would hide this countdown's
+    # Ctrl-C. Why it survives is not known (see the comment above
+    # WAND_VERSION and the stdin-full known-issue note).
+    import stdin_drain
+    drain = stdin_drain.Drainer()
     for remaining in range(GRACE_S, 0, -1):
         print("# %d..." % remaining)
-        time.sleep_ms(1000)
+        for _q in range(4):
+            drain.drain()
+            time.sleep_ms(250)
 
 
 # ─────────────────────────────────────────────
@@ -1236,26 +1240,6 @@ def _read_soc(batt, last_soc):
     return last_soc
 
 
-STDIN_DRAIN_MS = 250
-_STDIN_DRAIN_MAX = 1024   # bytes per call; the rest waits for the next call
-
-
-def _drain_stdin(poller, stdin_buf, byte_buf):
-    """Read and discard waiting stdin; see the comment above WAND_VERSION.
-
-    ipoll() reuses one result tuple and readinto() fills byte_buf in place,
-    so after the first call this allocates nothing per byte.
-    """
-    n = 0
-    while n < _STDIN_DRAIN_MAX:
-        for _ev in poller.ipoll(0):
-            break
-        else:
-            return
-        stdin_buf.readinto(byte_buf)
-        n += 1
-
-
 def main():
     global _pending_push
     _boot_grace()
@@ -1268,12 +1252,8 @@ def main():
 
     # Stdin drain (see the comment above WAND_VERSION). Set up here, after
     # the radio is up, so nothing is allocated for it at import.
-    import select
-    stdin_poll = select.poll()
-    stdin_poll.register(sys.stdin, select.POLLIN)
-    stdin_buf = sys.stdin.buffer
-    stdin_byte = bytearray(1)
-    last_drain_ms = time.ticks_ms()
+    import stdin_drain
+    drain = stdin_drain.Drainer()
 
     if nfc is None:
         pled.boot_fail()
@@ -1338,9 +1318,7 @@ def main():
             # Inside the try, ahead of every `continue`, so both the awake and
             # the sleep paths run it, and a Ctrl-C it uncovers reaches the
             # `except KeyboardInterrupt` below.
-            if time.ticks_diff(time.ticks_ms(), last_drain_ms) >= STDIN_DRAIN_MS:
-                last_drain_ms = time.ticks_ms()
-                _drain_stdin(stdin_poll, stdin_buf, stdin_byte)
+            drain.tick()
 
             # ── DIAL CODE PUSH ── same path as a getcode card tap.
             if _pending_push is not None:

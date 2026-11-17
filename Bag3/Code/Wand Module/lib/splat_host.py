@@ -313,10 +313,13 @@ def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game, button_
 
 def _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
           button_down, read_ndef_text, parse_splat_card, split_prefixed):
+    import stdin_drain   # keeps Ctrl-C working; see lib/stdin_drain.py
+    drain = stdin_drain.Drainer()
     screen = HostScreen()
     last_text = None
     had_splat = False
     while True:
+        drain.tick()
         now = time.ticks_ms()
         ctl = get_ctl()
         if not had_splat and ctl is not None and ctl.connected_macs():

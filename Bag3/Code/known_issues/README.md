@@ -32,6 +32,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-11-15-box-fleet-port.md](2026-11-15-box-fleet-port.md) | Box fleet scan, find, distribute ported from the Dial; power earmark | scan/distribute pass on hardware 2026-11-16, 1 h soak no reset; range untested | — |
 | [2026-11-17-splat-host-push-dropped.md](2026-11-17-splat-host-push-dropped.md) | Wand in the Splat host role ends a game on a mid-game `code_push` but never pulls | open (seen once on hardware 2026-11-16) | — |
 | [2026-11-17-wand-ctrlc-boot-crash.md](2026-11-17-wand-ctrlc-boot-crash.md) | Wand panics (Load access fault, rst:0xc) when Ctrl-C lands during boot; prewarm hypothesis | open (seen once on hardware 2026-11-17; mechanism unconfirmed) | — |
+| [2026-11-17-wand-ctrlc-stdin-full.md](2026-11-17-wand-ctrlc-stdin-full.md) | Wand ignores Ctrl-C once ~259 unread bytes fill stdin; survives a port-reopen reset | open (confirmed on hardware 2026-11-17; drain fix bundled, untested on hardware) | — |
 | [2026-11-11-game-start-signature.md](2026-11-11-game-start-signature.md) | Game start signature (GAME_ICON): app display, wand pull icon, example games | open | — |
 | [2026-11-12-wand-mpremote-copy-fails.md](2026-11-12-wand-mpremote-copy-fails.md) | Wand deploy: mpremote cannot break into the Splat host | open | — |
 | [2026-11-12-splat-host-v129-firmware.md](2026-11-12-splat-host-v129-firmware.md) | Splat host wand holds 2 Splats on MicroPython v1.29.0, 4 on v1.28.0 | open | — |
@@ -71,7 +72,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 |---|---|
 | BroadcastBox | 2026-09-01, 2026-09-29, 2026-09-30, 2026-11-02 |
 | BroadcastDial | 2026-09-29, 2026-09-30, 2026-10-23, 2026-11-02 |
-| Wands / MockWand (XIAO ESP32-C6) | 2026-11-11 (simple-mode-large-changes), 2026-09-04, 2026-09-29, 2026-09-30, 2026-10-23, 2026-10-28 (mockwand-idle-power), 2026-11-17 (wand-ctrlc-boot-crash) |
+| Wands / MockWand (XIAO ESP32-C6) | 2026-11-11 (simple-mode-large-changes), 2026-09-04, 2026-09-29, 2026-09-30, 2026-10-23, 2026-10-28 (mockwand-idle-power), 2026-11-17 (wand-ctrlc-boot-crash, wand-ctrlc-stdin-full) |
 | IconDisplay | 2026-09-30, 2026-10-23 |
 | M5Paper Remote (Bag3) | 2026-10-23 |
 | IPS096 Display (bench) | 2026-10-28 (ips096) |

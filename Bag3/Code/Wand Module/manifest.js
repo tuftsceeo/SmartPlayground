@@ -64,4 +64,5 @@ export const WAND_FILES = [
     { path: 'lib/splat_link.py', remotePath: '/lib/splat_link.py' },  // Non-blocking BLE link to one Splat
     { path: 'lib/splat_host.py', remotePath: '/lib/splat_host.py' },  // Splat host role: a wand that holds up to 4 Splats for host games
     { path: 'lib/splatpair.py', remotePath: '/lib/splatpair.py' },  // This wand's BLE links to its paired Splats
+    { path: 'lib/stdin_drain.py', remotePath: '/lib/stdin_drain.py' },  // Reads and discards USB stdin so Ctrl-C keeps working (MicroPython v1.28 USB-Serial-JTAG)
 ];

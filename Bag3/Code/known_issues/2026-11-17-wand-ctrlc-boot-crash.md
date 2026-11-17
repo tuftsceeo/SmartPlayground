@@ -12,7 +12,7 @@ open:
   - Find where the Ctrl-C landed. "ESPNow: active" is printed by ESPNowManager.init() inside _boot(), after the GRACE_S countdown, not by the prewarm.
   - Check the 11:08 log for the "# booting -- Ctrl-C within 30s" line; that shows whether the wand ran the current build and whether Ctrl-C was ignored for the whole countdown.
   - Confirm or rule out the prewarm hypothesis (main.py:20-33 catches only Exception).
-  - Related, not yet a note - after early boot, Ctrl-C does not reach the REPL on the same wands (bench isolation test under way 2026-11-17).
+  - Related - Ctrl-C lockout once stdin fills, see 2026-11-17-wand-ctrlc-stdin-full.md.
 keywords: [Ctrl-C, KeyboardInterrupt, Guru Meditation, Load access fault, rst:0xc, panic, prewarm, ESPNow active, wand_breakin, boot, REPL]
 ---
 
