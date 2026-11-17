@@ -3070,6 +3070,9 @@ class App {
     /** "Distribute code" on the Dial send-success screen: close it as Done
      * does, then open the distribute overlay for the game just sent. */
     openDistribute(slug = this._lastSentSlug, pretty = this.gameName) {
+        // Device kinds the game has code for; known only for the game just
+        // sent (the controller's game list does not say), else no filter.
+        const kinds = slug && slug === this._lastSentSlug ? this._lastSentKinds : null;
         if (document.getElementById('send-confirm-overlay')?.classList.contains('hidden') === false) {
             this.finishSend();
         }
@@ -3077,7 +3080,7 @@ class App {
         if (!this._distribute) {
             this._distribute = new DistributeOverlay({ app: this, showOverlay, hideOverlay, toast });
         }
-        this._distribute.open(slug, pretty);
+        this._distribute.open(slug, pretty, kinds);
     }
 
     /** Close the send-confirm overlay after a successful send (Done, its
@@ -3269,6 +3272,8 @@ class App {
         // something different because it auto-launches what it was just sent
         // (see wandGameInstaller.js) rather than waiting for a card.
         this._lastSentSlug = slug;
+        // status_report kinds are the roles' hubtypes (roles.js).
+        this._lastSentKinds = ROLE_TABLE.filter((r) => getCode(r.key).trim()).map((r) => r.hubtype);
         this.showSendSuccess(check.pretty);
         if (isWand) toast('Sent! The wand is starting the game now.');
 

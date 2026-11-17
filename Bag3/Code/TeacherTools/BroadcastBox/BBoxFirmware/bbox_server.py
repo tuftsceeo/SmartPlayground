@@ -767,6 +767,11 @@ class BboxServer:
         if self.code.is_on:
             self.code.poll(on_event=self._on_menu_share_event,
                            on_msg=self._on_fleet_msg)
+            ref = self.code.sender.last_refused
+            if ref is not None:
+                self.code.sender.last_refused = None
+                if self.fleet is not None:
+                    self.fleet.on_refused(*ref)
             if self.fleet is not None:
                 self.fleet.step()
             return

@@ -173,6 +173,12 @@ class Panel:
             return
         for _ in range(4):
             self.code.poll(on_event=self._share_event, on_msg=self.on_msg)
+            snd = self.code.sender
+            ref = snd.last_refused if snd is not None else None
+            if ref is not None:
+                snd.last_refused = None
+                if self.fleet is not None:
+                    self.fleet.on_refused(*ref)
         if self.fleet is not None:
             self.fleet.step()
 

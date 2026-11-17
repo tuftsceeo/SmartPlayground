@@ -120,6 +120,14 @@ class Fleet:
             return
         self._finish(entry[0], result.get("ok"), result.get("why"))
 
+    def on_refused(self, mac, slug):
+        """The Dial has no file of this game for the device's kind.
+        Fails a pushed device at once; other refusals (busy) still wait."""
+        entry = self._inflight.get(_norm(mac))
+        if entry is None or (slug and slug != self._slug):
+            return
+        self._finish(entry[0], False, "no_file")
+
     # -- per loop ------------------------------------------------------
 
     def step(self):

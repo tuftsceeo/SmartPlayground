@@ -110,6 +110,12 @@ class Fleet:
         if entry is not None:
             self._finish(entry[0], result.get("ok"), result.get("why"))
 
+    def on_refused(self, mac, slug):
+        """No file of this game for the device's kind: fail it at once."""
+        entry = self._inflight.get(_norm(mac))
+        if entry is not None and (not slug or slug == self.slug):
+            self._finish(entry[0], False, "no_file")
+
     def step(self):
         now = time.ticks_ms()
         if self._scan_until is not None and time.ticks_diff(now, self._scan_until) >= 0:

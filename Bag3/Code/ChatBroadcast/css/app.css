@@ -1491,9 +1491,20 @@ body.no-serial .no-serial-banner { display: block; }
 .dist-slots { display: block; font-size: 12px; color: var(--text-muted, #6b6578); margin-top: 2px; }
 .dist-slots.full { color: #8a5a00; }
 .dist-note { font-size: 13px; color: #8a5a00; margin: 0 0 6px; }
-.dist-replace { border: 2px solid var(--purple); border-radius: 12px; padding: 10px 12px; margin: 0 0 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.dist-replace p { flex-basis: 100%; margin: 0; font-weight: 700; }
-.dist-replace p.dist-replace-hint { font-weight: 400; font-size: 12px; }
+.dist-replace { background: #f6f3ff; border: 2px solid var(--purple); border-radius: 18px; padding: 16px; margin: 0 0 12px; }
+.dist-replace-head h3 { margin: 0 0 4px; font: 800 17px 'Nunito', ui-rounded, system-ui, sans-serif; color: var(--icon-ink); }
+.dist-replace-head p { margin: 0 0 12px; font-size: 14px; color: var(--muted); }
+.dist-replace-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.dist-replace-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 44px; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 14px; background: #fff; cursor: pointer; text-align: left; font: 800 15px 'Nunito', ui-rounded, system-ui, sans-serif; color: var(--icon-ink); }
+.dist-replace-slot { font: 800 12px 'Nunito', ui-rounded, system-ui, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: var(--purple); }
+.dist-replace-label { font: 600 12px 'Nunito', ui-rounded, system-ui, sans-serif; color: var(--muted); }
+.dist-replace-game { display: flex; flex-direction: column; }
+.dist-replace-tag { padding: 2px 8px; border-radius: 999px; background: #fff1c7; }
+.dist-replace-opt:hover, .dist-replace-opt:focus-visible { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(108, 76, 209, 0.15); outline: none; }
+.dist-replace-tag { font: 700 12px 'Nunito', ui-rounded, system-ui, sans-serif; color: #8a5a00; }
+.dist-replace-count { font: 600 12px 'Nunito', ui-rounded, system-ui, sans-serif; color: var(--muted); }
+.dist-replace-hint { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+.dist-replace-foot { display: flex; justify-content: flex-end; margin-top: 12px; }
 
 /* My Box */
 .mybox-top {
@@ -1981,6 +1992,8 @@ body:not(.ui-advanced) .adv-only { display: none !important; }
 .dcard.dist-done { border-width: 2px; background: #f3fdfa; cursor: default; }
 .dcard.dist-queued, .dcard.dist-pulling, .dcard.dist-failed { border-width: 2px; cursor: default; }
 .dcard .dist-check { width: 26px; height: 26px; flex: none; }
+.dcard.dist-unfit { opacity: 0.55; }
+.dcard .dist-unfit-note { display: block; font-size: 0.85em; color: #8a3b12; }
 .dcard .dicon { display: inline-flex; flex: none; }
 .dcard .dname { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .dcard .dname span { color: #6b6578; }

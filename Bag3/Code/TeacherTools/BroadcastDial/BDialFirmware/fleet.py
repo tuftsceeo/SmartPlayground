@@ -12,7 +12,7 @@ Serial events (to the app):
     {"type":"dist_done","done","total","ok"}                  distribution over
 
 ESP-NOW messages (to devices):
-    status_poll, find_device {mac}, code_push {mac, slug, host[, replace]}
+    status_poll, find_device {mac}, code_push {mac, slug, host[, replace]} (replace: str, or {mac: str} per device)
 
 A device answers code_push with the normal getcode pull (code_req ...
 code_done); its code_done is the completion signal, reported by
@@ -43,7 +43,7 @@ class Fleet:
         self._scan_until = None
         self._seen = {}           # norm mac -> True during a scan
         self._slug = None
-        self._replace = None      # slug a full device drops for this game
+        self._replace = None      # game a full device drops: str, or {mac: str}
         self._queue = []          # macs not yet pushed
         self._inflight = {}       # norm mac -> (mac, deadline)
         self._next_at = 0
@@ -120,6 +120,14 @@ class Fleet:
             return
         self._finish(entry[0], result.get("ok"), result.get("why"))
 
+    def on_refused(self, mac, slug):
+        """The Dial has no file of this game for the device's kind.
+        Fails a pushed device at once; other refusals (busy) still wait."""
+        entry = self._inflight.get(_norm(mac))
+        if entry is None or (slug and slug != self._slug):
+            return
+        self._finish(entry[0], False, "no_file")
+
     # -- per loop ------------------------------------------------------
 
     def step(self):
@@ -143,8 +151,17 @@ class Fleet:
     def _push(self, mac, now):
         self._next_at = time.ticks_add(now, STAGGER_MS)
         msg = {"type": "code_push", "mac": mac, "slug": self._slug, "host": HOST_ID}
-        if self._replace:
-            msg["replace"] = self._replace
+        rep = self._replace
+        if isinstance(rep, dict):
+            rep = rep.get(mac)
+            if rep is None:
+                n = _norm(mac)
+                for k in self._replace:
+                    if _norm(k) == n:
+                        rep = self._replace[k]
+                        break
+        if rep:
+            msg["replace"] = rep
         # Unicast for a MAC-layer ack; peer added only for this send, and
         # left alone if a code session already holds it.
         temp = mac not in self.mgr._peers

@@ -730,6 +730,11 @@ class BdialServer:
         if self.code.is_on:
             self.code.poll(on_event=self._on_share_event,
                            on_msg=self._on_fleet_msg)
+            ref = self.code.sender.last_refused
+            if ref is not None:
+                self.code.sender.last_refused = None
+                if self.fleet is not None:
+                    self.fleet.on_refused(*ref)
             if self.fleet is not None:
                 self.fleet.step()
             return
@@ -810,8 +815,9 @@ class BdialServer:
             self.link.send({"type": "error", "id": rid, "code": "busy"})
             return
         replace = cmd.get("replace")
-        fl.distribute(self.code.mgr, slug, macs,
-                      replace if isinstance(replace, str) and replace else None)
+        if not (isinstance(replace, (str, dict)) and replace):
+            replace = None      # str: one game for all; dict: {mac: game}
+        fl.distribute(self.code.mgr, slug, macs, replace)
         self.link.send({"type": "ok", "id": rid, "cmd": "fleet.distribute",
                         "slug": slug, "total": len(macs)})
 

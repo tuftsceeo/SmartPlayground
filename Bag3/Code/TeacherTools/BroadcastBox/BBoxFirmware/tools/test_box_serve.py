@@ -34,6 +34,7 @@ class FakeCode:
         self.is_on = False
         self.game = None
         self.polls = 0
+        self.sender = types.SimpleNamespace(last_refused=None)
     def set_game(self, slug): self.game = slug
     def radio_on(self):
         assert not srv._nfc_field_on, "radio_on with the field on"

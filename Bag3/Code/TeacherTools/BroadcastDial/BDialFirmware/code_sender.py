@@ -138,6 +138,9 @@ class CodeSender:
         # one wand.
         self.busy_until = time.ticks_ms()
         self.last_result = None
+        # (mac, slug) of the last code_req refused for having no file for
+        # its hub; fleet fails that push at once instead of timing out.
+        self.last_refused = None
 
     # ─── LOOKUP ──────────────────────────────
 
@@ -253,6 +256,8 @@ class CodeSender:
             offer = {"type": "code_offer", "id": rid, "size": 0}
             if found is None:
                 offer["why"] = "no such icon" if icon is not None else "no such game"
+                if icon is None:
+                    self.last_refused = (mac_str, slug)
             else:
                 offer["why"] = "busy"
                 offer["retry_ms"] = BUSY_RETRY_MS

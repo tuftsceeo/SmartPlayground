@@ -105,18 +105,38 @@ t("slots: replace needed only for full selected devices lacking the game", () =>
   s.upsertReport({ mac: B, kind: "wand", g: [["b", "s"], ["d", "o"], ["e", "o"]] });
   s.upsertReport({ mac: C, kind: "wand", g: [["new", "o"], ["b", "s"], ["c", "h"]] });
   assert.deepEqual(s.fullRows("new").map((r) => r.mac), [A, B]);
-  const opts = s.replaceOptions("new");
-  assert.equal(opts[0].slug, "b");            // held by both full devices
-  assert.equal(opts[0].n, 2);
-  assert.deepEqual(opts.map((o) => o.slug), ["b", "a", "c", "d", "e"]);
+  const opts = s.slotOptions("new");
+  assert.deepEqual(opts.map((o) => o.index), [0, 1, 2]);
+  assert.deepEqual(opts[0].games.map((g) => [g.slug, g.macs]), [["a", [A]], ["b", [B]]]);
+  assert.deepEqual(opts[1].games.map((g) => g.slug), ["b", "d"]);
+  assert.deepEqual(s.replaceFor("new", 0), { [A]: "a", [B]: "b" });
+  assert.deepEqual(s.replaceFor("new", 2), { [A]: "c", [B]: "e" });
   s.toggle(A, false); s.toggle(B, false);
-  assert.deepEqual(s.replaceOptions("new"), []);
+  assert.deepEqual(s.slotOptions("new"), []);
 });
 t("slots: no g (old firmware) or not full never asks", () => {
   const s = new DistributeState();
   s.upsertReport({ mac: A, kind: "wand" });
   s.upsertReport({ mac: B, kind: "icon_display", g: [["a", "o"]] });
-  assert.deepEqual(s.replaceOptions("new"), []);
+  assert.deepEqual(s.slotOptions("new"), []);
+});
+t("kinds: devices the game has no code for start unselected", () => {
+  const s = new DistributeState(["wand"]);
+  s.upsertReport({ mac: A, kind: "wand" });
+  s.upsertReport({ mac: B, kind: "icon_display" });
+  s.upsertReport({ mac: C, kind: null });
+  assert.deepEqual(s.selectedMacs(), [A]);
+  s.toggle(B, true);                        // simple mode: refused
+  assert.deepEqual(s.selectedMacs(), [A]);
+  s.toggle(B, true, true);                  // advanced override
+  assert.deepEqual(s.selectedMacs(), [A, B]);
+  s.toggle(A, false);                       // deselecting always works
+  assert.deepEqual(s.selectedMacs(), [B]);
+});
+t("kinds: unknown (null) means no filter", () => {
+  const s = new DistributeState(null);
+  s.upsertReport({ mac: B, kind: "icon_display" });
+  assert.deepEqual(s.selectedMacs(), [B]);
 });
 t("slots: card text", () => {
   assert.equal(slotsText(null, "x"), "");

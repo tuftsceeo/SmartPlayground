@@ -203,8 +203,10 @@ written, else `error` `not_serving`):
   (`ok` null and `why` `"pushed"` when sent; then true/false from its
   `pull`, `no_ack`, or `timeout` after 30 s), then `{"type":"dist_done"}`.
   The Dial shows a teal ring and "N of M updated" until 3 s after the end.
-  A device holding three custom games drops `replace` if it has it, else its
-  oldest, after the new game arrives.
+  `replace` is one game name for every device, or `{mac: game}` so each
+  device gets its own (ChatBroadcast sends the game in the slot the teacher
+  picked). A device holding three custom games drops `replace` if it has it,
+  else its oldest, after the new game arrives.
 - `fleet.cancel`: fails every unfinished device with `why` `"cancelled"`.
   Leaving the menus (scan, write, Read, keyboard) cancels with `"radio_off"`.
 

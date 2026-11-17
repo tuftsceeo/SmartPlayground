@@ -75,6 +75,7 @@ class FakeCode:
         self.is_on = False
         self.overlap = False
         self.last_result = None
+        self.sender = types.SimpleNamespace(last_refused=None)
 
     def radio_on(self):
         self.is_on = True
