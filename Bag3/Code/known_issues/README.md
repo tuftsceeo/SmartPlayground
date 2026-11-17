@@ -30,6 +30,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-11-02-dial-box-arm-serving.md](2026-11-02-dial-box-arm-serving.md) | Dial and Box serving still gated by arm/disarm, radio off outside NFC | Dial fixed 2026-11-14, Box fixed 2026-11-15 (both untested on hardware) | — |
 | [2026-11-16-icon-store-full.md](2026-11-16-icon-store-full.md) | IconDisplay icon store never pruned; ENOSPC during a pull | open (pruning); ENOSPC fixed 2026-11-16, untested on hardware | — |
 | [2026-11-15-box-fleet-port.md](2026-11-15-box-fleet-port.md) | Box fleet scan, find, distribute ported from the Dial; power earmark | untested on hardware | — |
+| [2026-11-17-splat-host-push-dropped.md](2026-11-17-splat-host-push-dropped.md) | Wand in the Splat host role ends a game on a mid-game `code_push` but never pulls | open (seen once on hardware 2026-11-16) | — |
 | [2026-11-11-game-start-signature.md](2026-11-11-game-start-signature.md) | Game start signature (GAME_ICON): app display, wand pull icon, example games | open | — |
 | [2026-11-12-wand-mpremote-copy-fails.md](2026-11-12-wand-mpremote-copy-fails.md) | Wand deploy: mpremote cannot break into the Splat host | open | — |
 | [2026-11-12-splat-host-v129-firmware.md](2026-11-12-splat-host-v129-firmware.md) | Splat host wand holds 2 Splats on MicroPython v1.29.0, 4 on v1.28.0 | open | — |

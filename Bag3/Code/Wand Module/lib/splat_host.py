@@ -37,6 +37,7 @@ def set_role(role):
         print("  splat_host: already %s" % role)
         return
     import machine
+    _clear_nosplat()
     if role == "splat_host":
         with open(pairing.ROLE_PATH, "w") as f:
             f.write("splat_host")
@@ -48,6 +49,33 @@ def set_role(role):
     print("  splat_host: role is now %s; resetting" % role)
     time.sleep_ms(300)
     machine.reset()
+
+
+# Host boots in a row with no Splat connected and no Splat card tapped. After
+# NOSPLAT_BOOTS of them the next boot drops back to player.
+NOSPLAT_PATH = "/host_nosplat"
+NOSPLAT_BOOTS = 2
+
+
+def _clear_nosplat():
+    try:
+        os.remove(NOSPLAT_PATH)
+    except OSError:
+        pass
+
+
+def _count_nosplat_boot():
+    """Count this host boot; True if the previous NOSPLAT_BOOTS had no Splat."""
+    try:
+        with open(NOSPLAT_PATH) as f:
+            n = int(f.read() or 0)
+    except (OSError, ValueError):
+        n = 0
+    if n >= NOSPLAT_BOOTS:
+        return True
+    with open(NOSPLAT_PATH, "w") as f:
+        f.write(str(n + 1))
+    return False
 
 
 def _scale(c, f):
@@ -227,6 +255,9 @@ def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game, button_
     from nfc_reader import read_ndef_text, parse_splat_card, split_prefixed
     print("  Splat host: up to %d Splats; tap 'player' to leave this role"
           % pairing.HOST_MAX_SPLATS)
+    if _count_nosplat_boot():
+        print("  Splat host: %d boots with no Splat; back to player" % NOSPLAT_BOOTS)
+        set_role("player")
     _check_firmware(leds, buz)
     try:
         _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
@@ -253,9 +284,13 @@ def _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
           button_down, read_ndef_text, parse_splat_card, split_prefixed):
     screen = HostScreen()
     last_text = None
+    had_splat = False
     while True:
         now = time.ticks_ms()
         ctl = get_ctl()
+        if not had_splat and ctl is not None and ctl.connected_macs():
+            had_splat = True
+            _clear_nosplat()
         if ctl is not None:
             for i, ev in ctl.poll():
                 if ev == "press":
@@ -279,6 +314,8 @@ def _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
         if text != last_text:
             last_text = text
             if text == "unpair" or (text and parse_splat_card(text)):
+                if text != "unpair":
+                    _clear_nosplat()
                 pair_card(text)
                 screen.reload()
             elif text == "player":
