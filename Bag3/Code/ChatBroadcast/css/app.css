@@ -238,6 +238,21 @@ body.ui-advanced #app-shell {
     cursor: default;
 }
 .mode-pill:disabled { opacity: 0.85; cursor: not-allowed; }
+/* Open Saved: only on the empty chat, where the title bar (and its open button) is hidden. */
+.open-saved-pill {
+    display: none;
+    border: none;
+    background: #f4f2fa;
+    color: var(--ink);
+    font: 800 12px 'Nunito', ui-rounded, system-ui, sans-serif;
+    padding: 7px 12px;
+    border-radius: 14px;
+    cursor: pointer;
+    align-items: center;
+    gap: 6px;
+}
+.open-saved-pill:hover { background: #ebe7f6; }
+body.chat-fresh .open-saved-pill { display: flex; }
 
 /* Header action buttons: Connect (teal) and the gallery's New game (pink)
    share one shape; only the color differs. */

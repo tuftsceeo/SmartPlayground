@@ -1450,6 +1450,7 @@ class App {
         });
         document.getElementById('btn-save-game').addEventListener('click', () => this.onSaveGame());
         document.getElementById('btn-open-game').addEventListener('click', () => this.openSavedFromWorkspace());
+        document.getElementById('btn-open-saved-pill').addEventListener('click', () => this.openSavedFromWorkspace());
 
         // The brand replaced the Home tab on every screen that had one, so it
         // routes through onNavTab: that keeps the unsaved-work guard on the

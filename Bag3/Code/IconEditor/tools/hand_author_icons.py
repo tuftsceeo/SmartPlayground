@@ -487,7 +487,6 @@ RECIPES = [
     ("sun", "ideas", draw_sun),
     ("moon", "ideas", draw_moon),
     ("star", "ideas", draw_star),
-    ("heart", "ideas", draw_heart),
     ("rainbow", "ideas", draw_rainbow),
     ("house", "places", draw_house),
     ("umbrella", "places", draw_umbrella),
