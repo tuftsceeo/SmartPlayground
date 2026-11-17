@@ -10,7 +10,7 @@ USB icon server, no card reader (nfc is None, as on a display without one).
 The panel is SimMatrix, installed as the `icon_matrix` module. It keeps the
 real Matrix API (src, set_intensity, draw_bytes, redraw, set_pixels, clear)
 and reports each frame as the logical row-major src plus the intensity,
-which the JS side draws with iconmaker's renderPreview().
+which the JS side draws with the Icon Maker's renderPreview() (IconEditor/webapp).
 
 Icons are files, as on the device: set_icons() writes <slug>_icons/<name>.py
 and icons/<name>.py in the working directory, and icon_store.read_icon()

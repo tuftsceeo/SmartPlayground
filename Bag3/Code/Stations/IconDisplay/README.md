@@ -213,6 +213,13 @@ laptop is a rough reading; recheck it on another panel.
   uncharacterized on the bench, not a requirement the measured ceiling
   itself demands.
 
+## Flash free space
+
+Boot prints `  Flash free: <free> KB of <total> KB` from `lib/fsinfo.py`, imported
+in `_boot()` after the radio is up. Icons are never pruned when a game is
+deleted; what a full store does to a pull is in
+`known_issues/2026-11-16-icon-store-full.md`.
+
 ## Unverified
 
 The LED data pin in `lib/hubtype.py` is per-unit: the driver board has two

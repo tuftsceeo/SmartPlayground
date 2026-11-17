@@ -29,7 +29,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CHATBROADCAST = os.path.dirname(HERE)
 BROADCASTCODE = os.path.dirname(CHATBROADCAST)
 
-SOURCE = os.path.join(BROADCASTCODE, "..", "Wand Module", "lib", "splat_api.py")
+SOURCE = os.path.join(BROADCASTCODE, "Wand Module", "lib", "splat_api.py")
 OUT_PATH = os.path.join(CHATBROADCAST, "js", "splat", "splatActions.js")
 
 # (table in splat_api.py, export name in splatActions.js)

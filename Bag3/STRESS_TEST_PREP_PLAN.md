@@ -42,6 +42,65 @@ and its former `tools/` and `docs_and_design/` are merged into `Bag3/Code/tools/
 with `Bag3/`. The review behind this plan is
 `Bag3/Code/docs_and_design/2026-11-14-advisor-review.md`.
 
+## Status on 2026-11-16 and the one-sitting test (read this first)
+
+Test day is Wednesday 2026-11-18. **One branch holds everything: `Chat_to_Tap_Doggle`.** Agents
+start from it and pull it before each commit. `ccr-eec157d8-pkam3d` is kept level with it.
+
+| Step | What | State |
+|---|---|---|
+| S0, S6, S7 | Bundle, Simulator game modes, small fixes | Done; checks pass |
+| S1, S2, S3 | Wait for host, three slots, slot picker | Written; partly seen on hardware 11-14 |
+| S4 | Dial serves without arming | Written; first hardware evidence 11-14 |
+| S5 | Dial reconnect; upload without restart | Reconnect bug not reproduced. Upload written, not bench-proven |
+| S10 | Generated-game fixes | Written 11-16; node tests pass; not yet tried by a person |
+| S11 | Dial keyboard and distribute stall | Step 1 (code reading) done; bench steps open |
+| S12 | Box: no arming, fleet scan and distribute | Written; never run on a Box |
+| S13 | Waveshare 1.9 mockup | Merged 11-16; never run on the board |
+| S9 | Promote to `Live_Page` | See the end of this section |
+| S8 | Test-day kit | Dropped |
+
+S10 and S11 were missing from this file between 2026-11-14 and 2026-11-16 (deleted by mistake
+with S8) and are restored below.
+
+Found in review on 2026-11-16, each recorded in `Code/known_issues/`:
+
+- Box radio power is low (8 dBm); scan and distribute range is unmeasured (`2026-11-15-box-fleet-port.md`).
+- The icon display carries 250 icons (835 KB). A pull onto a full flash now fails cleanly, but
+  free space on a real unit is unmeasured (`2026-11-16-icon-store-full.md`).
+- The Dial clears a game's old icons before a re-sent upload is verified (`2026-11-14-dial-upload-during-pull.md`).
+
+### The sitting: six blocks in one session, about 2.5 hours
+
+At most 3 devices on USB. Each block is run by the agent that prepared it; that agent sends
+one message with numbered steps, flashes at the start of its block, and keeps a serial capture
+running in the background. If a block fails in its first minutes, the agent stops and reports;
+move to the next block and come back.
+
+| # | Block | Min | On USB | You do | It answers |
+|---|---|---|---|---|---|
+| 1 | Host and Splats | 25 | host wand, player wand | Pair 4 Splats; start a built-in host game; pull one custom host game and start it; tap a fifth Splat; step one Splat through 16 colors (`tools/devtests/splatcolors.py`) | Host memory with 4 Splats (sets Splats per host for Wednesday); slot refusals; your list of clear colors |
+| 2 | Dial | 25 | add the Dial | Send a game (USB should stay up); re-send a game that has icons; open the keyboard and distribute at once; distribute while turning the dial; distribute a host game with the host wand last; send a fourth game and pick one to replace | Upload without restart; D2 and D3; no red X while waiting; replace works; scan shows slots |
+| 3 | Box | 25 | swap the Dial for the Box | Pull by card without arming; send a second game; scan, find and distribute at table distance, then about 3 m and 6 m; tap a card during a distribute; repeat one distribute with the Box on battery | No arming; Box fleet; range; any silent reset |
+| 4 | Icon display and CrowPanel | 25 | icon display, CrowPanel, 1 wand | Read the free-space line; play Move Mixer and share a dance; pull a display game; pull by card from the CrowPanel and run one scan | Display free space; display station mode; CrowPanel serves |
+| 5 | Dry run | 30 | one controller, host wand (logs only) | From `Live_Page/` served locally: a fresh prompt to a played solo game, then a host game | End to end, as a volunteer would do it |
+| 6 | Waveshare look | 10 | Waveshare board | Flash the mockup; photograph each of the seven screens | First look only; not part of Wednesday |
+
+Cut order if time runs short: block 6, the CrowPanel half of 4, Box fleet in 3 (card pulls still
+work), the battery repeat in 3. Do not cut block 1, the first two steps of 2, or block 5.
+
+What each result decides:
+
+- Block 1 fails at 4 Splats: choose 2 or 3 per host for Wednesday.
+- Block 2 upload fails: turn it off in the app (`supportsJsonUpload` in
+  `ChatBroadcast/js/device/jsonGameUpload.js`); sends restart the Dial as before.
+- Block 3 resets silently: the Box goes to Wednesday without fleet; reopen `2026-09-01-bbox-usb-reboots.md`.
+- Block 4 free space under about 300 KB: trim the display's icon set before flashing.
+
+After the sitting: fixes from the blocks, then S9 again if ChatBroadcast, the Simulator or the
+Icon Maker changed, then flashing every device (H7, two blocks of 3 devices at a time) and the
+user's push to the deploy branch.
+
 ## Merged from `Chat_to_Tap_Doggle` on 2026-11-14, and what it changes here
 
 - **Simulator location.** That branch had moved `Simulator/` into `BroadcastCode/`. After the
@@ -374,6 +433,65 @@ Hardware: one short hands-on block for step 3, to flash and look at the screens.
 cannot see the display, so it asks the user for a photo or a description of each screen.
 ```
 
+### S10. Generated-game fixes from the 2026-11-14 hands-on test (before S9)
+
+Source: `Bag3/STRESS_TEST_FINDINGS_2026-11-14.md`, items K1-K4, U1 and U3. Planning decisions
+1 and 2 are answered here.
+
+```
+Task: six small changes so a generated game is right the first time and its faults reach the
+chat. Read Bag3/STRESS_TEST_FINDINGS_2026-11-14.md and the four known-issue notes it cites
+(games-must-repeat, send-check-errors-ux, splat-host-wand-count, start-tag-in-tray). These are
+known issues: state each in one sentence and get the user's confirmation before changing code.
+1. K1, games repeat. In ChatBroadcast/knowledge/ (game_patterns.md, platform.md and
+   interview.md) say that every game celebrates a win and then starts a new round, forever,
+   until a stop message. Change the interview question from how the game "ends" to what a win
+   looks like. Check the knowledge examples follow the rule.
+2. U1, checks run early. ChatBroadcast/js/upload.js:122 runs splatGameProblems() only at Send.
+   Run it when a game is generated or edited as well. Show failures through the same "fix it"
+   path the Simulator failure uses (js/app.js about line 2677), with the problem sentences as
+   the request to the chat. In Simple mode send that request automatically, once per generated
+   game; if the second version still fails, show the problems and stop. Keep the Send-time
+   check as it is.
+3. K2 needs no separate change: it is one of the problems step 2 now reports.
+4. K3, wand count. savedGameDevices() in js/app.js (about line 140) adds one wand for the host
+   when the game has SPLAT_HOST = True, and the brief format in the knowledge says to count
+   the host wand.
+5. K4, start card. The Simulator's card tray leaves out the game's own start tag.
+6. U3, brief in Simple mode. Show Simple-mode users a short summary of the brief (name, what
+   players do, devices needed), not the full text. If this needs more than a small change,
+   stop and report instead.
+Check: node tools/chat_request_test.mjs, tools/hardware_pills_test.mjs and
+tools/splat_game_check_test.mjs (13 cases there already fail; do not fix them), then one
+browser run with Playwright: generate or paste a host game that ignores splat_lost and confirm
+the fix request appears. Report each item in one line, with a screenshot for item 2.
+```
+
+### S11. Dial keyboard and distribute stall (finding D2; needs a Dial)
+
+Planning decision 3: reproduce before the test, in one hands-on block. A teacher uses the
+keyboard to write card text, so this is on the main path.
+
+```
+Task: find out why a distribute failed with the Dial's keyboard open. Read finding D2 and D3 in
+Bag3/STRESS_TEST_FINDINGS_2026-11-14.md. The Dial printed "RuntimeError: schedule queue full"
+from its screen timer, free memory fell from 53 KB to 27 KB when the keyboard was built
+(BDialFirmware/station_ui.py builds it on first use), and neither wand's request arrived.
+1. Without hardware: read station_ui.py, text_entry.py, bdial_server.py's main loop and
+   fleet.py, and write down what blocks the main loop while the keyboard is built or shown,
+   and what the screen timer schedules.
+2. One hands-on block with a Dial and two wands, serial capture running in the background.
+   Three sends, in this order: restart the Dial, open the keyboard and send at once; send
+   while the user turns the dial; send two minutes later. Record free memory and any
+   "schedule queue full" line for each.
+3. If the first send fails and the others pass, make the smallest fix: hold a distribute until
+   the keyboard build has finished, or do not schedule a screen update while one is pending.
+   If memory is the cause, report the numbers and stop; do not restructure the keyboard.
+4. D3: in the same capture, save the lines printed right after a soft reset and report where
+   the "object isn't callable" errors come from if the log shows it. Do not chase it further.
+Add a known-issue note for D2 and D3 with the capture results.
+```
+
 ### S9. Promote ChatBroadcast, the Simulator and the Icon Maker to Live_Page (after S3, S5, S6, S7)
 
 ```
@@ -398,7 +516,7 @@ Report: what was copied, the browser results with screenshots, and anything in t
 cannot work when hosted (for example the firmware installer's paths to other Bag3 folders).
 ```
 
-## Hardware phases
+## Hardware phases (original schedule; superseded by "The sitting" near the top)
 
 Each phase is one hands-on block of 15 to 30 minutes, with at most 3 devices on USB. The agent
 flashes and sets up before the block. Splats connect over BLE and do not use a USB port.

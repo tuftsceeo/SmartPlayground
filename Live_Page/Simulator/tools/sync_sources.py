@@ -21,7 +21,7 @@ import shutil
 import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-REPO = os.path.abspath(os.path.join(ROOT, "..", "..", "..", ".."))  # Bag3/Code/BroadcastCode/Simulator -> repo root
+REPO = os.path.abspath(os.path.join(ROOT, "..", "..", ".."))  # Bag3/Code/Simulator -> repo root
 
 # Lib and games both come from the Bag3 MockWand tree. Its leds.py is the
 # 5x5 row-major (25 LED) matrix the renderer and golden frames assume.
@@ -55,6 +55,7 @@ VERBATIM_LIBS = [
     "hubtype.py",
     "game_tags.py",
     "actions.py",
+    "signals.py",
     "battery.py",
     "espnow_manager.py",
     # Lobby games: pwire/lobby_game/splatpair run through the transform; pairing
@@ -63,6 +64,7 @@ VERBATIM_LIBS = [
     "pwire.py",
     "lobby_game.py",
     "splatpair.py",
+    "splat_host.py",
     "pairing.py",
     "splat_api.py",
 ]
@@ -106,9 +108,8 @@ GAMES = [
     "goalrace.py",
     "color_quest.py",
     "finddevice.py",
-    "lobbytest.py",
-    "splattag.py",
-    "relaycolor.py",
+    # Solo Splat game (SPLATS_LOCAL): a bench game, not shipped to wands.
+    "colorpads.py",
     # Splat host games (SPLAT_HOST = True): run on a wand in the host role.
     "host_lobbytest.py",
     "host_splattag.py",

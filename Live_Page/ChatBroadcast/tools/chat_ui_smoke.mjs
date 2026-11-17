@@ -32,8 +32,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SERVE_ROOT = resolve(HERE, "../../..");          // Bag3/Code
-const PAGE = "/BroadcastCode/ChatBroadcast/index.html";
+const SERVE_ROOT = resolve(HERE, "../..");          // Bag3/Code
+const PAGE = "/ChatBroadcast/index.html";
 const PASS = "testpass";
 const FAKE_KEY = "sk-ant-smoke-test-key";
 const shotArg = process.argv.indexOf("--screenshot");

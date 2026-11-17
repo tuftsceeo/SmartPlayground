@@ -94,7 +94,7 @@ const GRAY_RGB = [0xd4, 0xd7, 0xde];
  * How an LED duty looks lit, as a screen color. The LEDs are uncalibrated:
  * green is far brighter than red or blue, so firmware turns it down (Splat
  * yellow is sent as 255,180,0) where a calibrated screen needs no help.
- * This is the WS2812 datasheet model from Stations/Icon Display Station/
+ * This is the WS2812 datasheet model from IconEditor/
  * webapp/js/pipeline/ledGamut.js (primaries' xy and mcd -> XYZ -> sRGB),
  * copied rather than imported across trees. Unlike that palette, the result
  * is lifted to full brightness: a Splat zone always reads as lit, and a dim

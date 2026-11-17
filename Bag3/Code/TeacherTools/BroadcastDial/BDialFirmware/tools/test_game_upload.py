@@ -113,6 +113,61 @@ class Upload(unittest.TestCase):
     def test_chunk_without_begin(self):
         self.assertEqual(self.cmd(cmd="file.chunk", seq=0, data="")["code"], "no_upload")
 
+    def test_resent_game_drops_old_icons(self):
+        self.send(GU.ROOT + "t.py", b"x = 1\n")
+        self.send(GU.ROOT + "t_icons/old.py", b"O = 1\n")
+        self.send(GU.ROOT + "t.py", b"x = 2\n")
+        self.assertFalse(os.path.exists(self.games + "/t_icons"))
+        self.send(GU.ROOT + "t_icons/new.py", b"N = 1\n")
+        self.assertEqual(os.listdir(self.games + "/t_icons"), ["new.py"])
+
+    def test_other_games_icons_kept(self):
+        self.send(GU.ROOT + "u_icons/a.py", b"A = 1\n")
+        self.send(GU.ROOT + "t.py", b"x = 1\n")
+        self.send(GU.ROOT + "t.tags.json", b"[]")
+        self.assertTrue(os.path.exists(self.games + "/u_icons/a.py"))
+
+    def _loop_once(self):
+        # the check run() makes each pass
+        if self.srv._rescan_pending and self.srv.st.serving():
+            self.srv._apply_rescan()
+
+    def test_rescan_on_menu_changes_mode(self):
+        self.srv.st.go_games()
+        self.srv._mode = BS.MODE_IDLE
+        self.send(GU.ROOT + "a.py", b"x = 1\n")
+        self.cmd(cmd="games.rescan", active="a")
+        self.assertEqual(self.srv._mode, BS.MODE_WRITE)
+        self.assertFalse(self.srv._rescan_pending)
+
+    def test_rescan_on_keyboard_waits_for_menu(self):
+        st = self.srv.st
+        st.go_text()
+        self.srv._mode = BS.MODE_IDLE
+        self.send(GU.ROOT + "a.py", b"x = 1\n")
+        r = self.cmd(cmd="games.rescan", active="a")
+        self.assertEqual((r["type"], r["active"]), ("ok", "a"))
+        self._loop_once()
+        self.assertEqual(st.mode, "text")
+        self.assertEqual(self.srv._mode, BS.MODE_IDLE)
+        self.assertTrue(self.srv._rescan_pending)
+        st.go_home()
+        self._loop_once()
+        self.assertEqual(self.srv._mode, BS.MODE_WRITE)
+        self.assertFalse(self.srv._rescan_pending)
+
+    def test_rescan_on_held_result_not_moved(self):
+        st = self.srv.st
+        st.go_games()
+        st.go_tags()
+        st._wait(5000, st.go_tags, st.go_tags)      # a result held on screen
+        self.send(GU.ROOT + "a.py", b"x = 1\n")
+        self.cmd(cmd="games.rescan", active="a")
+        self._loop_once()
+        self.assertEqual(st.mode, "tags")
+        self.assertIsNotNone(st._wait_until)
+        self.assertTrue(self.srv._rescan_pending)
+
 
 if __name__ == "__main__":
     unittest.main()

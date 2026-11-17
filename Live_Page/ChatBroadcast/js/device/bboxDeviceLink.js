@@ -11,6 +11,7 @@ import { SerialAdapter } from "./serialAdapter.js";
 import { ReplController } from "./replController.js";
 import { BboxLink } from "./bboxLink.js";
 import { installBoxFirmware, pushPayload } from "./boxFirmwareInstaller.js";
+import { supportsJsonUpload, uploadGameOverJson } from "./jsonGameUpload.js";
 import { logInfo, logWarn, toText } from "./serialLog.js";
 
 const FORWARDED_EVENTS = [
@@ -316,6 +317,16 @@ export class BboxDeviceLink {
     // The CrowPanel keeps running after an install: no reset (it would kill its touch bus).
     // Read before _detachJson(), which clears deviceInfo.
     const info = this.deviceInfo;
+    // A Dial with `upload` in its identity takes the game over the JSON link
+    // and keeps running (no reset, USB stays up). On any failure, fall back
+    // to the raw-REPL path below, which works on every firmware.
+    if (this.json && supportsJsonUpload(info)) {
+      try {
+        return await uploadGameOverJson((c, o) => this.json.send(c, o), code, meta, onProgress);
+      } catch (e) {
+        logWarn(`JSON upload failed (${e.message}); falling back to the raw REPL`);
+      }
+    }
     const resume = info?.device === "crowpanel";
     this._detachJson();
     let pushResult;

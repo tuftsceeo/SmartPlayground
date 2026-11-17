@@ -601,12 +601,18 @@ class Runtime:
         # exit_tags_excluding(own_tag) drops exactly one tag from EXIT_TAGS;
         # recover it by diffing rather than re-parsing the game's call site.
         own_tag = (game_tags.EXIT_TAGS - own_exit_tags) if own_exit_tags is not None else set()
-        game_specific = (commands - game_tags.EXIT_TAGS) | (own_tag & commands)
+        table = _TEACHER_TABLE.get(self._game_name, {})
+        # The game's own start tag is not a play card: the Simulator starts
+        # the game itself, and the tag is used to reset or clear a game.
+        # Only the shipped examples that use it in play (melody's erase,
+        # cooking's clear) keep it; a generated game (not in the table) never.
+        game_specific = commands - game_tags.EXIT_TAGS
+        if self._game_name in _TEACHER_TABLE:
+            game_specific |= own_tag & commands
         nfc_tags = sorted(game_specific)
 
         battery = self._game_reads_battery()
 
-        table = _TEACHER_TABLE.get(self._game_name, {})
         motion = table.get("motion")
         if motion is None:
             motion = _ALL_MOTION if self._game_reads_accel() else []

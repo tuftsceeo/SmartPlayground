@@ -12,7 +12,8 @@ code:
 open:
   - Not run on a Box: scan, find, distribute, NFC tap during a distribute
   - Power earmark (below)
-keywords: [fleet, scan, find, distribute, status_report, code_push, show_progress, Box, broadcast_box, power, reset]
+  - Range from a Box at TX_POWER_DBM = 8 unmeasured (below)
+keywords: [range, tx_power, TX_POWER_DBM, fleet, scan, find, distribute, status_report, code_push, show_progress, Box, broadcast_box, power, reset]
 related:
   - Bag3/Code/known_issues/2026-10-23-distribute-code.md
   - Bag3/Code/known_issues/2026-11-02-dial-box-arm-serving.md
@@ -45,3 +46,13 @@ The 2026-09-01 USB resets were power (user, 2026-11-15). The fleet adds radio tr
 polls, unicast `code_push`, up to 3 transfers at once) but never with the NFC field on. **If the
 Box resets silently during a scan or distribute, on USB or on battery, stop adding features,
 reopen `2026-09-01-bbox-usb-reboots.md` and record the `reset_log.py` lines there.**
+
+## Range at reduced TX power (added 2026-11-16)
+`bbox_server.py` sets `TX_POWER_DBM = 8` because full power reset the Box on USB mid-transfer
+(PWRON); it stays at 8. That value was chosen for wands held next to the Box. **Scan, find and
+distribute range from a Box at 8 dBm is unmeasured**: fleet commands are meant to reach wands across a
+room, not at arm's length. The S12 bench block measures it: scan and distribute to two wands at
+table distance, then from across the room, and once with the Box on battery.
+
+Also 2026-11-16: `arm` and `disarm` are back in `bbox_server.py` as accepted no-ops (reply ok,
+change nothing), as on the Dial; `tools/test_box_serve.py` checks them.

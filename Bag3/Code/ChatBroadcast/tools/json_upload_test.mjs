@@ -13,13 +13,19 @@ async function t(name, fn) {
 }
 
 // Mimics game_upload.py: checks seq, size and sha; rejects like BboxLink.send on an error reply.
-function fakeDial({ failOn } = {}) {
-  const files = {}, log = [];
+// file.begin of a top-level <slug>.py clears <slug>_icons/ (as _rm_icons does).
+// `onMenu` false mimics a Dial on the keyboard: rescan replies ok but holds the mode change.
+function fakeDial({ failOn, onMenu = true } = {}) {
+  const files = {}, log = [], modes = [];
   let cur = null;
   const send = async (c) => {
     log.push(c.cmd);
     if (failOn && failOn(c)) throw new Error("write_failed: boom");
-    if (c.cmd === "file.begin") cur = { ...c, parts: [], seq: 0 };
+    if (c.cmd === "file.begin") {
+      const m = c.path.match(/^\/flash\/games\/([^/]+)\.py$/);
+      if (m) for (const k of Object.keys(files)) if (k.startsWith(`/flash/games/${m[1]}_icons/`)) delete files[k];
+      cur = { ...c, parts: [], seq: 0 };
+    }
     else if (c.cmd === "file.chunk") {
       assert.equal(c.seq, cur.seq++);
       cur.parts.push(Buffer.from(c.data, "base64"));
@@ -30,10 +36,13 @@ function fakeDial({ failOn } = {}) {
       files[cur.path] = buf;
       cur = null;
     } else if (c.cmd === "file.abort") cur = null;
-    else if (c.cmd === "games.rescan") return { type: "ok", active: c.active };
+    else if (c.cmd === "games.rescan") {
+      if (onMenu) modes.push("WRITE");
+      return { type: "ok", active: c.active };
+    }
     return { type: "ok" };
   };
-  return { send, files, log };
+  return { send, files, log, modes };
 }
 
 await t("only a Dial that says upload", () => {
@@ -69,6 +78,25 @@ await t("a failed chunk aborts and throws", async () => {
   await assert.rejects(uploadGameOverJson(d.send, "a".repeat(3000), { destPath: "/flash/games/a.py" }));
   assert.equal(d.log.at(-1), "file.abort");
   assert.ok(!d.log.includes("games.rescan"));
+});
+
+await t("re-sent game: main file first, so old icons go before new ones land", async () => {
+  const d = fakeDial();
+  await uploadGameOverJson(d.send, "x = 1\n", { destPath: "/flash/games/tag.py",
+    extraFiles: [{ path: "/flash/games/tag_icons/old.py", content: "O\n" },
+                 { path: "/flash/games/other_icons/keep.py", content: "K\n" }] });
+  await uploadGameOverJson(d.send, "x = 2\n", { destPath: "/flash/games/tag.py",
+    extraFiles: [{ path: "/flash/games/tag_icons/new.py", content: "N\n" }] });
+  const icons = Object.keys(d.files).filter((k) => k.includes("_icons/")).sort();
+  assert.deepEqual(icons, ["/flash/games/other_icons/keep.py", "/flash/games/tag_icons/new.py"]);
+  assert.equal(d.files["/flash/games/tag.py"].toString(), "x = 2\n");
+});
+
+await t("upload completes while the Dial is off a menu (no mode change needed)", async () => {
+  const d = fakeDial({ onMenu: false });
+  const r = await uploadGameOverJson(d.send, "x = 1\n", { destPath: "/flash/games/a.py" });
+  assert.deepEqual(r, { ok: true, restarted: false, live: true, active: "a" });
+  assert.deepEqual(d.modes, []);
 });
 
 if (failed) { console.log(`${failed} failed`); process.exit(1); }
