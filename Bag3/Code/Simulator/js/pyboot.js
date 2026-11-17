@@ -33,6 +33,7 @@ export const FILE_LIST = [
   "vendor/lib/buzzer.py",
   "vendor/lib/game_tags.py",
   "vendor/lib/actions.py",
+  "vendor/lib/signals.py",
   "vendor/lib/battery.py",
   "vendor/lib/espnow_manager.py",
   "vendor/lib/pairing.py",

@@ -78,6 +78,36 @@ def _count_nosplat_boot():
     return False
 
 
+def _take_push():
+    """main.py's queued code_push (a push that ended a game), cleared as read."""
+    import sys
+    m = sys.modules.get("wand_main") or sys.modules.get("__main__")
+    p = getattr(m, "_pending_push", None)
+    if p is not None:
+        m._pending_push = None
+    return p
+
+
+def _then_push(launch, pull):
+    """Wrap launch/pull so a push that ends a game is pulled, as main's idle loop does."""
+    def drain():
+        p = _take_push()
+        while p is not None:
+            print("  Splat host: pulling pushed %s" % p[0])
+            pull(*p)
+            p = _take_push()
+
+    def launch2(name):
+        launch(name)
+        drain()
+
+    def pull2(slug, host, replace=""):
+        pull(slug, host, replace)
+        drain()
+
+    return launch2, pull2
+
+
 def _scale(c, f):
     return (int(c[0] * f), int(c[1] * f), int(c[2] * f))
 
@@ -253,6 +283,7 @@ def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game, button_
     button_down() -> True while the button is pressed
     """
     from nfc_reader import read_ndef_text, parse_splat_card, split_prefixed
+    launch, pull = _then_push(launch, pull)
     print("  Splat host: up to %d Splats; tap 'player' to leave this role"
           % pairing.HOST_MAX_SPLATS)
     if _count_nosplat_boot():
