@@ -120,6 +120,15 @@ export class DistributeState {
     return this.rows.find((r) => norm(r.mac) === norm(mac));
   }
 
+  /**
+   * True for a wand or icon display whose status_report has no `g`: firmware
+   * from before game slots. Its pull reports ok when the file lands, but the
+   * game then fails to start on it (red X), so it needs reflashing first.
+   */
+  needsUpdate(row) {
+    return (row?.kind === "wand" || row?.kind === "icon_display") && !Array.isArray(row.games);
+  }
+
   /** True when the game has code for this row's kind (or kinds are unknown). */
   fits(row) {
     return !this.kinds || this.kinds.has(row?.kind);
@@ -144,11 +153,12 @@ export class DistributeState {
       return;
     }
     const kind = obj.kind ?? null;
+    const games = Array.isArray(obj.g) ? obj.g : null;
     this.rows.push({
       mac: obj.mac, kind, battery: obj.battery ?? null,
-      rssi: obj.rssi ?? null, role: obj.role ?? null,
-      games: Array.isArray(obj.g) ? obj.g : null,
-      selected: this.fits({ kind }), status: "", why: null,
+      rssi: obj.rssi ?? null, role: obj.role ?? null, games,
+      selected: this.fits({ kind }) && !this.needsUpdate({ kind, games }),
+      status: "", why: null,
     });
   }
 
@@ -198,7 +208,7 @@ export class DistributeState {
   toggle(mac, on, override = false) {
     const row = this._row(mac);
     if (!row || this.running) return;
-    if (on && !override && !this.fits(row)) return;
+    if (on && !override && (!this.fits(row) || this.needsUpdate(row))) return;
     row.selected = on;
   }
 
@@ -219,12 +229,17 @@ export class DistributeState {
     return macs;
   }
 
-  /** dist_progress: ok null = pushed, true = updated, false = failed. */
+  /**
+   * dist_progress: ok null = pushed, true = updated, false = failed.
+   * ok from a device that needs updating only means the file landed, so it
+   * counts as failed ("needs_update").
+   */
   applyProgress(obj) {
     const row = this._row(obj?.mac);
     if (row) {
-      row.status = obj.ok == null ? "pulling" : obj.ok ? "done" : "failed";
-      row.why = obj.ok === false ? obj.why || null : null;
+      const old = obj.ok === true && this.needsUpdate(row);
+      row.status = obj.ok == null ? "pulling" : obj.ok && !old ? "done" : "failed";
+      row.why = old ? "needs_update" : obj.ok === false ? obj.why || null : null;
     }
     if (typeof obj?.done === "number") this.done = obj.done;
     if (typeof obj?.total === "number") this.total = obj.total;
@@ -270,17 +285,15 @@ export function slotsText(games, slug) {
   return `Games ${games.length} of ${SLOT_MAX}${names.length ? ": " + names.join(", ") : ""}`;
 }
 
-function slotsLine(r, slug) {
-  const t = slotsText(r.games, slug);
-  return t ? `<span class="dist-slots${r.games.length >= SLOT_MAX ? " full" : ""}">${esc(t)}</span>` : "";
-}
-
 /** Why a device is greyed out: the game has no code for its kind. */
 export function unfitText(kind, simple) {
   const what = kind ? `${kindName(kind).toLowerCase()} code` : "code for this device";
   return simple ? `This game has no ${what}.`
     : `This game has no ${what}; sending will fail.`;
 }
+
+/** Why a device is greyed out: firmware from before game slots. */
+export const NEEDS_UPDATE_TEXT = "Needs a firmware update before it can get new games.";
 
 /** Card icon for a status_report kind. */
 function kindIcon(kind) {
@@ -391,7 +404,7 @@ export class DistributeOverlay {
       d.on("dist_done", (o) => {
         this.state.finish(o);
         this._setStatus(isSimple() ? ""
-          : `${o?.ok ?? 0} of ${o?.total ?? this.state.total} ${deviceNoun(this._sentRows())} updated.`);
+          : `${this._sentRows().filter((r) => r.status === "done").length} of ${o?.total ?? this.state.total} ${deviceNoun(this._sentRows())} updated.`);
         this.render();
       }),
     ];
@@ -513,18 +526,21 @@ export class DistributeOverlay {
       const name = nick || label;
       const sub = nick ? `${label} · ${kindName(r.kind)}` : kindName(r.kind);
       const unfit = !s.fits(r);
-      // Simple mode cannot pick a device the game has no code for.
-      const locked = unfit && isSimple() && !r.selected;
+      const old = s.needsUpdate(r);
+      // Simple mode cannot pick a device the game has no code for, or one
+      // whose firmware predates game slots.
+      const locked = (unfit || old) && isSimple() && !r.selected;
       const card = document.createElement("div");
       card.className = `dcard${r.selected && !r.status ? " sel" : ""}${r.status ? ` dist-${r.status}` : ""}`
-        + `${unfit && !r.status ? " dist-unfit" : ""}`;
+        + `${(unfit || old) && !r.status ? " dist-unfit" : ""}`;
       card.dataset.mac = r.mac;
       const color = r.status === "failed" ? "#b0281c" : r.status === "done" ? "#1c9a82"
         : r.status ? "#6c4cd1" : r.selected ? "#231f2e" : "#c9c4dc";
       let tail;
       if (r.status) {
         tail = `<span class="dstatus dstatus-${r.status}" title="${esc(r.why || "")}">`
-          + `${iconSvg(STATUS_GLYPH[r.status], { size: 22, strokeWidth: 2.5 })}${STATUS_TEXT[r.status]}</span>`;
+          + `${iconSvg(STATUS_GLYPH[r.status], { size: 22, strokeWidth: 2.5 })}`
+          + `${r.why === "needs_update" ? "Needs update" : STATUS_TEXT[r.status]}</span>`;
       } else {
         const batt = r.battery == null ? ""
           : `<span class="dbatt">${iconSvg("battery", { size: 20, strokeWidth: 2 })}${r.battery}%</span>`;
@@ -534,8 +550,8 @@ export class DistributeOverlay {
       const detail = r.status
         ? `<div class="dbar"><div class="dbar-fill dbar-${r.status}"></div></div>`
         : `<span>${esc(sub)}${r.role === "splat_host" ? " · Splat host" : ""} <span class="dist-sig dist-sig-${signalLevel(r.rssi)}" title="${r.rssi ?? "?"} dBm"><i></i><i></i><i></i></span></span>`
-          + (unfit ? `<span class="dist-unfit-note">${esc(unfitText(r.kind, isSimple()))}</span>` : "")
-          + slotsLine(r, this.slug);
+          + (unfit ? `<span class="dist-unfit-note">${esc(unfitText(r.kind, isSimple()))}</span>`
+            : old ? `<span class="dist-unfit-note">${esc(NEEDS_UPDATE_TEXT)}</span>` : "");
       card.innerHTML =
         `<input type="checkbox" class="dist-check" ${r.selected ? "checked" : ""} ${r.status ? "hidden" : ""} ${locked ? "disabled" : ""} aria-label="Send to ${esc(name)}">`
         + `<span class="dicon" style="color:${color}">${iconSvg(kindIcon(r.kind), { size: 36, strokeWidth: 2 })}</span>`

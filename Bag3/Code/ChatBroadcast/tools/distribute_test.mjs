@@ -25,9 +25,9 @@ t("signal thresholds", () => {
 t("scan upserts and selects new rows", () => {
   const s = new DistributeState();
   s.startScan();
-  s.upsertReport({ mac: A, kind: "wand", battery: 80, rssi: -50 });
-  s.upsertReport({ mac: A.toLowerCase(), kind: "wand", battery: 79, rssi: -52 });
-  s.upsertReport({ mac: B, kind: "icon_display", battery: null, rssi: -70 });
+  s.upsertReport({ mac: A, kind: "wand", g: [], battery: 80, rssi: -50 });
+  s.upsertReport({ mac: A.toLowerCase(), kind: "wand", g: [], battery: 79, rssi: -52 });
+  s.upsertReport({ mac: B, kind: "icon_display", g: [], battery: null, rssi: -70 });
   assert.equal(s.rows.length, 2);
   assert.equal(s.rows[0].battery, 79);
   assert.deepEqual(s.selectedMacs(), [A, B]);
@@ -37,7 +37,7 @@ t("scan upserts and selects new rows", () => {
 t("selection, distribute and progress", () => {
   const s = new DistributeState();
   s.startScan();
-  for (const m of [A, B, C]) s.upsertReport({ mac: m, kind: "wand" });
+  for (const m of [A, B, C]) s.upsertReport({ mac: m, kind: "wand", g: [] });
   s.toggle(B, false);
   const macs = s.startDistribute();
   assert.deepEqual(macs, [A, C]);
@@ -57,7 +57,7 @@ t("selection, distribute and progress", () => {
 t("abort fails unfinished rows only", () => {
   const s = new DistributeState();
   s.startScan();
-  for (const m of [A, B]) s.upsertReport({ mac: m, kind: "wand" });
+  for (const m of [A, B]) s.upsertReport({ mac: m, kind: "wand", g: [] });
   s.startDistribute();
   s.applyProgress({ mac: A, ok: true, done: 1, total: 2 });
   s.abort("not_serving");
@@ -67,10 +67,26 @@ t("abort fails unfinished rows only", () => {
 t("every reported device starts selected", () => {
   const s = new DistributeState();
   s.startScan();
-  s.upsertReport({ mac: A, kind: "wand", battery: 5 });
-  s.upsertReport({ mac: B, kind: "wand", battery: 80 });
-  s.upsertReport({ mac: C, kind: "icon_display", battery: null });
+  s.upsertReport({ mac: A, kind: "wand", g: [], battery: 5 });
+  s.upsertReport({ mac: B, kind: "wand", g: [], battery: 80 });
+  s.upsertReport({ mac: C, kind: "icon_display", g: [], battery: null });
   assert.deepEqual(s.selectedMacs(), [A, B, C]);
+});
+t("old firmware (no g): unselected, refused, and its ok counts as failed", () => {
+  const s = new DistributeState();
+  s.startScan();
+  s.upsertReport({ mac: A, kind: "wand", g: [] });
+  s.upsertReport({ mac: B, kind: "wand" });              // no g: before game slots
+  s.upsertReport({ mac: C, kind: "icon_display" });      // no g
+  assert.deepEqual(s.selectedMacs(), [A]);
+  s.toggle(B, true);
+  assert.equal(s.rows[1].selected, false);
+  s.toggle(B, true, true);                               // advanced override
+  s.startDistribute();
+  s.applyProgress({ mac: A, ok: true, done: 1, total: 2 });
+  s.applyProgress({ mac: B, ok: true, done: 2, total: 2 });
+  assert.deepEqual(s.rows.slice(0, 2).map((r) => [r.status, r.why]),
+    [["done", null], ["failed", "needs_update"]]);
 });
 t("deviceNoun: wands, stations, else devices", () => {
   assert.equal(deviceNoun([]), "devices");
@@ -82,7 +98,7 @@ t("deviceNoun: wands, stations, else devices", () => {
 t("allFinished once every sent row is done or failed", () => {
   const s = new DistributeState();
   s.startScan();
-  for (const m of [A, B]) s.upsertReport({ mac: m, kind: "wand", battery: 80 });
+  for (const m of [A, B]) s.upsertReport({ mac: m, kind: "wand", g: [], battery: 80 });
   assert.equal(s.allFinished(), false);
   s.startDistribute();
   s.applyProgress({ mac: A, ok: true, done: 1, total: 2 });
@@ -122,8 +138,8 @@ t("slots: no g (old firmware) or not full never asks", () => {
 });
 t("kinds: devices the game has no code for start unselected", () => {
   const s = new DistributeState(["wand"]);
-  s.upsertReport({ mac: A, kind: "wand" });
-  s.upsertReport({ mac: B, kind: "icon_display" });
+  s.upsertReport({ mac: A, kind: "wand", g: [] });
+  s.upsertReport({ mac: B, kind: "icon_display", g: [] });
   s.upsertReport({ mac: C, kind: null });
   assert.deepEqual(s.selectedMacs(), [A]);
   s.toggle(B, true);                        // simple mode: refused
@@ -135,7 +151,7 @@ t("kinds: devices the game has no code for start unselected", () => {
 });
 t("kinds: unknown (null) means no filter", () => {
   const s = new DistributeState(null);
-  s.upsertReport({ mac: B, kind: "icon_display" });
+  s.upsertReport({ mac: B, kind: "icon_display", g: [] });
   assert.deepEqual(s.selectedMacs(), [B]);
 });
 t("slots: card text", () => {
