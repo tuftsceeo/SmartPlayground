@@ -1,7 +1,7 @@
 ---
 title: Wand ignores Ctrl-C once stdin fills
 date: 2026-11-17
-status: open (confirmed on hardware 2026-11-17; drain fix built into flash_bundle, not yet on hardware)
+status: fixed (drain fix passed on hardware 2026-11-17, wand idle loop; Splat host loop untested)
 devices: [Wand (Mock Wand), ESP32-C6]
 components: [MicroPython v1.28.0 USB-Serial-JTAG stdin, main.py main loop, main.py _boot_grace, Splat host loop, game loops]
 code:
@@ -10,8 +10,8 @@ code:
   - Bag3/Code/Wand Module/lib/stdin_drain.py
   - Bag3/Code/tools/wand_breakin.py
 open:
-  - Run the drain fix (lib/stdin_drain.py) on hardware - 300 bytes then Ctrl-C, awake, asleep and in the Splat host role.
-  - Check whether the drain in the countdown frees a wand that is already locked out, after a port-reopen reset, without a power-off.
+  - Splat host role not yet tested with the drain (same Drainer, called from splat_host._loop).
+  - Why a full stdin survived a port-reopen reset is unexplained; with the drain it no longer matters.
   - Running games have their own loops and do not drain stdin; Ctrl-C there can still be locked out.
 keywords: [Ctrl-C, KeyboardInterrupt, stdin, ring buffer, USB-Serial-JTAG, REPL, Thonny, mpremote, raw repl, break in, lockout, sleep, unresponsive]
 ---
@@ -96,6 +96,14 @@ It runs in three places, each importing the module after the radio is up:
 (`tools/build_wand_bundle.py`).
 
 Not covered: running games.
+
+## Result on hardware (2026-11-17, commits 0530700a and cddfcd32)
+
+From the unattended run (`Bag3/STRESS_TEST_UNATTENDED_2026-11-17.md`), wand flashed from the
+bundle, `/role.txt` = wand. The log shows "Exiting." about 0.02 s after a single Ctrl-C in each
+case: 300 bytes then Ctrl-C while awake; the same while asleep; 300 bytes sent during the boot
+countdown, then Ctrl-C after "Boot complete". `wand_breakin.py` reached the REPL through the 2 s
+countdown in 6.9 s.
 
 ## Related
 

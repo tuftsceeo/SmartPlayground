@@ -9,7 +9,7 @@ code:
   - Bag3/Code/Wand Module/lib/splat_host.py
   - Bag3/Code/HARDWARE_PROTOCOL.md
 open:
-  - Confirm that GRACE_S = 30 lets mpremote (not only Thonny) break in after a reset.
+  - Likely the stdin lockout in 2026-11-17-wand-ctrlc-stdin-full.md (fixed there; GRACE_S is now 2). Not re-tested with mpremote on a Splat host.
   - Decide whether GRACE_S stays non-zero on bench wands only.
 keywords: [mpremote, raw repl, could not enter raw repl, timeout, COM7, GRACE_S, Thonny, port in use, deploy]
 ---
