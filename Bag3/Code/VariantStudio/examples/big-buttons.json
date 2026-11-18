@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "name": "Big buttons",
+  "mode": "simple",
+  "hide": ["code-versions", "code-download", "gallery-chips", "splash-card-icons"],
+  "tokens": {
+    "--purple": "#2563eb",
+    "--pink": "#f97316",
+    "--pink-dark": "#ea580c",
+    "--tab-active-fg": "#ea580c",
+    "--bg": "#fff8ef"
+  },
+  "fonts": { "body": "Fredoka" },
+  "labels": {
+    "send-box": "Try it on the wand →",
+    "splash-tagline": "Make a game, then play it",
+    "splash-scratch-title": "Make a new game",
+    "chat-input": "Tell me your game idea…"
+  },
+  "styles": [
+    { "region": "send-box", "props": { "font-size": "18px", "padding": "14px 22px", "border-radius": "18px" } },
+    { "region": "chat-box", "props": { "font-size": "18px" } }
+  ]
+}

@@ -112,6 +112,9 @@ class BdialServer:
         self.link = JsonLink(self.dispatch, debug=debug)
         self.code = CodeLink()
         self.nfc = None
+        self.tag = None         # NT3H2111 Tag 2 Click on Port A, or None
+        self.nfc_kind = None    # nfc_detect: pn532 / ws1850s / click / internal
+        self.emu = None         # TagEmulator, built in run() when tag is set
         self.running = True
         self.linked = True
 
@@ -181,7 +184,9 @@ class BdialServer:
             print("# mem[%s] log failed: %s" % (label, str(e)))
 
     def _init_nfc(self):
-        self.nfc = make_reader()
+        self.nfc, self.tag, self.nfc_kind = make_reader()
+        if self.emu is not None and self.tag is not None:
+            self.emu.tag = self.tag
 
     # ─────────────────────────────────────────────
     # MODES
@@ -244,6 +249,7 @@ class BdialServer:
             # Report what _init_nfc() actually did. Never hardcode True —
             # a failed init must surface as nfc:false so the app can say so.
             "w": SCREEN_W, "h": SCREEN_H, "nfc": self._nfc_ok,
+            "nfc_kind": self.nfc_kind,
             # Fixed for the life of the boot (see code_link.HOST_ID).
             "host_id": HOST_ID,
             # file.* and games.rescan: send a game with no reset (S5 step 4).
@@ -875,6 +881,9 @@ class BdialServer:
         self._log_mem("after _init_nfc")
 
         self.st = Station(self.ui, self._input, self, card_writer)
+        if self.tag is not None:
+            from tag_emulator import TagEmulator
+            self.emu = TagEmulator(self.tag, _card_text)
         self._load_stats()
         self._boot_scan_games()
         # Unsolicited identity, once, purely informational: an app that
@@ -896,6 +905,8 @@ class BdialServer:
                     self._apply_rescan()
                 self.ui.tick()
                 self._serve()
+                if self.emu is not None:
+                    self.emu.poll(self.st)
                 now = time.ticks_ms()
                 if time.ticks_diff(now, last_hb) > HEARTBEAT_MS:
                     self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})

@@ -27,6 +27,7 @@ Write all device files to **`/flash`**, not `/`.
 | Board | M5 Dial 2 (StampS3A) | UIFlow2 MicroPython; assume Dial family bring-up via `M5.begin()` + `m5ui.init()` (H1) |
 | Display | LVGL / `m5ui`, 240×240 round | Home, list and status pages built at boot; the keyboard page on first use. Pages are re-textured and swapped with `screen_load()` |
 | NFC | WS1850S @ I2C `0x28`, external Grove unit preferred | `dial_board.py`'s `make_reader()` auto-detects: it tries an external Grove RFID2 unit on Port A first (`sda=13 scl=15`, confirmed live 2026-09-22 via `probe_dial.py` stage 4 and a real card test) and falls back to the built-in reader (`sda=11 scl=12`, shares the bus with touch @ `0x38` and RTC @ `0x51`) when nothing acks on Port A. Both are hardware `machine.I2C` (confirmed H2/H3). The built-in reader's read/write was markedly less reliable than the Box's external Grove RFID2 unit despite identical code (`card_writer.py`/`ws1850s.py` are PEER copies, same poll timeouts) -- antenna detuning from sharing the enclosure with the LCD, touch controller, RTC, encoder and speaker, not software, confirmed by wiring the external unit and re-testing |
+| NFC (Port A options) | PN532 `0x24`, WS1850S `0x28`, or MIKROE NFC Tag 2 Click (NT3H2111) `0x55` | `nfc_detect.py` scans Port A once at boot and prints `# nfc: <kind>`; identity reports `nfc_kind` (`pn532` / `ws1850s` / `click` / `internal`). PN532 goes through `pn532_writer.py` (NfcWriter's method names over `pn532.py`). With the Click, Read uses the built-in reader, and a tag "write" instead loads that card into the Click (`tag_emulator.py`): the screen shows Tap Wand, a wand reads it off the Dial, a press closes (write-all: next tag), and the Click keeps the card until the knob moves off that menu position. On the game and tag lists the Click otherwise follows the highlighted game's getcode card. No RF field, so the radio stays up. PN532 and Click paths not yet run on a Dial. |
 | Encoder | `hardware.Rotary` | CW/CCW → `NEXT`/`PREV`. Lists over 10 items and the keyboard move once the knob has been still 300 ms; shorter lists move per detent |
 | Button | `M5.BtnA` (encoder press) | Short click → `ACT`; hold 1 s → `EXIT` (back); a grey rim ring fills while held |
 | Touch | LVGL callbacks | Enqueue intents only; server drains from its own loop |
@@ -164,7 +165,7 @@ text; Classic writes never touch sector trailers; NTAG writes start at page
 | `tools/test_dial_station.py` | Host tests (no hardware): menus, radio on/off per screen, writes, read/copy, text |
 
 Copied peers differ from the Box originals only by a leading `# PEER: …`
-header. `opcodes.py` / `pn532.py` / `nfc_reader.py` are not carried over.
+header. `opcodes.py` / `nfc_reader.py` are not carried over; `pn532.py` is a copy from `Stations/SplatCompanion/Companion/lib/` for the PN532 option.
 
 ## Serial protocol
 

@@ -75,6 +75,8 @@ holds copies of `station.py`, `station_ui.py`, `station_fonts.py`, `text_entry.p
 and `kb_letters.bin`. Its `station.py` drops the catalog and serial commands and takes games, card
 text and radio control from `bdial_server.py` (the host); its `station_ui.py` builds the keyboard
 on first use and uses the Dial's beeps. `dial_input.py` is identical in both trees.
+`BDialFirmware/` also holds `pn532.py` (from `Stations/SplatCompanion/Companion/lib/`) and
+`nt3h2111.py` (from `Experiments/EmulatedTagDial/`; its `tag_emulator.py` has diverged).
 
 Game tags are consumed in four places, with nothing enforcing consistency: each Bag's
 `lib/game_tags.py`, `Live_Page/WebApp2/hubCode2/game_tags.py`,

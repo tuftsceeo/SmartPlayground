@@ -1,0 +1,311 @@
+{
+ "Simulator/assets/wand/WAND_FRONT.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WAND_FRONT.svg",
+ "Simulator/assets/wand/WandGestures/clockwise_frontface.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/clockwise_frontface.svg",
+ "Simulator/assets/wand/WandGestures/clockwise_leftup.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/clockwise_leftup.svg",
+ "Simulator/assets/wand/WandGestures/clockwise_to_upsidedown.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/clockwise_to_upsidedown.svg",
+ "Simulator/assets/wand/WandGestures/countercw_frontface.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/countercw_frontface.svg",
+ "Simulator/assets/wand/WandGestures/countercw_leftup.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/countercw_leftup.svg",
+ "Simulator/assets/wand/WandGestures/leftup_to_upright.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/leftup_to_upright.svg",
+ "Simulator/assets/wand/WandGestures/mute.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/mute.svg",
+ "Simulator/assets/wand/WandGestures/no_sound.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/no_sound.svg",
+ "Simulator/assets/wand/WandGestures/no_vibrate.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/no_vibrate.svg",
+ "Simulator/assets/wand/WandGestures/readNFC.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/readNFC.svg",
+ "Simulator/assets/wand/WandGestures/rightup_to_upright.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/rightup_to_upright.svg",
+ "Simulator/assets/wand/WandGestures/shake_left_right.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/shake_left_right.svg",
+ "Simulator/assets/wand/WandGestures/shake_up_down.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/shake_up_down.svg",
+ "Simulator/assets/wand/WandGestures/sound.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/sound.svg",
+ "Simulator/assets/wand/WandGestures/twist_yaw_x.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/twist_yaw_x.svg",
+ "Simulator/assets/wand/WandGestures/upright_iso.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/upright_iso.svg",
+ "Simulator/assets/wand/WandGestures/upright_to_facedownbackup.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/upright_to_facedownbackup.svg",
+ "Simulator/assets/wand/WandGestures/upright_to_faceup.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/upright_to_faceup.svg",
+ "Simulator/assets/wand/WandGestures/upright_to_leftup.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/upright_to_leftup.svg",
+ "Simulator/assets/wand/WandGestures/upright_to_rightup.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/upright_to_rightup.svg",
+ "Simulator/assets/wand/WandGestures/vibrate.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/vibrate.svg",
+ "Simulator/assets/wand/WandGestures/vibration_off.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/vibration_off.svg",
+ "Simulator/assets/wand/WandGestures/wiggle_pitch_y.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/wiggle_pitch_y.svg",
+ "Simulator/assets/wand/WandGestures/wiggle_roll_z.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/wiggle_roll_z.svg",
+ "Simulator/assets/wand/WandGestures/wiggle_yaw_x.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/wiggle_yaw_x.svg",
+ "Simulator/js/audio.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/audio.js",
+ "Simulator/js/bus.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/bus.js",
+ "Simulator/js/clock.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/clock.js",
+ "Simulator/js/controls.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/controls.js",
+ "Simulator/js/headless.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/headless.js",
+ "Simulator/js/icons.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/icons.js",
+ "Simulator/js/lobby_game.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/lobby_game.js",
+ "Simulator/js/motion.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/motion.js",
+ "Simulator/js/panels/display.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/panels/display.js",
+ "Simulator/js/panels/minimize.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/panels/minimize.js",
+ "Simulator/js/panels/splatController.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/panels/splatController.js",
+ "Simulator/js/panels/splats.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/panels/splats.js",
+ "Simulator/js/panels/wands.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/panels/wands.js",
+ "Simulator/js/peers.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/peers.js",
+ "Simulator/js/pyboot.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/pyboot.js",
+ "Simulator/js/radio.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/radio.js",
+ "Simulator/js/renderer.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/renderer.js",
+ "Simulator/js/splats.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/splats.js",
+ "Simulator/py/devices/lis2dw12.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/devices/lis2dw12.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/devices/max17048.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/devices/max17048.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/devices/nfc_reader.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/devices/nfc_reader.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/devices/opt3002.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/devices/opt3002.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/devices/pn532.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/devices/pn532.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/icon_host.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/icon_host.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/runtime.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/runtime.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/shims/_thread.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/shims/_thread.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/shims/espnow.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/shims/espnow.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/shims/machine.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/shims/machine.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/shims/micropython.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/shims/micropython.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/shims/neopixel.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/shims/neopixel.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/shims/network.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/shims/network.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/shims/sim_state.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/shims/sim_state.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/shims/splat_hub.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/shims/splat_hub.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/shims/time_patch.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/shims/time_patch.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/shims/ubluetooth.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/shims/ubluetooth.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/py/transform.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/py/transform.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/sim-room.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/sim-room.js",
+ "Simulator/vendor/MANIFEST.json": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/MANIFEST.json",
+ "Simulator/vendor/display/games/goalrace.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/display/games/goalrace.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/display/games/goalrace_icons/ready_green_check.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/display/games/goalrace_icons/ready_green_check.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/display/games/goalrace_icons/tree.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/display/games/goalrace_icons/tree.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/display/games/goalrace_icons/whale.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/display/games/goalrace_icons/whale.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/display/lib/chart16.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/display/lib/chart16.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/display/lib/display_tags.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/display/lib/display_tags.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/display/lib/draw16.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/display/lib/draw16.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/display/lib/espnow_manager.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/display/lib/espnow_manager.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/display/lib/icon_store.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/display/lib/icon_store.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/display/lib/shapes.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/display/lib/shapes.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/color_quest.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/color_quest.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/colorpads.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/colorpads.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/cooking.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/cooking.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/finddevice.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/finddevice.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/freeze_dance.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/freeze_dance.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/gestures.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/gestures.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/goalrace.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/goalrace.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/host_lobbytest.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/host_lobbytest.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/host_relaycolor.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/host_relaycolor.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/host_splattag.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/host_splattag.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/jump.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/jump.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/jumpin.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/jumpin.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/melody.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/melody.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/multiicecream.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/multiicecream.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/nfc_sound.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/nfc_sound.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/rainbow.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/rainbow.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/shake.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/shake.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/shake_rainbow.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/shake_rainbow.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/simpleicecream.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/simpleicecream.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/sound.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/sound.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/games/target.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/target.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/actions.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/actions.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/battery.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/battery.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/brightness.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/brightness.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/buzzer.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/buzzer.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/espnow_manager.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/espnow_manager.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/game_tags.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/game_tags.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/hubtype.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/hubtype.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/leds.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/leds.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/lobby_game.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/lobby_game.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/pairing.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/pairing.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/pwire.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/pwire.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/signals.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/signals.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/splat_api.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/splat_api.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/splat_host.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/splat_host.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/lib/splatpair.py": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/lib/splatpair.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/wand-sim.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/wand-sim.js",
+ "pyodide/pyodide.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/pyodide/pyodide.js",
+ "pyodide/pyodide.asm.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/pyodide/pyodide.asm.js",
+ "pyodide/pyodide.asm.wasm": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/pyodide/pyodide.asm.wasm",
+ "pyodide/pyodide-lock.json": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/pyodide/pyodide-lock.json",
+ "pyodide/python_stdlib.txt": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/pyodide/python_stdlib.txt",
+ "coderkit.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/artifact/coderkit.js"
+}

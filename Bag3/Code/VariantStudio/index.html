@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variant Studio</title>
+<link rel="stylesheet" href="studio.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand">Variant Studio <span class="sub">for Playground Coder</span></div>
+  <input id="variant-name" class="name-input" maxlength="60" aria-label="Variant name">
+  <select id="variant-pick" aria-label="Saved variants"></select>
+  <div class="bar-actions">
+    <button id="btn-new" class="btn" type="button">New</button>
+    <button id="btn-import" class="btn" type="button">Import</button>
+    <button id="btn-export" class="btn" type="button">Export</button>
+    <button id="btn-copy-link" class="btn primary" type="button">Copy link</button>
+    <a id="btn-open-full" class="btn" target="_blank" rel="noopener">Open full screen</a>
+  </div>
+  <input type="file" id="import-input" accept=".json,application/json" class="hidden">
+</header>
+
+<main class="layout">
+  <section class="side">
+    <div class="panel changes">
+      <div class="panel-head">
+        <h2>Changes</h2>
+        <div class="panel-actions">
+          <button id="btn-undo" class="icon-btn" type="button" title="Undo">↶</button>
+          <button id="btn-redo" class="icon-btn" type="button" title="Redo">↷</button>
+          <button id="btn-reset" class="icon-btn" type="button" title="Remove all changes">⟲</button>
+        </div>
+      </div>
+      <ul id="change-list"></ul>
+    </div>
+
+    <div class="panel chat">
+      <h2>Describe a change</h2>
+      <div id="chat-log" aria-live="polite"></div>
+      <div class="ideas" id="ideas"></div>
+      <textarea id="request" rows="3" placeholder="e.g. space theme, hide the search box, call the send button “Launch!”"></textarea>
+      <button id="btn-describe" class="btn primary wide" type="button">Make it so</button>
+    </div>
+  </section>
+
+  <section class="preview">
+    <div class="preview-bar">
+      <span class="muted">Preview</span>
+      <button class="chip" data-go="splash" type="button">Start screen</button>
+      <button class="chip" data-go="gallery" type="button">Examples</button>
+      <button class="chip" data-go="workspace" type="button">Workspace</button>
+      <span class="spacer"></span>
+      <span class="muted small">Works with real devices too.</span>
+    </div>
+    <iframe id="preview" title="Playground Coder preview" allow="serial"></iframe>
+  </section>
+</main>
+
+<div id="unlock" class="overlay">
+  <div class="card">
+    <h2>Variant Studio</h2>
+    <p>Enter the magic code. It also unlocks the preview.</p>
+    <input type="password" id="passphrase" placeholder="Magic code…">
+    <div id="unlock-error" class="error"></div>
+    <button id="btn-unlock" class="btn primary wide" type="button">Unlock</button>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script type="module" src="js/studio.js"></script>
+</body>
+</html>

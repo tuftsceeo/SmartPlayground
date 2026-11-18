@@ -15,6 +15,10 @@ Modes (intents from dial_input; EXIT = 1 s hold):
   TEXT   ring keyboard (text_entry)        done -> SCAN, cancel -> HOME
   SCAN   field on, writes the target       EXIT -> where it came from
 
+With a Tag 2 Click on Port A (host.emu set) SCAN writes no card: the Click
+becomes the card (tag_emulator.hold) and shows Tap Wand; a press closes
+(write-all: next tag), a hold leaves. No field, so the radio stays up.
+
 SCAN writes whatever card is presented. A card that already carries the
 target is reported, not rewritten. After a write the result is held on
 screen briefly; success returns to the mode SCAN came from, failure
@@ -30,6 +34,7 @@ re-arms the same scan.
   host.radio_off()          called before the field comes on
   host.on_card(tag, text)   a card was read
   host.on_written(tag, uid) a card was written (or already carried it)
+  host.emu                  tag_emulator.TagEmulator (Tag 2 Click), or None
 
 serving() is True on the screens where the radio may serve.
 """
@@ -101,6 +106,7 @@ class Station:
         self._wait_then = None
         self._wait_back = None
         self._cancel_at = None
+        self._click_ready = False
 
     def serving(self):
         """True on a menu screen with no result being held."""
@@ -251,11 +257,19 @@ class Station:
         self.scan_tag = tag
         self.scan_label = label
         self.scan_return = ret
+        if self.host.emu is not None:
+            self._set_field(False)
+            self._click_ready = False
+            self.host.emu.hold(self.host.card_text(tag))
+            self.ui.show_emulate(label, False, self._progress())
+            return
         self._set_field(True)
-        if ret == ALLNEXT:
-            self.ui.show_scan(label, "%d/%d" % (self.all_i + 1, len(self.all_tags)))
-        else:
-            self.ui.show_scan(label)
+        self.ui.show_scan(label, self._progress())
+
+    def _progress(self):
+        if self.scan_return == ALLNEXT:
+            return "%d/%d" % (self.all_i + 1, len(self.all_tags))
+        return ""
 
     def _after_write(self):
         """Where a scan goes after the card is written (or already set)."""
@@ -264,7 +278,11 @@ class Station:
             return
         self.all_i += 1
         if self.all_i < len(self.all_tags):
-            self.go_allnext()
+            if self.host.emu is not None:
+                label, tag = self.all_tags[self.all_i]
+                self.go_scan(tag, label, ALLNEXT)   # no card to remove
+            else:
+                self.go_allnext()
             return
         self.ui.show_result("ok", "All Done", self.groups[self.game_sel][0])
         self.ui.beep_success()
@@ -430,7 +448,29 @@ class Station:
             self.read_text = None
             self.ui.show_reader(None, read=False)
 
+    def _scan_click(self, intent):
+        emu = self.host.emu
+        if intent in (ACT, EXIT):
+            emu.release()       # the Click keeps the card
+            if intent == ACT:
+                self.ui.beep_click()
+            if intent == ACT and self._click_ready:
+                self._after_write()
+            else:
+                self._go(self.scan_return)
+            return
+        if not self._click_ready and emu.ready():
+            self._click_ready = True
+            _log("emulating %r" % emu.held)
+            self._mark_written(emu.held)
+            self.host.on_written(self.scan_tag, "click", True)
+            self.ui.show_emulate(self.scan_label, True, self._progress())
+            self.ui.beep_success()
+
     def _scan(self, intent):
+        if self.host.emu is not None:
+            self._scan_click(intent)
+            return
         if intent == EXIT:
             self._go(self.scan_return)
             return
