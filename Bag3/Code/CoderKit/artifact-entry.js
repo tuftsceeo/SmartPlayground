@@ -2,7 +2,8 @@
  * The kit for a claude.ai artifact: chat runs on the viewer's own Claude
  * account through the `sample` capability, primed with Chat Broadcast's
  * knowledge (bundled in). Web Serial is blocked in artifacts, so connect
- * and send use a simulated controller; real devices go through run.html.
+ * and send use the Playground Serial desktop extension when it answers
+ * (mcpSerial.js), and a simulated controller otherwise.
  * Sets window.kit before any page script runs.
  */
 import { createKit } from './coderkit.js';
@@ -10,6 +11,7 @@ import { sampleBrain } from './brains.js';
 import KNOWLEDGE from './build/knowledge.json';
 import EXAMPLE_GAMES from './build/examples.json';
 import { makeSimRoomSimulator } from './sim-core.js';
+import { autoDevice, probeMcpSerial } from './mcpSerial.js';
 
 let samplePromise = null;
 const getSample = () => (samplePromise ||= (window.claude?.use ? window.claude.use('sample') : Promise.resolve(null)));
@@ -116,6 +118,10 @@ if (hasSimulator()) {
     simulator = makeSimRoomSimulator(() => import(/* webpackIgnore: true */ simUrl));
 }
 
-const kit = createKit({ brain, device: simulatedDevice(), files: KNOWLEDGE, exampleCode, simulator });
-kit.simulatedDevice = true;
+const device = autoDevice({
+    fallback: simulatedDevice(),
+    probe: () => probeMcpSerial(() => (window.claude?.use ? window.claude.use('mcp') : Promise.resolve(null))),
+});
+const kit = createKit({ brain, device, files: KNOWLEDGE, exampleCode, simulator });
+Object.defineProperty(kit, 'simulatedDevice', { get: () => device.simulated, enumerable: true });
 window.kit = kit;

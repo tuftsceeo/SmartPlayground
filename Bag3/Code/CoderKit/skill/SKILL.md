@@ -39,10 +39,10 @@ Add any of these with their `data-kit` value. `warnFrontEnd(html)` warns about v
 | `interview` | plan a game with questions | `startInterview()`, then `chat(answer)`; `finishInterview()`, `cancelInterview()`; `state.interview` `{asked, max}`; `state.brief` and `makeFromBrief()` | real |
 | `code-view` | code per device, with versions | `roles` `[{key, label}]`, `state.code[role]`, `state.versions[role]` `{list:[{label,t}], index}`, `setCode(role, code)`, `prevVersion(role)`, `nextVersion(role)` | real |
 | `simulator` | the playground simulator | `mountSimulator(el)` once; it follows the code. `fixSimError()` asks Claude to fix the last simulator error | real when the page has `<meta name="coderkit-simulator">` before the kit script and is published with the simulator files (see below); otherwise a placeholder |
-| `device-panel` | games on the controller | `state.device` `{mode, active, games:[{slug, name}]}`, `refreshGames()`, `selectGame(slug)`, `deleteGame(slug)`, `state.tagWrites` | simulated |
-| `distribute` | send a game to many devices | `distribute.open()`, `.scan()`, `.toggle(mac, on)`, `.send(slot?)`, `.find(mac)`, `.close()`; `state.distribute` `{pretty, status, rows, running, done, total, needsSlot, slots}` | simulated |
+| `device-panel` | games on the controller | `state.device` `{mode, active, games:[{slug, name}]}`, `refreshGames()`, `selectGame(slug)`, `deleteGame(slug)`, `state.tagWrites` | real with the Playground Serial extension, else simulated |
+| `distribute` | send a game to many devices | `distribute.open()`, `.scan()`, `.toggle(mac, on)`, `.send(slot?)`, `.find(mac)`, `.close()`; `state.distribute` `{pretty, status, rows, running, done, total, needsSlot, slots}` | real with the Playground Serial extension, else simulated |
 
-`state.can` `{simulator, realDevice}` says what is real here, so a design can hide or label the rest. `kit.chat` also asks again for the next device when a game needs both (wand and icon display); you don't have to.
+`state.can` `{simulator, realDevice}` says what is real here (`realDevice` can turn true a moment after load, when the extension answers), so a design can hide or label the rest. `kit.chat` also asks again for the next device when a game needs both (wand and icon display); you don't have to.
 
 ## The kit (`window.kit`)
 
@@ -74,8 +74,8 @@ Assistant `text` has the code blocks in it as markdown fences; render it as text
 ## Making it an artifact
 
 1. Write the IDE as one HTML page (Tailwind from `https://cdn.tailwindcss.com/3.4.17`, plain JS, no other script hosts).
-2. Publish it as an artifact with `capabilities: {sample: {}}` and publish `kit/coderkit.js` beside it via `files: {"coderkit.js": "<path to kit/coderkit.js>"}`.
-3. Chat runs on the **viewer's own Claude account**. Connect and send use a **simulated Dial** in artifacts (Web Serial is blocked there); the page should still show both buttons.
+2. Publish it as an artifact with `capabilities: {sample: {}, mcp: {servers: [{server: "host:Playground_Serial", tools: ["status", "list_ports", "open", "write", "read", "close"]}]}}` and publish `kit/coderkit.js` beside it via `files: {"coderkit.js": "<path to kit/coderkit.js>"}`.
+3. Chat runs on the **viewer's own Claude account**. Connect and send use a **real Dial or Box** when the page is opened in the Claude desktop app and the **Playground Serial** extension is installed (only the artifact's owner can use it for now); otherwise they use a **simulated Dial** (practice mode). Either way the page should show both buttons, and can show `state.can.realDevice` as "Real controller" or "Practice mode".
 4. With a simulator: add `<meta name="coderkit-simulator">` before `coderkit.js` and publish every file listed in `kit/full-files.json` too (paths as keys). Pyodide and the simulator then load from the artifact itself; CDNs are blocked there.
 5. To try it on a real Dial or Box: export the HTML and open it in the team runner, `CoderKit/run.html` (Live Pages), with **Open file** or **Paste design**.
 

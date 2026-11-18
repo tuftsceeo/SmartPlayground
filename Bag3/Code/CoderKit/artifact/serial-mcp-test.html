@@ -1,0 +1,135 @@
+<title>Playground Serial Test</title>
+<style>
+  :root { --bg:#f7f7fb; --ink:#231f2e; --muted:#5b5468; --card:#fff; --border:#e8e6f0; --ok:#1c9a82; --bad:#c0392b; --btn:#d13a7c; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#1a1720; --ink:#f2eefc; --muted:#c2b8d6; --card:#25212d; --border:#3a3345; --ok:#5fd9bf; --bad:#ff8a7d; } }
+  :root[data-theme="dark"] { --bg:#1a1720; --ink:#f2eefc; --muted:#c2b8d6; --card:#25212d; --border:#3a3345; --ok:#5fd9bf; --bad:#ff8a7d; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, sans-serif; }
+  main { max-width:640px; margin:0 auto; padding:24px 16px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  p { color:var(--muted); margin:0 0 16px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  button { background:var(--btn); color:#fff; border:0; border-radius:12px; padding:10px 16px; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.4; cursor:default; }
+  input, select { flex:1; min-width:0; padding:10px; border-radius:12px; border:1.5px solid var(--border); background:var(--card); color:var(--ink); font:inherit; }
+  pre { background:var(--card); border:1.5px solid var(--border); border-radius:12px; padding:12px; min-height:220px; max-height:50vh; overflow:auto; white-space:pre-wrap; word-break:break-word; font:12px/1.5 ui-monospace, monospace; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  #mode { font-weight:700; }
+</style>
+<main>
+  <h1>Playground Serial Test</h1>
+  <p>Talks to a USB controller through the Playground Serial extension. Open this in the Claude desktop app with the extension installed.</p>
+  <p id="mode">Checking…</p>
+  <div class="row">
+    <button id="refresh" disabled>Find controllers</button>
+    <select id="ports" disabled><option>No ports yet</option></select>
+  </div>
+  <div class="row">
+    <button id="connect" disabled>Connect</button>
+    <button id="disconnect" disabled>Disconnect</button>
+    <button id="identify" disabled>Send "identify"</button>
+  </div>
+  <div class="row">
+    <input id="line" placeholder="Text to send (a new line is added)" disabled>
+    <button id="send" disabled>Send</button>
+  </div>
+  <pre id="log"></pre>
+</main>
+<script>
+  const SERVER = 'host:Playground_Serial';
+  const $ = id => document.getElementById(id);
+  const t0 = performance.now();
+  const log = (msg, cls) => { const s = document.createElement('span'); if (cls) s.className = cls; s.textContent = `[${((performance.now()-t0)/1000).toFixed(1)}s] ${msg}\n`; $('log').appendChild(s); $('log').scrollTop = 1e9; };
+  let mcp = null, polling = false, pollTimer = null;
+
+  function explain(e) {
+    const c = e?.code;
+    if (c === 'server_not_connected') return 'The Playground Serial extension is not reachable. Use the Claude desktop app, install the extension, and make sure it is turned on.';
+    if (c === 'cancelled') return 'You chose not to allow that action.';
+    if (c === 'approval_required') return 'This action needs your approval. Click the button again and choose Allow.';
+    if (c === 'not_in_manifest') return 'This page is not allowed to use Playground Serial (it was turned off for this page).';
+    if (c === 'tool_error') return e.message || 'The extension reported an error.';
+    if (c === 'server_unavailable') return 'The extension did not answer in time. Try again.';
+    return (c ? c + ': ' : '') + (e?.message || String(e));
+  }
+  async function call(tool, input) {
+    const t = performance.now();
+    const r = await mcp.callTool(SERVER, tool, input, { cache: false });
+    return { payload: r.payload, ms: Math.round(performance.now() - t) };
+  }
+  const setBusy = (open) => {
+    $('connect').disabled = open || !$('ports').value; $('disconnect').disabled = !open;
+    $('identify').disabled = !open; $('line').disabled = !open; $('send').disabled = !open;
+  };
+
+  async function refresh() {
+    try {
+      const { payload, ms } = await call('list_ports');
+      const sel = $('ports'); sel.innerHTML = '';
+      for (const p of payload.ports) { const o = document.createElement('option'); o.value = p.path; o.textContent = p.path + (p.manufacturer ? ' — ' + p.manufacturer : ''); sel.appendChild(o); }
+      if (!payload.ports.length) sel.innerHTML = '<option value="">No controllers found. Plug one in and try again.</option>';
+      const m5 = payload.ports.find(p => /M5Stack|Espressif/i.test(p.manufacturer || '') || p.vendorId === '303a');
+      if (m5) sel.value = m5.path;
+      sel.disabled = false; setBusy(false);
+      log(`Found ${payload.ports.length} port(s) in ${ms} ms.`, 'ok');
+    } catch (e) { log(explain(e), 'bad'); }
+  }
+  async function connect() {
+    try {
+      const { payload, ms } = await call('open', { path: $('ports').value, baud: 115200 });
+      log(`Opened ${payload.path} at ${payload.baud} baud in ${ms} ms.`, 'ok');
+      setBusy(true); startPolling();
+    } catch (e) { log(explain(e), 'bad'); }
+  }
+  async function disconnect() {
+    stopPolling();
+    try { await call('close'); log('Closed.'); } catch (e) { log(explain(e), 'bad'); }
+    setBusy(false);
+  }
+  async function send(text) {
+    try { const { ms } = await call('write', { text, newline: true }); log(`→ ${text}  (${ms} ms)`); }
+    catch (e) { log(explain(e), 'bad'); }
+  }
+  // Long-poll: each read waits up to 2 s on the computer for data, so we make
+  // about one call every 2 s. Never overlap calls; back off if rate limited.
+  let lastPartial = '';
+  function startPolling() { polling = true; tick(); }
+  function stopPolling() { polling = false; clearTimeout(pollTimer); }
+  async function tick() {
+    if (!polling) return;
+    let delay = 200;
+    try {
+      const { payload } = await call('read', { wait_ms: 2000 });
+      for (const l of payload.lines) log('← ' + l);
+      if (payload.partial && payload.partial !== lastPartial) log('← (no line end yet) ' + payload.partial);
+      lastPartial = payload.partial || '';
+      if (payload.dropped) log(`(${payload.dropped} older lines skipped)`);
+      if (!payload.open) { log('The port closed. ' + (payload.lastError || ''), 'bad'); stopPolling(); setBusy(false); return; }
+    } catch (e) {
+      if (e?.code === 'rate_limited' || e?.code === 'server_unavailable') { delay = e.retryAfterMs || 3000; log(`Slowing down (${e.code}); trying again in ${Math.round(delay/1000)} s.`); }
+      else { log(explain(e), 'bad'); stopPolling(); setBusy(false); return; }
+    }
+    pollTimer = setTimeout(tick, delay);
+  }
+
+  $('refresh').onclick = refresh;
+  $('connect').onclick = connect;
+  $('disconnect').onclick = disconnect;
+  $('identify').onclick = () => send('{"cmd":"identify","id":9001}');
+  $('send').onclick = () => { const t = $('line').value; $('line').value = ''; if (t) send(t); };
+  $('line').onkeydown = e => { if (e.key === 'Enter') $('send').click(); };
+
+  (async () => {
+    mcp = await claude.use('mcp').catch(() => null);
+    if (!mcp) { $('mode').textContent = 'Practice mode: this view cannot reach local tools.'; $('mode').className = 'bad'; return; }
+    try {
+      const { payload, ms } = await call('status');
+      $('mode').textContent = 'Playground Serial extension found.'; $('mode').className = 'ok';
+      log(`status answered in ${ms} ms: ${JSON.stringify(payload)}`, 'ok');
+      $('refresh').disabled = false;
+      if (payload.open) { log('A port is already open; reading from it.'); setBusy(true); startPolling(); }
+    } catch (e) {
+      $('mode').textContent = 'Practice mode: ' + explain(e); $('mode').className = 'bad';
+      log(explain(e), 'bad');
+    }
+  })();
+</script>

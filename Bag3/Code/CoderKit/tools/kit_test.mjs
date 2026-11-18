@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { createKit, parseReply, buildSend, systemBlocks } from '../coderkit.js';
 import { checkFrontEnd, warnFrontEnd } from '../check.js';
+import { McpSerialAdapter, autoDevice, pickPort, createMcpDeviceLink, MCP_SERVER } from '../mcpSerial.js';
 import { knowledgePaths } from '../../ChatBroadcast/js/prompt/buildRequest.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -253,6 +254,90 @@ await test('simulator: placeholder without one; follows code with one', async ()
     await kit.chat('blue');
     assert.ok(seen.at(-1).wand);
     assert.equal(kit.state.can.simulator, true);
+});
+
+// ---------- Playground Serial (mcp) transport, with a pretend extension ----------
+/** Behaves like serial-extension/server/index.js with a Dial on the port. */
+function fakeMcp({ version = '0.1.2', ports } = {}) {
+    let open = false, lines = [];
+    const calls = [], written = [];
+    const reply = (o) => lines.push(JSON.stringify(o));
+    const tools = {
+        status: () => ({ open, version }),
+        list_ports: () => ({ ports: ports || [{ path: '/dev/cu.debug' }, { path: '/dev/cu.usbmodem1101', manufacturer: 'M5Stack', vendorId: '303a' }] }),
+        open: ({ path }) => { open = true; setTimeout(() => reply({ type: 'heartbeat', up: 1 }), 5); return { open, path }; },
+        write: ({ text }) => {
+            written.push(text);
+            for (const l of text.split(/\r?\n/).filter(Boolean)) {
+                const c = JSON.parse(l);
+                if (c.cmd === 'identify') reply({ type: 'identity', device: 'broadcast_dial', id: c.id });
+                else if (c.cmd === 'games.list') reply({ type: 'games', list: [{ slug: 'blue_glow', name: 'Blue Glow' }], active: 'blue_glow', id: c.id });
+                else reply({ type: 'ok', id: c.id });
+            }
+            return { written: text.length };
+        },
+        read: () => { const out = lines; lines = []; return { lines: out, open }; },
+        close: () => { open = false; return { open }; },
+    };
+    return {
+        calls, written, unplug: () => { open = false; },
+        async callTool(server, tool, input) {
+            assert.equal(server, MCP_SERVER);
+            calls.push(tool);
+            await new Promise(r => setTimeout(r, 1));
+            return { payload: tools[tool](input || {}) };
+        },
+    };
+}
+const until = async (fn, ms = 3000) => { const t = Date.now(); while (!fn()) { if (Date.now() - t > ms) throw new Error('timed out'); await new Promise(r => setTimeout(r, 10)); } };
+
+await test('mcp: pickPort prefers the M5 controller', () => {
+    assert.equal(pickPort([{ path: 'a' }, { path: 'b', vendorId: '303a' }]).path, 'b');
+    assert.equal(pickPort([{ path: '/dev/cu.Bluetooth' }]), null);
+});
+
+await test('mcp: adapter opens the controller and feeds lines to the reader', async () => {
+    const mcp = fakeMcp();
+    const a = new McpSerialAdapter(mcp, { idleMs: 5 });
+    let seen = '';
+    a.onData = (c) => { seen += c; };
+    await a.connect();
+    assert.equal(a.path, '/dev/cu.usbmodem1101');
+    assert.equal(a.longPoll, true);
+    await until(() => seen.includes('heartbeat'));
+    await a.writeChunked('{"cmd":"identify","id":7}\r\n');
+    await until(() => seen.includes('identity'));
+    await a.disconnect();
+    assert.ok(mcp.calls.includes('close'));
+});
+
+await test('mcp: no controller plugged in gives a plain message', async () => {
+    const a = new McpSerialAdapter(fakeMcp({ ports: [] }), { idleMs: 5 });
+    await assert.rejects(a.connect(), /No controller found/);
+});
+
+await test('mcp: kit goes real when the extension answers, and talks to the Dial', async () => {
+    const mcp = fakeMcp();
+    const device = autoDevice({ fallback: { ...fakeDevice(), isConnected: () => false }, probe: async () => mcp, makeReal: (m) => createMcpDeviceLink(m, { idleMs: 5 }) });
+    const kit = createKit({ brain: async () => ({ text: REPLY }), device, files });
+    assert.equal(kit.state.can.realDevice, false);
+    assert.equal(await device.ready, true);
+    assert.equal(kit.state.can.realDevice, true);
+    await kit.connect();
+    await until(() => kit.state.link === 'live');
+    const r = await device.sendCmd({ cmd: 'games.list' });
+    assert.equal(r.list[0].slug, 'blue_glow');
+    mcp.unplug();
+    await until(() => kit.state.link === 'idle');
+});
+
+await test('mcp: without the extension the kit stays in practice mode', async () => {
+    const sim = fakeDevice();
+    const device = autoDevice({ fallback: sim, probe: async () => null });
+    const kit = createKit({ brain: async () => ({ text: REPLY }), device, files });
+    assert.equal(await device.ready, false);
+    assert.equal(kit.state.can.realDevice, false);
+    assert.equal(device.simulated, true);
 });
 
 console.log(`\n${n} tests passed`);

@@ -198,6 +198,8 @@ export function createKit({ brain, device, knowledgeBase, files, exampleCode = l
         }
         if (state.link !== 'sending') set({ link: 'live' }); else emit();
     };
+    // A device that can become real later (artifacts: the Playground Serial extension) says so here.
+    link.on?.('realdevice', (o) => { if (state.can.realDevice !== !!o?.real) set({ can: { ...state.can, realDevice: !!o?.real } }); });
     link.on?.('identity', goLive);
     link.on?.('heartbeat', goLive);
     link.on?.('mode', (o) => {

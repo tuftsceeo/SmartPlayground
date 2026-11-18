@@ -10,7 +10,7 @@ New IDEs for Playground Coder start from a blank page. CoderKit gives them Chat 
 
 | Where | Claude runs on | Device |
 |---|---|---|
-| claude.ai artifact (`skill/kit/coderkit.js` published beside the page, `capabilities: {sample: {}}`) | the viewer's own account | simulated Dial |
+| claude.ai artifact (`skill/kit/coderkit.js` published beside the page, `capabilities: {sample: {}, mcp: {servers: [{server: "host:Playground_Serial", ...}]}}`) | the viewer's own account | real Dial/Box in the Claude desktop app with the Playground Serial extension (`serial-extension/`, owner only for now); else simulated Dial |
 | `run.html` (local or Live Pages): Open file, Paste design, or a `#f=` link | the shared key (magic code), so keep it short | real Dial/Box over Web Serial |
 | Node tests | fakes | fakes |
 
