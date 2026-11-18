@@ -33,6 +33,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-11-17-splat-host-push-dropped.md](2026-11-17-splat-host-push-dropped.md) | Wand in the Splat host role ends a game on a mid-game `code_push` but never pulls | open (seen once on hardware 2026-11-16) | — |
 | [2026-11-17-wand-ctrlc-boot-crash.md](2026-11-17-wand-ctrlc-boot-crash.md) | Wand panics (Load access fault, rst:0xc) when Ctrl-C lands during boot; prewarm hypothesis | open (seen once on hardware 2026-11-17; mechanism unconfirmed) | — |
 | [2026-11-17-wand-ctrlc-stdin-full.md](2026-11-17-wand-ctrlc-stdin-full.md) | Wand ignores Ctrl-C once ~259 unread bytes fill stdin; survives a port-reopen reset | fixed (drain passed on hardware 2026-11-17; Splat host loop untested) | — |
+| [2026-11-18-stress-test-find-and-scan.md](2026-11-18-stress-test-find-and-scan.md) | Stress test: Find Me ends a running game; device list varies (12/2/5) with 8 controllers | open (Find Me confirmed from code; list cause is a hypothesis) | — |
 | [2026-11-11-game-start-signature.md](2026-11-11-game-start-signature.md) | Game start signature (GAME_ICON): app display, wand pull icon, example games | open | — |
 | [2026-11-12-wand-mpremote-copy-fails.md](2026-11-12-wand-mpremote-copy-fails.md) | Wand deploy: mpremote cannot break into the Splat host | open | — |
 | [2026-11-12-splat-host-v129-firmware.md](2026-11-12-splat-host-v129-firmware.md) | Splat host wand holds 2 Splats on MicroPython v1.29.0, 4 on v1.28.0 | open | — |
