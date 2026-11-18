@@ -1,0 +1,255 @@
+{"sent": {"cmd": "identify", "id": 101}, "t": 0.001}
+{"rx": {"nfc": true, "h": 240, "host_id": "5094", "device": "broadcast_dial", "nfc_kind": "pn532", "upload": 1, "id": 101, "version": "0.1.0", "w": 240, "type": "identity"}, "t": 0.051}
+{"sent": {"cmd": "fleet.scan", "id": 102}, "t": 1.534}
+{"rx": {"cmd": "fleet.scan", "id": 102, "type": "ok"}, "t": 1.802}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -36, "type": "status_report"}, "t": 2.569}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -52, "type": "status_report"}, "t": 2.57}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -36, "type": "status_report"}, "t": 2.677}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -52, "type": "status_report"}, "t": 2.677}
+{"rx": {"battery": 78, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -47, "type": "status_report"}, "t": 2.789}
+{"rx": {"battery": 78, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -47, "type": "status_report"}, "t": 2.901}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -39, "type": "status_report"}, "t": 3.068}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -45, "type": "status_report"}, "t": 3.124}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -45, "type": "status_report"}, "t": 3.231}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -39, "type": "status_report"}, "t": 3.285}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -52, "type": "status_report"}, "t": 3.341}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:86:DF:E4", "g": [["splat_glow", "x"], ["splattag", "x"], ["unicorn_detector", "o"]], "kind": "wand", "rssi": -33, "type": "status_report"}, "t": 3.396}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -52, "type": "status_report"}, "t": 3.452}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:86:DF:E4", "g": [["splat_glow", "x"], ["splattag", "x"], ["unicorn_detector", "o"]], "kind": "wand", "rssi": -33, "type": "status_report"}, "t": 3.507}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 3.946}
+{"rx": {"battery": 75, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -53, "type": "status_report"}, "t": 4.001}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -43, "type": "status_report"}, "t": 4.056}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 4.056}
+{"rx": {"mem": 50288, "up": 134253, "type": "heartbeat"}, "t": 4.056}
+{"rx": {"battery": 75, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -53, "type": "status_report"}, "t": 4.112}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -43, "type": "status_report"}, "t": 4.168}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:85:F0:6C", "g": [["tic_tac_toe", "o"], ["treasure_trail", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -38, "type": "status_report"}, "t": 4.881}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -52, "type": "status_report"}, "t": 4.881}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:85:F0:6C", "g": [["tic_tac_toe", "o"], ["treasure_trail", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -38, "type": "status_report"}, "t": 4.933}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -47, "type": "status_report"}, "t": 4.986}
+{"rx": {"battery": 57, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -32, "type": "status_report"}, "t": 5.098}
+{"rx": {"battery": 57, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -32, "type": "status_report"}, "t": 5.098}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -47, "type": "status_report"}, "t": 5.151}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -52, "type": "status_report"}, "t": 5.432}
+{"rx": {"n": 14, "type": "status_done"}, "t": 7.689}
+{"rx": {"mem": 53392, "up": 139257, "type": "heartbeat"}, "t": 9.055}
+{"sent": {"cmd": "fleet.scan", "id": 103}, "t": 13.546}
+{"rx": {"cmd": "fleet.scan", "id": 103, "type": "ok"}, "t": 13.705}
+{"rx": {"mem": 55168, "up": 144263, "type": "heartbeat"}, "t": 14.09}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -56, "type": "status_report"}, "t": 14.254}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -49, "type": "status_report"}, "t": 14.306}
+{"rx": {"battery": 78, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -49, "type": "status_report"}, "t": 14.358}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -56, "type": "status_report"}, "t": 14.468}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -49, "type": "status_report"}, "t": 14.522}
+{"rx": {"battery": 78, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -49, "type": "status_report"}, "t": 14.578}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -51, "type": "status_report"}, "t": 15.011}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 15.011}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:86:DF:E4", "g": [["splat_glow", "x"], ["splattag", "x"], ["unicorn_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 15.065}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -47, "type": "status_report"}, "t": 15.065}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -51, "type": "status_report"}, "t": 15.17}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 15.224}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:86:DF:E4", "g": [["splat_glow", "x"], ["splattag", "x"], ["unicorn_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 15.28}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -47, "type": "status_report"}, "t": 15.28}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -43, "type": "status_report"}, "t": 15.714}
+{"rx": {"battery": 75, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -57, "type": "status_report"}, "t": 15.77}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 15.77}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -43, "type": "status_report"}, "t": 15.936}
+{"rx": {"battery": 75, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -57, "type": "status_report"}, "t": 15.936}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 15.992}
+{"rx": {"battery": 57, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -34, "type": "status_report"}, "t": 16.322}
+{"rx": {"battery": 57, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -34, "type": "status_report"}, "t": 16.374}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -57, "type": "status_report"}, "t": 16.427}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:85:F0:6C", "g": [["tic_tac_toe", "o"], ["treasure_trail", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -47, "type": "status_report"}, "t": 16.483}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -66, "type": "status_report"}, "t": 16.538}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -57, "type": "status_report"}, "t": 16.648}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:85:F0:6C", "g": [["tic_tac_toe", "o"], ["treasure_trail", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -47, "type": "status_report"}, "t": 16.705}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -66, "type": "status_report"}, "t": 16.759}
+{"rx": {"mem": 54368, "up": 149268, "type": "heartbeat"}, "t": 19.058}
+{"rx": {"n": 14, "type": "status_done"}, "t": 19.601}
+{"rx": {"mem": 53456, "up": 154275, "type": "heartbeat"}, "t": 24.108}
+{"sent": {"cmd": "fleet.scan", "id": 104}, "t": 25.591}
+{"rx": {"cmd": "fleet.scan", "id": 104, "type": "ok"}, "t": 25.751}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -57, "type": "status_report"}, "t": 26.294}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -50, "type": "status_report"}, "t": 26.294}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -49, "type": "status_report"}, "t": 26.348}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -57, "type": "status_report"}, "t": 26.516}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -50, "type": "status_report"}, "t": 26.516}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -49, "type": "status_report"}, "t": 26.568}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -51, "type": "status_report"}, "t": 27.011}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -47, "type": "status_report"}, "t": 27.063}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:86:DF:E4", "g": [["splat_glow", "x"], ["splattag", "x"], ["unicorn_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 27.063}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -46, "type": "status_report"}, "t": 27.117}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -51, "type": "status_report"}, "t": 27.226}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -47, "type": "status_report"}, "t": 27.283}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:86:DF:E4", "g": [["splat_glow", "x"], ["splattag", "x"], ["unicorn_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 27.283}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -46, "type": "status_report"}, "t": 27.339}
+{"rx": {"battery": 75, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -64, "type": "status_report"}, "t": 27.783}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -51, "type": "status_report"}, "t": 27.784}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 27.839}
+{"rx": {"battery": 75, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -64, "type": "status_report"}, "t": 28.003}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -51, "type": "status_report"}, "t": 28.004}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 28.06}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -49, "type": "status_report"}, "t": 28.494}
+{"rx": {"battery": 57, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -36, "type": "status_report"}, "t": 28.546}
+{"rx": {"battery": 57, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -36, "type": "status_report"}, "t": 28.601}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:85:F0:6C", "g": [["tic_tac_toe", "o"], ["treasure_trail", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -52, "type": "status_report"}, "t": 28.602}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -67, "type": "status_report"}, "t": 28.657}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -49, "type": "status_report"}, "t": 28.711}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:85:F0:6C", "g": [["tic_tac_toe", "o"], ["treasure_trail", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -52, "type": "status_report"}, "t": 28.817}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -67, "type": "status_report"}, "t": 28.818}
+{"rx": {"mem": 51136, "up": 159288, "type": "heartbeat"}, "t": 29.089}
+{"rx": {"n": 14, "type": "status_done"}, "t": 31.607}
+{"rx": {"mem": 54528, "up": 164292, "type": "heartbeat"}, "t": 34.079}
+{"sent": {"cmd": "fleet.scan", "id": 105}, "t": 37.64}
+{"rx": {"cmd": "fleet.scan", "id": 105, "type": "ok"}, "t": 37.804}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 38.353}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 38.406}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -41, "type": "status_report"}, "t": 38.514}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 38.566}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 38.619}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 39.057}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -53, "type": "status_report"}, "t": 39.057}
+{"rx": {"mem": 51312, "up": 169293, "type": "heartbeat"}, "t": 39.11}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -47, "type": "status_report"}, "t": 39.11}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -53, "type": "status_report"}, "t": 39.273}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -47, "type": "status_report"}, "t": 39.327}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 39.597}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 39.818}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -43, "type": "status_report"}, "t": 39.872}
+{"rx": {"battery": 75, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -52, "type": "status_report"}, "t": 39.928}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 39.98}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 40.032}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -43, "type": "status_report"}, "t": 40.084}
+{"rx": {"battery": 75, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -52, "type": "status_report"}, "t": 40.084}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -52, "type": "status_report"}, "t": 40.639}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -61, "type": "status_report"}, "t": 40.64}
+{"rx": {"battery": 57, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -31, "type": "status_report"}, "t": 40.692}
+{"rx": {"battery": 57, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -31, "type": "status_report"}, "t": 40.798}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -61, "type": "status_report"}, "t": 40.851}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -49, "type": "status_report"}, "t": 40.957}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -52, "type": "status_report"}, "t": 41.123}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:86:DF:E4", "g": [["splat_glow", "x"], ["splattag", "x"], ["unicorn_detector", "o"]], "kind": "wand", "rssi": -36, "type": "status_report"}, "t": 42.876}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:86:DF:E4", "g": [["splat_glow", "x"], ["splattag", "x"], ["unicorn_detector", "o"]], "kind": "wand", "rssi": -36, "type": "status_report"}, "t": 43.368}
+{"rx": {"n": 13, "type": "status_done"}, "t": 43.696}
+{"rx": {"mem": 53568, "up": 174305, "type": "heartbeat"}, "t": 44.138}
+{"rx": {"mem": 52656, "up": 179315, "type": "heartbeat"}, "t": 49.111}
+{"sent": {"cmd": "fleet.scan", "id": 106}, "t": 49.669}
+{"rx": {"cmd": "fleet.scan", "id": 106, "type": "ok"}, "t": 49.835}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -41, "type": "status_report"}, "t": 50.653}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -50, "type": "status_report"}, "t": 51.142}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -60, "type": "status_report"}, "t": 51.142}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -40, "type": "status_report"}, "t": 51.194}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -38, "type": "status_report"}, "t": 51.194}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -60, "type": "status_report"}, "t": 51.353}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -38, "type": "status_report"}, "t": 51.41}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 51.568}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -40, "type": "status_report"}, "t": 51.622}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -51, "type": "status_report"}, "t": 51.622}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -48, "type": "status_report"}, "t": 51.842}
+{"rx": {"battery": 75, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 51.896}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -42, "type": "status_report"}, "t": 51.951}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -48, "type": "status_report"}, "t": 52.062}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 52.062}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -51, "type": "status_report"}, "t": 52.117}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -42, "type": "status_report"}, "t": 52.117}
+{"rx": {"battery": 75, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 52.169}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -40, "type": "status_report"}, "t": 52.169}
+{"rx": {"battery": 57, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -39, "type": "status_report"}, "t": 52.492}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 52.545}
+{"rx": {"battery": 57, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -39, "type": "status_report"}, "t": 52.655}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -65, "type": "status_report"}, "t": 52.921}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 53.032}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -65, "type": "status_report"}, "t": 53.137}
+{"rx": {"mem": 52448, "up": 184333, "type": "heartbeat"}, "t": 54.124}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -62, "type": "status_report"}, "t": 54.51}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -62, "type": "status_report"}, "t": 55.0}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -49, "type": "status_report"}, "t": 55.112}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -49, "type": "status_report"}, "t": 55.607}
+{"rx": {"n": 12, "type": "status_done"}, "t": 55.713}
+{"rx": {"mem": 53152, "up": 189347, "type": "heartbeat"}, "t": 59.167}
+{"sent": {"cmd": "fleet.scan", "id": 107}, "t": 61.679}
+{"rx": {"cmd": "fleet.scan", "id": 107, "type": "ok"}, "t": 61.846}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -51, "type": "status_report"}, "t": 63.103}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 63.16}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -51, "type": "status_report"}, "t": 63.326}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 63.379}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -49, "type": "status_report"}, "t": 63.872}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 63.872}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -42, "type": "status_report"}, "t": 63.926}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -49, "type": "status_report"}, "t": 64.094}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 64.094}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -42, "type": "status_report"}, "t": 64.146}
+{"rx": {"mem": 47520, "up": 194361, "type": "heartbeat"}, "t": 64.202}
+{"rx": {"battery": 57, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -40, "type": "status_report"}, "t": 64.474}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:85:F0:6C", "g": [["tic_tac_toe", "o"], ["treasure_trail", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 64.526}
+{"rx": {"battery": 57, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -40, "type": "status_report"}, "t": 64.69}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:85:F0:6C", "g": [["tic_tac_toe", "o"], ["treasure_trail", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 65.017}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -76, "type": "status_report"}, "t": 65.291}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -76, "type": "status_report"}, "t": 65.512}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 66.498}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 66.722}
+{"rx": {"n": 9, "type": "status_done"}, "t": 67.766}
+{"rx": {"mem": 51536, "up": 199371, "type": "heartbeat"}, "t": 69.189}
+{"sent": {"cmd": "fleet.scan", "id": 108}, "t": 73.687}
+{"rx": {"cmd": "fleet.scan", "id": 108, "type": "ok"}, "t": 73.851}
+{"rx": {"mem": 51072, "up": 204380, "type": "heartbeat"}, "t": 74.232}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -40, "type": "status_report"}, "t": 74.396}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 74.452}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -41, "type": "status_report"}, "t": 74.452}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -40, "type": "status_report"}, "t": 74.617}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 74.617}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -41, "type": "status_report"}, "t": 74.67}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -47, "type": "status_report"}, "t": 75.103}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -50, "type": "status_report"}, "t": 75.159}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:86:DF:E4", "g": [["splat_glow", "x"], ["splattag", "x"], ["unicorn_detector", "o"]], "kind": "wand", "rssi": -50, "type": "status_report"}, "t": 75.211}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -46, "type": "status_report"}, "t": 75.211}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -47, "type": "status_report"}, "t": 75.317}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -50, "type": "status_report"}, "t": 75.37}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:86:DF:E4", "g": [["splat_glow", "x"], ["splattag", "x"], ["unicorn_detector", "o"]], "kind": "wand", "rssi": -50, "type": "status_report"}, "t": 75.424}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -46, "type": "status_report"}, "t": 75.424}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -41, "type": "status_report"}, "t": 75.858}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -42, "type": "status_report"}, "t": 75.911}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -50, "type": "status_report"}, "t": 75.966}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -41, "type": "status_report"}, "t": 76.079}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -42, "type": "status_report"}, "t": 76.133}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -50, "type": "status_report"}, "t": 76.186}
+{"rx": {"battery": 56, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 76.622}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 76.678}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -68, "type": "status_report"}, "t": 76.678}
+{"rx": {"battery": 56, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 76.79}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -45, "type": "status_report"}, "t": 76.846}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -68, "type": "status_report"}, "t": 76.902}
+{"rx": {"mem": 53152, "up": 209395, "type": "heartbeat"}, "t": 79.209}
+{"rx": {"n": 13, "type": "status_done"}, "t": 79.753}
+{"rx": {"mem": 54128, "up": 214399, "type": "heartbeat"}, "t": 84.236}
+{"sent": {"cmd": "fleet.scan", "id": 109}, "t": 85.729}
+{"rx": {"cmd": "fleet.scan", "id": 109, "type": "ok"}, "t": 85.895}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -42, "type": "status_report"}, "t": 86.497}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 86.497}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -38, "type": "status_report"}, "t": 86.552}
+{"rx": {"battery": 73, "role": "player", "mac": "A0:F2:62:85:70:A0", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -42, "type": "status_report"}, "t": 86.714}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:87:B4:30", "g": [["glow_wands", "o"], ["splattag", "x"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -46, "type": "status_report"}, "t": 86.715}
+{"rx": {"battery": 66, "role": "player", "mac": "A0:F2:62:86:E5:80", "g": [["match_or_die", "h"], ["speed_run", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -38, "type": "status_report"}, "t": 86.768}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -50, "type": "status_report"}, "t": 87.204}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:86:DF:E4", "g": [["splat_glow", "x"], ["splattag", "x"], ["unicorn_detector", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 87.204}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -44, "type": "status_report"}, "t": 87.259}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 87.259}
+{"rx": {"kind": "wand", "battery": 59, "mac": "A0:F2:62:86:BE:74", "rssi": -50, "type": "status_report"}, "t": 87.424}
+{"rx": {"battery": 77, "role": "player", "mac": "A0:F2:62:86:DF:E4", "g": [["splat_glow", "x"], ["splattag", "x"], ["unicorn_detector", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 87.424}
+{"rx": {"battery": 71, "role": "player", "mac": "A0:F2:62:85:D1:14", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 87.476}
+{"rx": {"kind": "wand", "battery": 2, "mac": "A0:F2:62:86:23:E4", "rssi": -44, "type": "status_report"}, "t": 87.476}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 87.859}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -51, "type": "status_report"}, "t": 87.967}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -43, "type": "status_report"}, "t": 88.024}
+{"rx": {"battery": 68, "role": "player", "mac": "B4:3A:45:8A:8F:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -43, "type": "status_report"}, "t": 88.075}
+{"rx": {"battery": 7, "role": "player", "mac": "A0:F2:62:85:81:D8", "g": [["ai_lesson_1", "o"], ["ai_lesson_2", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 88.129}
+{"rx": {"battery": 74, "role": "player", "mac": "A0:F2:62:86:2E:A8", "g": [["follow_the_leade", "h"], ["unicorn_detector", "o"], ["gait_detector", "o"]], "kind": "wand", "rssi": -51, "type": "status_report"}, "t": 88.185}
+{"rx": {"battery": 56, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 88.571}
+{"rx": {"battery": 56, "role": "splat_host", "mac": "A0:F2:62:86:28:FC", "g": [["tilt_tones", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -44, "type": "status_report"}, "t": 88.677}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -41, "type": "status_report"}, "t": 88.729}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -68, "type": "status_report"}, "t": 88.729}
+{"rx": {"battery": 63, "role": "wand", "mac": "A0:F2:62:85:CB:FC", "g": [["mastermind3", "o"], ["follow_the_leade", "h"], ["gait_detector", "o"]], "kind": "wand", "rssi": -41, "type": "status_report"}, "t": 88.894}
+{"rx": {"battery": null, "role": "icon_display", "mac": "B4:3A:45:86:1A:5C", "g": [["mastermind", "o"], ["mastermind2", "o"], ["mastermind3", "o"]], "kind": "icon_display", "rssi": -68, "type": "status_report"}, "t": 88.947}
+{"rx": {"mem": 54176, "up": 219409, "type": "heartbeat"}, "t": 89.272}
+{"rx": {"n": 13, "type": "status_done"}, "t": 91.821}
+{"rx": {"mem": 52672, "up": 224425, "type": "heartbeat"}, "t": 94.284}

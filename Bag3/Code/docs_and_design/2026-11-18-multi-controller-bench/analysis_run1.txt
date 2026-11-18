@@ -1,0 +1,120 @@
+distinct devices seen in whole run: 17
+last-byte %4 values: [0]  slots used: [0, 4, 8, 12]
+errors: [] 0
+raw lines: 0 []
+
+== A_base10: 20 scans, unique per scan [17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17]  min 17 max 17 mean 17.0
+  A0:F2:62:86:E5:80 wand/player              slot  0 exp 0.40  hit 20/20  first-lat med 0.77 max 0.82
+  A0:F2:62:87:B4:30 wand/player              slot  0 exp 0.40  hit 20/20  first-lat med 0.76 max 0.82
+  A0:F2:62:85:70:A0 wand/player              slot  0 exp 0.40  hit 20/20  first-lat med 0.76 max 0.77
+  A0:F2:62:86:23:E4 wand/None                slot  4 exp 1.12  hit 20/20  first-lat med 1.51 max 1.58
+  A0:F2:62:86:BE:74 wand/None                slot  4 exp 1.12  hit 20/20  first-lat med 1.48 max 1.6
+  A0:F2:62:85:D1:14 wand/player              slot  4 exp 1.12  hit 20/20  first-lat med 1.48 max 1.59
+  A0:F2:62:86:DF:E4 wand/player              slot  4 exp 1.12  hit 20/20  first-lat med 1.53 max 1.58
+  A0:F2:62:85:D6:14 wand/player              slot  4 exp 1.12  hit 20/20  first-lat med 1.52 max 2.6
+  A0:F2:62:85:81:D8 wand/player              slot  8 exp 1.84  hit 20/20  first-lat med 2.18 max 2.26
+  A0:F2:62:86:2E:A8 wand/player              slot  8 exp 1.84  hit 20/20  first-lat med 2.23 max 2.45
+  B4:3A:45:8A:8F:D8 wand/player              slot  8 exp 1.84  hit 20/20  first-lat med 2.22 max 2.28
+  A0:F2:62:87:96:B8 wand/splat_host          slot  8 exp 1.84  hit 20/20  first-lat med 2.3 max 2.66
+  A0:F2:62:86:28:FC wand/splat_host          slot 12 exp 2.56  hit 20/20  first-lat med 2.89 max 3.09
+  A0:F2:62:85:F0:6C wand/player              slot 12 exp 2.56  hit 20/20  first-lat med 3.0 max 3.05
+  A0:F2:62:85:CB:FC wand/wand                slot 12 exp 2.56  hit 20/20  first-lat med 2.98 max 3.06
+  B4:3A:45:86:1A:5C icon_display/icon_display slot 12 exp 2.56  hit 20/20  first-lat med 3.05 max 3.64
+  A0:F2:62:87:92:CC wand/player              slot 12 exp 2.56  hit 20/20  first-lat med 2.99 max 3.37
+  hit rate by slot: {0: '60/60=100%', 4: '100/100=100%', 8: '80/80=100%', 12: '100/100=100%'}
+
+== D_base6: 20 scans, unique per scan [17, 16, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17]  min 16 max 17 mean 16.9
+  A0:F2:62:86:E5:80 wand/player              slot  0 exp 0.40  hit 20/20  first-lat med 0.76 max 0.82
+  A0:F2:62:87:B4:30 wand/player              slot  0 exp 0.40  hit 20/20  first-lat med 0.75 max 0.83
+  A0:F2:62:85:70:A0 wand/player              slot  0 exp 0.40  hit 20/20  first-lat med 0.76 max 0.82
+  A0:F2:62:86:23:E4 wand/None                slot  4 exp 1.12  hit 20/20  first-lat med 1.51 max 1.57
+  A0:F2:62:86:BE:74 wand/None                slot  4 exp 1.12  hit 20/20  first-lat med 1.51 max 1.62
+  A0:F2:62:85:D1:14 wand/player              slot  4 exp 1.12  hit 20/20  first-lat med 1.51 max 1.62
+  A0:F2:62:86:DF:E4 wand/player              slot  4 exp 1.12  hit 19/20  first-lat med 1.52 max 4.48
+  A0:F2:62:85:D6:14 wand/player              slot  4 exp 1.12  hit 20/20  first-lat med 1.51 max 1.59
+  A0:F2:62:85:81:D8 wand/player              slot  8 exp 1.84  hit 20/20  first-lat med 2.25 max 2.3
+  A0:F2:62:86:2E:A8 wand/player              slot  8 exp 1.84  hit 20/20  first-lat med 2.21 max 2.26
+  B4:3A:45:8A:8F:D8 wand/player              slot  8 exp 1.84  hit 20/20  first-lat med 2.25 max 2.3
+  A0:F2:62:87:96:B8 wand/splat_host          slot  8 exp 1.84  hit 20/20  first-lat med 2.31 max 2.39
+  A0:F2:62:86:28:FC wand/splat_host          slot 12 exp 2.56  hit 20/20  first-lat med 2.9 max 3.05
+  A0:F2:62:85:F0:6C wand/player              slot 12 exp 2.56  hit 20/20  first-lat med 2.99 max 3.04
+  A0:F2:62:85:CB:FC wand/wand                slot 12 exp 2.56  hit 20/20  first-lat med 3.01 max 3.07
+  B4:3A:45:86:1A:5C icon_display/icon_display slot 12 exp 2.56  hit 20/20  first-lat med 3.08 max 3.45
+  A0:F2:62:87:92:CC wand/player              slot 12 exp 2.56  hit 20/20  first-lat med 2.97 max 3.07
+  hit rate by slot: {0: '60/60=100%', 4: '99/100=99%', 8: '80/80=100%', 12: '100/100=100%'}
+
+== E_base10: 20 scans, unique per scan [17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 16, 16, 17, 17]  min 16 max 17 mean 16.9
+  A0:F2:62:86:E5:80 wand/player              slot  0 exp 0.40  hit 20/20  first-lat med 0.76 max 0.82
+  A0:F2:62:87:B4:30 wand/player              slot  0 exp 0.40  hit 20/20  first-lat med 0.77 max 0.82
+  A0:F2:62:85:70:A0 wand/player              slot  0 exp 0.40  hit 20/20  first-lat med 0.76 max 0.83
+  A0:F2:62:86:23:E4 wand/None                slot  4 exp 1.12  hit 20/20  first-lat med 1.49 max 1.59
+  A0:F2:62:86:BE:74 wand/None                slot  4 exp 1.12  hit 20/20  first-lat med 1.48 max 1.59
+  A0:F2:62:85:D1:14 wand/player              slot  4 exp 1.12  hit 20/20  first-lat med 1.48 max 1.58
+  A0:F2:62:86:DF:E4 wand/player              slot  4 exp 1.12  hit 18/20  first-lat med 1.51 max 2.55
+  A0:F2:62:85:D6:14 wand/player              slot  4 exp 1.12  hit 20/20  first-lat med 1.53 max 1.6
+  A0:F2:62:85:81:D8 wand/player              slot  8 exp 1.84  hit 20/20  first-lat med 2.24 max 2.3
+  A0:F2:62:86:2E:A8 wand/player              slot  8 exp 1.84  hit 20/20  first-lat med 2.22 max 2.3
+  B4:3A:45:8A:8F:D8 wand/player              slot  8 exp 1.84  hit 20/20  first-lat med 2.25 max 2.3
+  A0:F2:62:87:96:B8 wand/splat_host          slot  8 exp 1.84  hit 20/20  first-lat med 2.3 max 2.38
+  A0:F2:62:86:28:FC wand/splat_host          slot 12 exp 2.56  hit 20/20  first-lat med 2.97 max 3.12
+  A0:F2:62:85:F0:6C wand/player              slot 12 exp 2.56  hit 20/20  first-lat med 2.92 max 3.03
+  A0:F2:62:85:CB:FC wand/wand                slot 12 exp 2.56  hit 20/20  first-lat med 2.98 max 3.02
+  B4:3A:45:86:1A:5C icon_display/icon_display slot 12 exp 2.56  hit 20/20  first-lat med 3.07 max 3.46
+  A0:F2:62:87:92:CC wand/player              slot 12 exp 2.56  hit 20/20  first-lat med 3.01 max 3.17
+  hit rate by slot: {0: '60/60=100%', 4: '98/100=98%', 8: '80/80=100%', 12: '100/100=100%'}
+
+== storms: replies DURING polling vs AFTER the last poll
+-- B_storm3000_r0 (5 polls): during 17 devices, after 8 devices
+   slot: devices / answered during / answered after: {0: (3, 3, 0), 4: (5, 5, 0), 8: (4, 4, 3), 12: (5, 5, 5)}
+-- B_storm2000_r0 (8 polls): during 16 devices, after 17 devices
+   slot: devices / answered during / answered after: {0: (3, 3, 3), 4: (5, 5, 5), 8: (4, 4, 4), 12: (5, 4, 5)}
+-- B_storm1000_r0 (15 polls): during 3 devices, after 16 devices
+   slot: devices / answered during / answered after: {0: (3, 3, 3), 4: (5, 0, 5), 8: (4, 0, 3), 12: (5, 0, 5)}
+-- B_storm500_r0 (29 polls): during 3 devices, after 17 devices
+   slot: devices / answered during / answered after: {0: (3, 3, 3), 4: (5, 0, 5), 8: (4, 0, 4), 12: (5, 0, 5)}
+-- B_storm3000_r1 (5 polls): during 17 devices, after 9 devices
+   slot: devices / answered during / answered after: {0: (3, 3, 0), 4: (5, 5, 1), 8: (4, 4, 4), 12: (5, 5, 4)}
+-- B_storm2000_r1 (8 polls): during 14 devices, after 17 devices
+   slot: devices / answered during / answered after: {0: (3, 3, 3), 4: (5, 5, 5), 8: (4, 4, 4), 12: (5, 2, 5)}
+-- B_storm1000_r1 (15 polls): during 4 devices, after 16 devices
+   slot: devices / answered during / answered after: {0: (3, 3, 2), 4: (5, 1, 5), 8: (4, 0, 4), 12: (5, 0, 5)}
+-- B_storm500_r1 (29 polls): during 2 devices, after 17 devices
+   slot: devices / answered during / answered after: {0: (3, 2, 3), 4: (5, 0, 5), 8: (4, 0, 4), 12: (5, 0, 5)}
+
+== finds sent
+  1795031071.238 find A0:F2:62:85:F0:6C
+  1795031071.417 rx {'id': 1136, 'type': 'ok', 'mac': 'A0:F2:62:85:F0:6C', 'cmd': 'fleet.find'}
+  1795031071.830 rx {'mem': 51872, 'up': 721194, 'type': 'heartbeat'}
+  1795031076.826 rx {'mem': 53904, 'up': 726199, 'type': 'heartbeat'}
+  1795031081.833 rx {'mem': 52960, 'up': 731204, 'type': 'heartbeat'}
+  1795031086.812 rx {'mem': 54032, 'up': 736222, 'type': 'heartbeat'}
+  1795031091.277 find A0:F2:62:86:DF:E4
+  1795031091.453 rx {'id': 1137, 'type': 'ok', 'mac': 'A0:F2:62:86:DF:E4', 'cmd': 'fleet.find'}
+  1795031091.867 rx {'mem': 52992, 'up': 741233, 'type': 'heartbeat'}
+  1795031096.868 rx {'mem': 54064, 'up': 746250, 'type': 'heartbeat'}
+  1795031101.891 rx {'mem': 53040, 'up': 751257, 'type': 'heartbeat'}
+  1795031106.897 rx {'mem': 54064, 'up': 756269, 'type': 'heartbeat'}
+  1795031111.319 find A0:F2:62:85:F0:6C
+  1795031111.499 rx {'id': 1138, 'type': 'ok', 'mac': 'A0:F2:62:85:F0:6C', 'cmd': 'fleet.find'}
+  1795031111.913 rx {'mem': 53040, 'up': 761277, 'type': 'heartbeat'}
+  1795031116.909 rx {'mem': 54144, 'up': 766290, 'type': 'heartbeat'}
+  1795031121.896 rx {'mem': 53232, 'up': 771297, 'type': 'heartbeat'}
+  1795031126.936 rx {'mem': 52320, 'up': 776302, 'type': 'heartbeat'}
+  1795031131.361 find A0:F2:62:86:DF:E4
+  1795031131.534 rx {'id': 1139, 'type': 'ok', 'mac': 'A0:F2:62:86:DF:E4', 'cmd': 'fleet.find'}
+  1795031131.940 rx {'mem': 53232, 'up': 781319, 'type': 'heartbeat'}
+  1795031136.948 rx {'mem': 52320, 'up': 786322, 'type': 'heartbeat'}
+  1795031141.953 rx {'mem': 53456, 'up': 791338, 'type': 'heartbeat'}
+  1795031146.938 rx {'mem': 52544, 'up': 796342, 'type': 'heartbeat'}
+  1795031151.402 find A0:F2:62:85:F0:6C
+  1795031151.573 rx {'id': 1140, 'type': 'ok', 'mac': 'A0:F2:62:85:F0:6C', 'cmd': 'fleet.find'}
+  1795031151.988 rx {'mem': 53536, 'up': 801359, 'type': 'heartbeat'}
+  1795031157.005 rx {'mem': 52544, 'up': 806375, 'type': 'heartbeat'}
+  1795031161.991 rx {'mem': 53648, 'up': 811380, 'type': 'heartbeat'}
+  1795031166.996 rx {'mem': 52768, 'up': 816382, 'type': 'heartbeat'}
+  1795031171.441 find A0:F2:62:86:DF:E4
+  1795031171.605 rx {'id': 1141, 'type': 'ok', 'mac': 'A0:F2:62:86:DF:E4', 'cmd': 'fleet.find'}
+  1795031172.016 rx {'mem': 53680, 'up': 821400, 'type': 'heartbeat'}
+  1795031176.991 rx {'mem': 52768, 'up': 826402, 'type': 'heartbeat'}
+  1795031182.013 rx {'mem': 53840, 'up': 831406, 'type': 'heartbeat'}
+  1795031186.991 rx {'mem': 52928, 'up': 836411, 'type': 'heartbeat'}

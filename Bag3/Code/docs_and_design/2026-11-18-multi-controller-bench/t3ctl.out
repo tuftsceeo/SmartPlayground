@@ -1,0 +1,4 @@
+15:31:43 k1_scans_only: finds (mean 6 s per controller) + scans (mean 8 s), sends=False
+15:33:58 k2_finds_nobody: finds (mean 6 s per controller) + scans (mean 8 s), sends=False
+15:36:13 k3_finds_real: finds (mean 6 s per controller) + scans (mean 8 s), sends=False
+15:38:30 done
