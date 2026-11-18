@@ -26,6 +26,7 @@ class Fleet:
         self.mgr = None
         self.paused = False
         self.slug = None
+        self.replace = None                 # slug a full device drops for this game
         self._scan_until = None
         self._seen = {}
         self._queue = []
@@ -63,9 +64,10 @@ class Fleet:
         self.mgr = mgr
         self._repeat({"type": "find_device", "mac": mac})
 
-    def distribute(self, mgr, slug, macs):
+    def distribute(self, mgr, slug, macs, replace=None):
         self.mgr = mgr
         self.slug = slug
+        self.replace = replace
         self.paused = False
         self._queue = list(macs)
         self._inflight = {}
@@ -108,6 +110,12 @@ class Fleet:
         if entry is not None:
             self._finish(entry[0], result.get("ok"), result.get("why"))
 
+    def on_refused(self, mac, slug):
+        """No file of this game for the device's kind: fail it at once."""
+        entry = self._inflight.get(_norm(mac))
+        if entry is not None and (not slug or slug == self.slug):
+            self._finish(entry[0], False, "no_file")
+
     def step(self):
         now = time.ticks_ms()
         if self._scan_until is not None and time.ticks_diff(now, self._scan_until) >= 0:
@@ -126,6 +134,8 @@ class Fleet:
     def _push(self, mac, now):
         self._next_at = time.ticks_add(now, STAGGER_MS)
         msg = {"type": "code_push", "mac": mac, "slug": self.slug, "host": HOST_ID}
+        if self.replace:
+            msg["replace"] = self.replace
         if not self.send_unicast(mac, msg):
             self._finish(mac, False, "no_ack")
             return

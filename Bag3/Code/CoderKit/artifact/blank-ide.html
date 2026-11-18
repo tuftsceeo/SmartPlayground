@@ -1,0 +1,136 @@
+<title>Blank Playground IDE</title>
+<style>html,body{height:100%;margin:0;background:#fff;color:#111}</style>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="coderkit.js"></script>
+<div class="h-full flex flex-col bg-white text-gray-900">
+  <!--
+    A blank Playground Coder front end. The host page provides window.kit.
+    Required parts carry data-kit attributes; restyle or rearrange freely.
+  -->
+  <header class="flex items-center gap-2 p-2 border-b">
+    <h1 class="font-bold">Playground Coder</h1>
+    <span id="game" class="text-gray-500"></span>
+    <span class="flex-1"></span>
+    <span id="status" class="text-sm text-gray-500">Not connected</span>
+    <button data-kit="connect" class="border px-2 py-1">Connect</button>
+    <button data-kit="send-to-device" class="border px-2 py-1">Send to controller</button>
+    <button id="log-toggle" class="border px-2 py-1">Log</button>
+  </header>
+  <main data-kit="chat-log" class="flex-1 overflow-auto p-2 space-y-2"></main>
+  <p id="error" class="text-red-600 px-2 text-sm"></p>
+  <div id="choices" class="flex gap-2 px-2 flex-wrap"></div>
+  <section id="log-panel" class="hidden border-t h-48 flex flex-col">
+    <div class="flex items-center gap-2 px-2 py-1 text-sm text-gray-500">
+      <span class="flex-1">Activity</span>
+      <label><input id="log-device" type="checkbox"> controller messages</label>
+      <button id="log-clear" class="border px-2">Clear</button>
+    </div>
+    <pre id="log" class="flex-1 overflow-auto px-2 text-xs font-mono"></pre>
+  </section>
+  <div id="toasts" class="fixed bottom-20 right-4 flex flex-col gap-2 items-end pointer-events-none"></div>
+  <form class="flex gap-2 p-2 border-t">
+    <textarea data-kit="chat-input" rows="2" class="flex-1 border p-1" placeholder="Describe a game…"></textarea>
+    <button data-kit="chat-send" class="border px-3">Send</button>
+  </form>
+<script>
+  const q = s => document.querySelector(s);
+  const log = q('[data-kit=chat-log]'), input = q('[data-kit=chat-input]');
+  const LINK = { idle: 'Not connected', opening: 'Connecting…', live: 'Connected', sending: 'Sending…' };
+
+  // Toasts for 'ok' and 'error' log lines; the full log in the Log panel.
+  let seen = kit.state.log.length ? kit.state.log[kit.state.log.length - 1].id : 0;
+  function toast(line) {
+    const d = document.createElement('div');
+    d.className = 'border rounded px-3 py-2 bg-white shadow text-sm ' + (line.level === 'error' ? 'text-red-700 border-red-300' : 'text-green-700 border-green-300');
+    d.textContent = line.text;
+    q('#toasts').appendChild(d);
+    setTimeout(() => d.remove(), line.level === 'error' ? 6000 : 3000);
+  }
+  function renderLog(s) {
+    for (const line of s.log) {
+      if (line.id > seen && (line.level === 'ok' || line.level === 'error')) toast(line);
+    }
+    if (s.log.length) seen = s.log[s.log.length - 1].id;
+    const showDevice = q('#log-device').checked;
+    const el = q('#log');
+    const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 4;
+    el.textContent = s.log.filter(l => showDevice || l.level !== 'device')
+      .map(l => new Date(l.t).toLocaleTimeString() + '  ' + (l.level === 'error' ? '✗ ' : l.level === 'ok' ? '✓ ' : '  ') + l.text).join('\n');
+    if (atEnd) el.scrollTop = el.scrollHeight;
+  }
+
+  function busyDots() {
+    // Three bouncing dots while Claude is replying.
+    const s = document.createElement('span');
+    s.className = 'inline-flex gap-1 align-middle ml-1';
+    s.setAttribute('aria-label', 'Claude is replying');
+    for (const delay of ['0ms', '150ms', '300ms']) {
+      const b = document.createElement('span');
+      b.className = 'w-2 h-2 rounded-full bg-gray-400 animate-bounce';
+      b.style.animationDelay = delay;
+      s.appendChild(b);
+    }
+    return s;
+  }
+
+  function render(s) {
+    renderLog(s);
+    log.textContent = '';
+    for (const m of s.messages) {
+      const d = document.createElement('div');
+      d.className = 'whitespace-pre-wrap ' + (m.role === 'user' ? 'text-right' : m.role === 'system' ? 'text-red-600' : '');
+      d.textContent = m.text || '';
+      if (m.code) d.textContent += '\n\n[Game code ready: ' + Object.keys(m.code).join(', ') + ']';
+      if (m.streaming) d.appendChild(busyDots());
+      log.appendChild(d);
+    }
+    log.scrollTop = log.scrollHeight;
+    q('#game').textContent = s.gameName || '';
+    q('#status').textContent = (s.deviceName && s.link === 'live' ? 'Connected to ' + s.deviceName : LINK[s.link])
+      + (s.progress != null ? ' ' + Math.round(s.progress * 100) + '%' : '');
+    q('[data-kit=connect]').textContent = s.link === 'idle' ? 'Connect' : 'Disconnect';
+    q('[data-kit=chat-send]').disabled = s.busy;
+    q('#error').textContent = s.error || '';
+    const c = q('#choices'); c.textContent = '';
+    for (const choice of s.choices) {
+      const b = document.createElement('button');
+      b.className = 'border rounded px-2 text-sm';
+      b.textContent = choice;
+      b.onclick = () => kit.chat(choice);
+      c.appendChild(b);
+    }
+  }
+
+  kit.on('change', render);
+  render(kit.state);
+  q('form').onsubmit = e => { e.preventDefault(); const t = input.value; input.value = ''; kit.chat(t); };
+  input.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); q('form').requestSubmit(); } };
+  q('[data-kit=connect]').onclick = () => kit.state.link === 'idle' ? kit.connect() : kit.disconnect();
+  q('[data-kit=send-to-device]').onclick = () => kit.send();
+  q('#log-toggle').onclick = () => q('#log-panel').classList.toggle('hidden');
+  q('#log-clear').onclick = () => kit.clearLog();
+  q('#log-device').onchange = () => renderLog(kit.state);
+</script>
+  <!-- Chat callout: points at claude.ai's Chat button (top right, outside
+       this page). Shows only on claude.ai; Close is remembered. Delete this
+       block in your own version. -->
+  <div id="chat-callout" hidden class="fixed top-9 right-2 z-50 w-72 rounded-lg border border-blue-400 bg-white text-gray-900 shadow-lg p-3 text-sm dark:bg-gray-900 dark:text-gray-100">
+    <svg class="absolute -top-7 left-1/2 -translate-x-1/2 w-6 h-7 text-blue-500" viewBox="0 0 24 28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 26 V3"/><path d="M4 11 L12 3 L20 11"/>
+    </svg>
+    <button id="chat-callout-close" class="absolute top-1 left-2 text-gray-500 text-lg leading-none" aria-label="Close">&times;</button>
+    <p class="mt-3"><strong>Want your own version?</strong> Click the <strong>Chat</strong> button to change this with Claude.</p>
+  </div>
+  <script>
+    (function () {
+      var KEY = 'coderkit.chatCalloutClosed', box = document.getElementById('chat-callout');
+      var closed = false;
+      try { closed = localStorage.getItem(KEY) === '1'; } catch (e) {}
+      if (window.claude && !closed) box.hidden = false;
+      document.getElementById('chat-callout-close').onclick = function () {
+        box.hidden = true;
+        try { localStorage.setItem(KEY, '1'); } catch (e) {}
+      };
+    })();
+  </script>
+</div>

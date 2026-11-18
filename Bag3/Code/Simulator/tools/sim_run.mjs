@@ -11,7 +11,7 @@
  * not return after the leader ended the game or went silent.
  *
  * Imported, it exports simRun({ code | game, seconds, seed, scale }) for
- * BroadcastCode/ChatBroadcast/tools/prompt_eval.mjs; each call boots its own
+ * ChatBroadcast/tools/prompt_eval.mjs; each call boots its own
  * Pyodide.
  *
  * Pyodide comes from its npm package, not the CDN the browser uses: set

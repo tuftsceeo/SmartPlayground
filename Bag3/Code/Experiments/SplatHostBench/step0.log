@@ -1,0 +1,25 @@
+STEP 0
+MEM start          t=   104 gcf=311952 12116/224/160 12136/10380/10240 371216/279628/270336
+  ESPNow: active (MAC: A0:F2:62:85:CB:FC)
+MEM espnow         t=   548 gcf=265904 12116/4/0 12136/10380/10240 371216/233004/229376
+MEM ble            t=   579 gcf=236832 12116/4/0 12136/10380/10240 371216/204544/200704
+MEM hub mods       t=  1806 gcf=210144 12116/24/0 12136/10380/10240 371216/204524/200704
+MEM hub built      t=  1823 gcf=206736 12116/4/0 12136/10380/10240 371216/204544/200704
+  SplatHub: unit 0 -> AB:42:00:00:64:3F
+  SplatHub: unit 1 -> AB:42:00:00:62:2F
+  SplatHub: unit 2 -> AB:42:00:00:80:B4
+  SplatHub: unit 3 -> AB:42:00:00:B2:16
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+MEM ready 1        t= 10414 gcf=202064 12116/4/0 12136/10380/10240 371216/198480/196608
+  SplatLink: ready, Splat AB:42:00:00:80:B4 (connects=1)
+MEM ready 2        t= 13863 gcf=197968 12116/4/0 12136/10380/10240 371216/194436/192512
+  SplatLink: ready, Splat AB:42:00:00:B2:16 (connects=1)
+MEM ready 3        t= 15467 gcf=197968 12116/4/0 12136/10380/10240 371216/197024/192512
+  SplatLink: ready, Splat AB:42:00:00:64:3F (connects=1)
+MEM ready 4        t= 16508 gcf=193872 12116/4/0 12136/10380/10240 371216/196172/188416
+RESULT step 0 connected 4 of 4
+MEM end            t= 16515 gcf=193872 12116/4/0 12136/10380/10240 371216/196172/188416
+  SplatHub: unit 0 closed (disconnected)
+  SplatHub: unit 1 closed (disconnected)
+  SplatHub: unit 2 closed (disconnected)
+  SplatHub: unit 3 closed (disconnected)

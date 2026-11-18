@@ -3,6 +3,18 @@
 Non-production research prototype: MicroPython firmware for playground devices (ESP32-C6, ESP32-S3,
 M5Stack) plus static web tools. Small team, weekly iteration.
 
+## Summary:
+Keep diffs minimal. Device code
+is MicroPython: no type annotations, `python -m py_compile` is the only static check, only boot.py may allocate before the radio comes up.
+
+### Talking to the user:
+- The user may be building hardware and switching between several strands of work. Assume they have
+  not seen your tool calls, reasoning or opened files. Every report says: what you were asked to
+  do, what is done, what is not, what you need from them.
+- During any run of more than a few tool calls, occasionally send a one-line update messages where things stand and what you are about to do.
+- Never claim that hardware behaved a certain way unless the user told you they saw it. Say
+  "the log shows" for what you read and "you reported" for what they saw.
+
 ## Device code (MicroPython)
 
 - **Cannot be imported off-device** — `machine`, `espnow`, `neopixel`, and `ubluetooth` do not exist.
@@ -20,7 +32,8 @@ M5Stack) plus static web tools. Small team, weekly iteration.
   is fragmentation, not exhaustion. Adding prints (their format strings and docstrings are allocated
   at import, whether or not the code runs) to a module imported ahead of the radio has taken devices
   down twice. Diagnostics go in a separate module, imported lazily after bring-up. See
-  [Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md](Bag3/Code/BroadcastCode/docs_and_design/2026-09-23-ap-memory-order.md).
+  [Bag3/Code/docs_and_design/2026-09-23-ap-memory-order.md](Bag3/Code/docs_and_design/2026-09-23-ap-memory-order.md).
+  Exception: the wand's `boot.py` may light the NeoPixel for power-on feedback; nothing else.
 
 ## Branches
 
@@ -62,6 +75,8 @@ holds copies of `station.py`, `station_ui.py`, `station_fonts.py`, `text_entry.p
 and `kb_letters.bin`. Its `station.py` drops the catalog and serial commands and takes games, card
 text and radio control from `bdial_server.py` (the host); its `station_ui.py` builds the keyboard
 on first use and uses the Dial's beeps. `dial_input.py` is identical in both trees.
+`BDialFirmware/` also holds `pn532.py` (from `Stations/SplatCompanion/Companion/lib/`) and
+`nt3h2111.py` (from `Experiments/EmulatedTagDial/`; its `tag_emulator.py` has diverged).
 
 Game tags are consumed in four places, with nothing enforcing consistency: each Bag's
 `lib/game_tags.py`, `Live_Page/WebApp2/hubCode2/game_tags.py`,
@@ -70,13 +85,14 @@ Game tags are consumed in four places, with nothing enforcing consistency: each 
 The 16x16 icon set is the same shape of problem. `Stations/IconDisplay/icons/` is the
 source of truth, and three things copy from it by hand or by script:
 `ChatBroadcast/js/ledicons/defaultIcons.js` (generated — run
-`ChatBroadcast/tools/sync_icons.py`, and `--check` to detect drift), the station's
-`Stations/Icon Display Station/icons/`, and `ChatBroadcast/iconmaker/`, which keeps its own
-`assets/`, `maps/` and `fixtures.js`. The generated list is what tells the chat model which
+`ChatBroadcast/tools/sync_icons.py`, and `--check` to detect drift), the icon editor's working copy
+`IconEditor/icons/` (`sync_icons.py --station`), and the Icon Maker web app
+(`IconEditor/webapp/`, the only copy; ChatBroadcast embeds it with `?embed=1`), which
+reads `defaultIcons.js`. The generated list is what tells the chat model which
 icons exist — a game naming one outside it is refused at send time, so an icon added only to
 the device is unusable in a generated game. Nothing runs the check automatically.
 
-Splat action names follow the same pattern: `SplatCompanion/Companion/splat_api.py` (`COLOR_RGB`,
+Splat action names follow the same pattern: `Wand Module/lib/splat_api.py` (`COLOR_RGB`,
 `NOTE_VALUES`, `ANIMAL_SOUNDS`) is the source of truth, and
 `ChatBroadcast/js/splat/splatActions.js` is generated from it by
 `ChatBroadcast/tools/sync_splat_actions.py` (`--check` for drift). A Splat game naming an action
@@ -100,21 +116,22 @@ playground component (`hubtype.txt` → `HUB_CONFIG`).
 
 ## "Station" is not one thing
 
-`Bag3/Code/Stations/` holds `Icon Display Station`, `IconDisplay` (the Broadcast icon display) and
+`Bag3/Code/Stations/` holds `IconDisplay` (the Broadcast icon display; its USB-serial predecessor `Icon Display Station` was deleted 2026-11-15) and
 `SplatCompanion` (historical), and the Broadcast Box and Dial are also called stations. All are beta or bench tests, not used by teachers. Always name the specific one; never
 write "the Station".
 
 `Bag3/Code/TeacherTools/` holds `NFC Station` (a one-off NFC tag-writing tool, not live to teachers
 or the team), the Bag3 `M5Paper Remote`, and the Broadcast Box and Dial (`BroadcastBox`,
-`BroadcastDial`). `Bag3/Code/BroadcastCode/` keeps the ChatBroadcast web app, `tools/` and
-`docs_and_design/`.
+`BroadcastDial`). The ChatBroadcast web app is `Bag3/Code/ChatBroadcast/`, beside its `Simulator/`; Bag3's shared `tools/` and
+`docs_and_design/` sit beside it in `Bag3/Code/`. (`BroadcastCode/`, their former parent, was removed
+2026-11-14.)
 
 `Bag3/Code/Experiments/` holds non-functioning hardware experiments (`Capsule PN5180`,
 `CrowPanel5_Display`, `IPS096 Display`, `Music Board Station`, `Radar Station`,
 `WirelessFileTransferBak`, `EmulatedTagDial`, `EspnowModem`, `ProgrammableTag`, and the earlier Bag3
 `Wand Module`). Despite some names, none of these are stations.
 
-Likewise, `goalrace`, `splatecho`, and `jumpin1`–`jumpin5` (code-slot experiment) are bench-only
+Likewise, `goalrace`, `splatecho`, `halloween` (icon display), and `jumpin1`–`jumpin5` (code-slot experiment) are bench-only
 games, not classroom games. The Bag3 wand (`Bag3/Code/Wand Module/`, the Mock Wand) uses plain NDEF text tags; `opcodes.py` is not used there.
 
 ## Hardware Testing Rules

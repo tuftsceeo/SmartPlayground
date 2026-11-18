@@ -1,0 +1,746 @@
+diff -ruN a/tools/devtests/lobbysim.py b/tools/devtests/lobbysim.py
+--- a/tools/devtests/lobbysim.py	2026-11-13 05:30:48.922740016 +0000
++++ b/tools/devtests/lobbysim.py	2026-11-13 05:30:48.926789813 +0000
+@@ -35,8 +35,14 @@
+     return None, None
+ 
+ 
++def _fake_read_command(self, timeout=250, **kw):
++    """NfcReader.read_command (games' own exit-card reads) on the fake reader."""
++    return _fake_read(self.nfc, timeout)
++
++
+ nfc_reader.read_ndef_text = _fake_read
+ nfc_reader.read_tag_command = _fake_read
++nfc_reader.NfcReader.read_command = _fake_read_command
+ 
+ 
+ class _FakePin:
+diff -ruN a/tools/devtests/test_lobby_game.py b/tools/devtests/test_lobby_game.py
+--- a/tools/devtests/test_lobby_game.py	2026-11-13 05:30:48.924542224 +0000
++++ b/tools/devtests/test_lobby_game.py	2026-11-13 05:30:48.927293695 +0000
+@@ -1,4 +1,4 @@
+-"""Lobby games (MockWand/lib/lobby_game.py, lib/splatpair.py, lib/pwire.py) on a
++"""Lobby protocol (Wand Module/lib/lobby_game.py, lib/splatpair.py, lib/pwire.py) on a
+ simulated ESP-NOW bus with fake BLE Splats. See wandsim.py for the harness.
+ 
+ Each simulated wand runs lobby_game.enter() and then a scripted game in its own
+@@ -53,47 +53,24 @@
+           n.wands == [(W[1], splatpair.identity_name(W[1]), 1), (W[2], splatpair.identity_name(W[2]), 1)],
+           str(n.wands))
+ check("indexes: leader 0, follower 1", n1.me == 0 and n2.me == 1 and n1.is_leader and not n2.is_leader)
+-check("pool size 2, owners follow join order", n1.splat_count == 2 and n1.owner(0) == 0 and n1.owner(1) == 1)
+-check("net.local is each wand's own SplatGroup", n1.local is w1.ctl.group and n2.local is w2.ctl.group)
+ 
+-# pooled commands
+-p1, p2 = w1.periph(S[1]), w2.periph(S[2])
+-c1, c2 = len(p1.writes), len(p2.writes)
++# the leader drives its own Splat; a Splat it does not hold is refused
++p1 = w1.periph(S[1])
+ w1.res = []
+-def lead_cmds(net, w):
+-    w.res.append(net.splat(0).color("turnred"))
+-    w.res.append(net.splat(1).color("turnblue"))
+-    w.res.append(net.splat(1).play(["turnyellow", "cat"]))
+-    w.res.append(net.splat(1).off())
+-    w.res.append(net.splat(0).sound("dog"))
+-sc.sim.spawn("cmds", lambda: lead_cmds(n1, w1), w1)
+-sc.run(1500)
+-check("leader's own Splat is driven directly", p1.cmds()[-2:] != [] and p1.colors()[-1] == (255, 0, 0))
+-check("a pool Splat held by another wand is driven by pw_cmd, ACKed", w1.res[:4] == [True] * 4, str(w1.res))
+-check("...the owner's Splat shows the color", (0, 0, 255) in p2.colors())
+-check("...play() runs the whole group", (255, 180, 0) in p2.colors()
+-      and "playSound" in [n for n, _ in p2.cmds()])
+-check("...off() cleared it", [n for n, _ in p2.cmds()][-2:] == ["allTasksOff", "allLEDsOff"], str(p2.cmds()[-3:]))
+-n_cmd = len(sc.bus.sent(typ="pw_cmd"))
+-check("a bad name is refused at the leader, not sent",
+-      n1.splat(1).color("turnpink") is False and len(sc.bus.sent(typ="pw_cmd")) == n_cmd == 3,
+-      str(n_cmd))
++sc.sim.spawn("cmds", lambda: w1.res.append(n1.splat(0).color("turnred")), w1)
++sc.run(500)
++check("the leader's own Splat is driven directly", p1.colors()[-1] == (255, 0, 0), str(w1.res))
++try:
++    n1.splat(1)
++    check("net.splat(i) of a Splat another wand holds is refused", False)
++except RuntimeError:
++    check("net.splat(i) of a Splat another wand holds is refused", True)
+ 
+-# remote press and local press
+-w1.events[:] = []
+-w2.events[:] = []
+-sc.wands[2].ble.button(S[2], True)
+-sc.run(200)
+-sc.wands[2].ble.button(S[2], False)
+-sc.run(400)
+-check("a follower's Splat press reaches the leader as a pool event",
+-      ("press", 1) in w1.events and ("release", 1) in w1.events, str(w1.events))
+-check("...and the follower locally with its local index",
+-      ("press", 0) in w2.events and ("release", 0) in w2.events, str(w2.events))
++# the leader's own Splat press
+ w1.events[:] = []
+ sc.wands[1].ble.button(S[1], True)
+ sc.run(200)
+-check("the leader's own Splat press is a pool event", ("press", 0) in w1.events, str(w1.events))
++check("the leader's own Splat press is a press event", ("press", 0) in w1.events, str(w1.events))
+ 
+ # messages
+ w2.events[:] = []
+@@ -124,29 +101,6 @@
+       w1.enow.get_peer_macs() == [] and w2.enow.get_peer_macs() == [])
+ 
+ 
+-# ── 1b. A command sent the moment the game starts is not lost on a follower that is still in enter() ──
+-sc = Sc()
+-w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
+-
+-
+-def eager_leader(net, w):
+-    w.res = [net.splat(1).color("turnred")]
+-    loop(net, w, 2000)
+-
+-
+-def lazy_follower(net, w):
+-    time.sleep_ms(50)               # starts polling late
+-    loop(net, w, 2000)
+-
+-
+-sc.tap(1, 0, eager_leader, smin=2)
+-sc.tap(2, 700, lazy_follower, smin=2)
+-sc.run(1800)
+-press(sc, w1, sc.sim.now + 10)
+-sc.run(1200)
+-check("a pw_cmd sent right after pw_start is applied by the follower",
+-      (255, 0, 0) in w2.periph(S[2]).colors(), str(w2.periph(S[2]).colors()))
+-
+ # ── 2. Plain wands count 0 Splats; auto-start at SPLATS_MAX ──
+ sc = Sc()
+ w1, w2, w3 = sc.wand(1, [1]), sc.wand(2, [2]), sc.wand(3)
+@@ -160,7 +114,6 @@
+ sc.run(400)
+ check("...roster has the plain wand with 0, pool has 2",
+       n1.wands[2] == (W[3], splatpair.identity_name(W[3]), 0) and n1.splat_count == 2, str(n1.wands))
+-check("...net.local is None on the plain wand", n3.local is None and n3.local_count == 0)
+ 
+ sc = Sc()
+ w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
+@@ -170,16 +123,6 @@
+ check("reaching SPLATS_MAX starts the game with no button press",
+       w1.net is not None and w2.net is not None and w1.net.phase == "game")
+ 
+-# ── 3. A join that would exceed SPLATS_MAX is refused ──
+-sc = Sc()
+-w1, w2 = sc.wand(1, [1]), sc.wand(2, [2, 3])
+-sc.tap(1, 0, long_loop(), smin=1, smax=2)
+-sc.tap(2, 700, long_loop(), smin=1, smax=2)
+-sc.run(3000)
+-check("a joiner that would exceed SPLATS_MAX is told the lobby is full",
+-      w2.net is None and w2.last_end == "full" and net_of(w1).lobby_splats() == 1,
+-      "%s %s" % (w2.last_end, net_of(w1).lobby_splats()))
+-
+ # ── 4. Simultaneous leaders: the lowest MAC wins, the others join it ──
+ sc = Sc()
+ w1, w2, w3 = sc.wand(1, [1]), sc.wand(2, [2]), sc.wand(3, [3])
+@@ -217,32 +160,6 @@
+       [n.is_leader for n in nets] == [True, False, False] and nets[0].lobby_splats() == 3
+       and len({n.id for n in nets}) == 1, str([(n.is_leader, n.leader_mac) for n in nets]))
+ 
+-# ── 5. Two groups run the same game at once, with different ids ──
+-sc = Sc()
+-w1, w2, w3, w4 = sc.wand(1, [1]), sc.wand(2, [2]), sc.wand(3, [3]), sc.wand(4, [4])
+-sc.tap(1, 0, long_loop(), smin=2)
+-sc.tap(2, 700, long_loop(), smin=2)
+-sc.run(2200)
+-press(sc, w1, sc.sim.now + 10)
+-sc.run(300)
+-sc.tap(3, sc.sim.now + 10, long_loop(), smin=2)
+-sc.tap(4, sc.sim.now + 900, long_loop(), smin=2)
+-sc.run(3000)
+-press(sc, w3, sc.sim.now + 10)
+-sc.run(400)
+-g1, g2 = w1.net, w3.net
+-check("both groups are in a game", g1 is not None and g2 is not None and g1.phase == "game" and g2.phase == "game")
+-check("...with different game ids and rosters",
+-      g1.id != g2.id and {w[0] for w in g1.wands} == {W[1], W[2]} and {w[0] for w in g2.wands} == {W[3], W[4]},
+-      "%s %s" % (g1.id, g2.id))
+-sc.sim.spawn("c1", lambda: g1.splat(1).color("turnred"), w1)
+-sc.sim.spawn("c2", lambda: g2.splat(1).color("turngreen"), w3)
+-sc.run(1500)
+-check("a leader's command reaches only its own group's follower",
+-      w2.periph(S[2]).colors()[-1] == (255, 0, 0) and w4.periph(S[4]).colors()[-1] == (0, 255, 0)
+-      and (0, 255, 0) not in [c for c in w2.periph(S[2]).colors() if c != (0, 38, 0)]
+-      and (255, 0, 0) not in w4.periph(S[4]).colors())
+-
+ # ── 6. stop card: on the leader (cancels for all) and on a follower (leaves) ──
+ sc = Sc()
+ w1, w2, w3 = sc.wand(1, [1]), sc.wand(2, [2]), sc.wand(3, [3])
+@@ -264,7 +181,7 @@
+       "%s %s" % (w1.last_end, w2.last_end))
+ check("...and every peer was removed", all(w.enow.get_peer_macs() == [] for w in (w1, w2, w3)))
+ 
+-# ── 7. Splat dropouts: splat_lost / splat_back ──
++# ── 7. The leader's own Splat dropping: splat_lost / splat_back ──
+ sc = Sc()
+ w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
+ sc.tap(1, 0, long_loop(), smin=2)
+@@ -273,17 +190,6 @@
+ press(sc, w1, sc.sim.now + 10)
+ sc.run(500)
+ w1.events[:] = []
+-w2.ble.periph(S[2]).available = False
+-w2.ble.drop(S[2])
+-sc.run(2500)
+-check("a follower's Splat dropping reaches the leader as splat_lost with the pool index",
+-      ("splat_lost", 1) in w1.events, str(w1.events))
+-check("...and no wand_lost", not evs(w1, "wand_lost"))
+-w2.ble.periph(S[2]).available = True
+-sc.run(14000)
+-check("...it reconnects through SplatLink and the leader sees splat_back",
+-      ("splat_back", 1) in w1.events, str(w1.events))
+-w1.events[:] = []
+ w1.ble.periph(S[1]).available = False
+ w1.ble.drop(S[1])
+ sc.run(500)
+@@ -345,50 +251,41 @@
+ 
+ 
+ def lose_first_ack(src, dst, obj):
+-    if isinstance(obj, dict) and obj.get("type") == "pw_cmd":
++    if isinstance(obj, dict) and obj.get("type") == "pw_msg":
+         state["n"] += 1
+         return state["n"] == 1
+     return False
+ 
+ 
+ sc.bus.drop_ack = lose_first_ack
+-p2 = w2.periph(S[2])
+-before = len(p2.colors())
++w2.events[:] = []
+ res = []
+-sc.sim.spawn("cmd", lambda: res.append(w1.net.splat(1).color("turnpurple")), w1)
++sc.sim.spawn("msg", lambda: res.append(w1.net.send(1, {"k": 1})), w1)
+ sc.run(500)
+-cmds = sc.bus.sent(typ="pw_cmd")
++msgs = sc.bus.sent(typ="pw_msg")
+ check("a lost ACK causes a resend and the sender sees success",
+-      res == [True] and [c[4] for c in cmds] == ["ack-lost", "acked"], str([c[4] for c in cmds]))
+-check("...with the same q on both frames", cmds[0][3]["q"] == cmds[1][3]["q"])
+-check("...and the duplicate q is dropped: the Splat saw one write",
+-      p2.colors()[before:] == [(160, 0, 200)], str(p2.colors()[before:]))
++      res == [True] and [c[4] for c in msgs] == ["ack-lost", "acked"], str([c[4] for c in msgs]))
++check("...with the same q on both frames", msgs[0][3]["q"] == msgs[1][3]["q"])
++check("...and the duplicate q is dropped: one msg event", w2.events.count(("msg", 0, {"k": 1})) == 1,
++      str(w2.events))
+ sc.bus.drop_ack = None
+ 
+-sc.bus.dup_frame = lambda src, dst, obj: isinstance(obj, dict) and obj.get("type") in ("pw_msg", "pw_evt", "pw_cmd")
+-w1.events[:] = []
++sc.bus.dup_frame = lambda src, dst, obj: isinstance(obj, dict) and obj.get("type") == "pw_msg"
+ w2.events[:] = []
+-before = len(p2.colors())
+-sc.sim.spawn("dup", lambda: (w1.net.send(1, {"k": 1}), w1.net.splat(1).color("turnred")), w1)
+-sc.wands[2].ble.button(S[2], True)
+-sc.run(1500)
+-sc.wands[2].ble.button(S[2], False)
++sc.sim.spawn("dup", lambda: w1.net.send(1, {"k": 2}), w1)
+ sc.run(600)
+-check("duplicated pw_msg is one msg event", w2.events.count(("msg", 0, {"k": 1})) == 1, str(w2.events))
+-check("duplicated pw_cmd is one command", p2.colors()[before:] == [(255, 0, 0)], str(p2.colors()[before:]))
+-check("duplicated pw_evt is one press and one release at the leader",
+-      w1.events.count(("press", 1)) == 1 and w1.events.count(("release", 1)) == 1, str(w1.events))
++check("duplicated pw_msg is one msg event", w2.events.count(("msg", 0, {"k": 2})) == 1, str(w2.events))
+ sc.bus.dup_frame = None
+ 
+ # a sender that never gets an ACK gives up after SEND_TRIES and says so
+-sc.bus.drop_frame = lambda src, dst, obj: isinstance(obj, dict) and obj.get("type") == "pw_cmd"
++sc.bus.drop_frame = lambda src, dst, obj: isinstance(obj, dict) and obj.get("type") == "pw_msg"
+ res = []
+-n_before = len(sc.bus.sent(typ="pw_cmd"))
+-sc.sim.spawn("fail", lambda: res.append(w1.net.splat(1).color("turnblue")), w1)
++n_before = len(sc.bus.sent(typ="pw_msg"))
++sc.sim.spawn("fail", lambda: res.append(w1.net.send(1, {"k": 3})), w1)
+ sc.run(500)
+-check("an unreachable owner: SEND_TRIES attempts, then False",
+-      res == [False] and len(sc.bus.sent(typ="pw_cmd")) - n_before == pwire.SEND_TRIES,
+-      "%s tries=%d" % (res, len(sc.bus.sent(typ="pw_cmd")) - n_before))
++check("an unreachable wand: SEND_TRIES attempts, then False",
++      res == [False] and len(sc.bus.sent(typ="pw_msg")) - n_before == pwire.SEND_TRIES,
++      "%s tries=%d" % (res, len(sc.bus.sent(typ="pw_msg")) - n_before))
+ sc.bus.drop_frame = None
+ 
+ # the lobby survives losing the first frames of a join
+@@ -411,7 +308,7 @@
+ check("a join survives two lost frames (retries within SEND_TRIES)",
+       net_of(w1).lobby_splats() == 2 and net_of(w2).phase == "lobby", str(seen))
+ 
+-# 25% frame loss in both directions: commands still arrive at most once
++# 25% frame loss in both directions: messages still arrive at most once, in order
+ import random
+ rnd = random.Random(7)
+ sc = Sc()
+@@ -423,21 +320,14 @@
+ sc.run(500)
+ sc.bus.drop_frame = lambda src, dst, obj: rnd.random() < 0.25
+ sc.bus.drop_ack = lambda src, dst, obj: rnd.random() < 0.25
+-p2 = w2.periph(S[2])
+-before = len(p2.colors())
+-names = ["turnred", "turngreen", "turnblue", "turnpurple", "turnyellow", "turnwhite"] * 4
++w2.events[:] = []
+ oks = []
+-sc.sim.spawn("many", lambda: [oks.append(w1.net.splat(1).color(n)) for n in names], w1)
++sc.sim.spawn("many", lambda: [oks.append(w1.net.send(1, {"i": i})) for i in range(24)], w1)
+ sc.run(8000)
+-got = p2.colors()[before:]
+-COLORS = {"turnred": (255, 0, 0), "turngreen": (0, 255, 0), "turnblue": (0, 0, 255),
+-          "turnpurple": (160, 0, 200), "turnyellow": (255, 180, 0), "turnwhite": (200, 200, 200)}
+-want = [COLORS[n] for n in names]
+-it = iter(want)
+-in_order = all(any(c == x for x in it) for c in got)       # got is a subsequence of what was sent
+-check("under 25% frame and ACK loss every ACKed command is applied, none twice, in order",
+-      in_order and sum(oks) <= len(got) <= len(names) and len(got) <= sum(oks) + (len(oks) - sum(oks)),
+-      "sent=%d acked=%d applied=%d" % (len(names), sum(oks), len(got)))
++got = [e[2]["i"] for e in w2.events if e[0] == "msg"]
++check("under 25% frame and ACK loss every ACKed message arrives once, in order",
++      got == sorted(set(got)) and set(i for i, ok in enumerate(oks) if ok) <= set(got),
++      "sent=24 acked=%d got=%d" % (sum(oks), len(got)))
+ sc.bus.drop_frame = sc.bus.drop_ack = None
+ 
+ # ── 10. ESP-NOW stop / start_game end the game and the lobby ──
+@@ -483,15 +373,4 @@
+ check("a lobby for another game is not joined: both lead their own",
+       net_of(w1).is_leader and net_of(w2).is_leader and net_of(w1).id != net_of(w2).id)
+ 
+-# ── 12. A leader holding enough Splats starts alone ──
+-sc = Sc()
+-w1 = sc.wand(1, [1, 2])
+-sc.tap(1, 0, long_loop(), smin=2)
+-sc.run(1800)
+-press(sc, w1, sc.sim.now + 10)
+-sc.run(400)
+-check("a leader with 2 Splats and SPLATS_MIN 2 can start alone",
+-      w1.net is not None and w1.net.splat_count == 2 and w1.net.owner(1) == 0)
+-check("...net.splat(i) is the local SplatAPI for its own Splats", w1.net.splat(1) is w1.ctl.group.unit(1))
+-
+ check.finish("lobby game simulation OK")
+diff -ruN a/tools/devtests/test_lobby_games.py b/tools/devtests/test_lobby_games.py
+--- a/tools/devtests/test_lobby_games.py	2026-11-13 05:30:48.924580330 +0000
++++ b/tools/devtests/test_lobby_games.py	2026-11-13 05:30:48.927311011 +0000
+@@ -1,5 +1,6 @@
+-"""The demo lobby games (MockWand/games/lobbytest.py, splattag.py,
+-relaycolor.py) in a scripted session each, on the A6 simulation.
++"""The Splat host demo games (Wand Module/games/host_lobbytest.py, host_splattag.py,
++host_relaycolor.py) in one scripted session each, on the A6 simulation: the host
++wand holds the Splats, players join and hold none. Turning the Splats off afterwards is main.py's job, not the games'.
+ 
+ Run: python3 tools/devtests/test_lobby_games.py
+ """
+@@ -10,18 +11,22 @@
+ 
+ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+ import wandsim  # noqa: E402
+-from lobbysim import Sc, W, S, net_of, press, evs, lobby_game, splatpair  # noqa: E402
++from lobbysim import Sc, W, S, net_of, press, lobby_game, splatpair  # noqa: E402
+ from wandsim import BB  # noqa: E402
++import pairing  # noqa: E402
++import splat_host  # noqa: E402
++from splat_api import COLOR_RGB  # noqa: E402
+ 
+ sys.path.insert(0, os.path.join(BB, "..", "Wand Module", "games"))
+-import lobbytest  # noqa: E402
+-import splattag  # noqa: E402
+-import relaycolor  # noqa: E402
++import host_lobbytest  # noqa: E402
++import host_splattag  # noqa: E402
++import host_relaycolor  # noqa: E402
+ 
+ check = wandsim.Checker()
++pairing.max_splats = lambda: pairing.HOST_MAX_SPLATS      # every sim wand may hold 4
+ 
+-GREEN, BLUE, PURPLE, RED, YELLOW = (0, 255, 0), (0, 0, 255), (160, 0, 200), (255, 0, 0), (255, 180, 0)
+ OFFC = (0, 0, 0)
++MACS = [S[1], S[2], S[3], S[4]]
+ 
+ 
+ def lit(p):
+@@ -35,19 +40,51 @@
+     return c
+ 
+ 
+-def player(mod):
+-    def run(net, w):
+-        mod.play(w.nfc, w.leds, w.buz, None, None, w.enow, None, net)
+-    return run
++def ident(n):
++    return tuple(COLOR_RGB[splatpair.identity_name(W[n])])
+ 
+ 
+-def pixel0(w):
+-    return w.leds.pixels.get(0)
+-
+-
+-def pulse(sc, w, ms=0):
+-    press(sc, w, sc.sim.now + 5 + ms)
+-    sc.run(150 + ms)
++def session(mod, players):
++    """Host wand 1 (4 Splats) and the player wands tap mod's lobby; the host's long hold
++    starts the game. Returns (sc, host, players)."""
++    sc = Sc()
++    h = sc.wand(1, [1, 2, 3, 4])
++    ps = [sc.wand(n) for n in players]
++    for n, at, host in [(1, 0, True)] + [(n, 1500 + 500 * k, False) for k, n in enumerate(players)]:
++        w = sc.wands[n]
++
++        def run(w=w, at=at, host=host):
++            if w.splat_macs:
++                w.ctl = splatpair.SplatPairing(list(w.splat_macs), w.enow, w.leds, w.buz,
++                                               my_mac=w.mac)
++                t0 = time.ticks_ms()
++                while not all(l.ready for l in w.ctl.hub.links) and time.ticks_ms() - t0 < 5000:
++                    w.ctl.poll()
++                    time.sleep_ms(5)
++            if time.ticks_ms() < at:
++                time.sleep_ms(at - time.ticks_ms())
++            net = lobby_game.enter(w.enow, mod.__name__, mod.SPLATS_MIN, mod.SPLATS_MAX, w.ctl,
++                                   w.mac, w.nfc, w.leds, w.buz, lambda: w.button,
++                                   True, host, mod.PLAYERS_MIN)
++            w.net = net
++            if net is not None:
++                try:
++                    mod.play(w.nfc, w.leds, w.buz, None, None, w.enow, None, net)
++                finally:
++                    net.close()
++            w.result = "done"
++
++        sc.sim.spawn("wand%d" % n, run, w)
++    sc.sim.run_until(lambda: net_of(h) is not None and net_of(h).phase == "lobby"
++                     and net_of(h).lobby_players() == len(players), 20000, 10)
++    press(sc, h, sc.sim.now + 10, splat_host.START_HOLD_MS + 100)
++    sc.run(splat_host.START_HOLD_MS + 1500)     # players show the game icon for 700 ms first
++    return sc, h, ps
++
++
++def pulse(sc, w):
++    press(sc, w, sc.sim.now + 5, 200)           # longer than one 100 ms exit-card read
++    sc.run(450)
+ 
+ 
+ def splat_press(sc, w, mac):
+@@ -57,221 +94,77 @@
+     sc.run(200)
+ 
+ 
+-def start(sc, wands, mod, smin, leader=1, gap=2500):
+-    """Wand 1 taps first and leads; the others join; the leader's button starts."""
+-    for k, n in enumerate(wands):
+-        sc.tap(n, k * gap, player(mod), smin=smin)
+-    lw = sc.wands[leader]
+-    sc.sim.run_until(lambda: (net_of(lw) is not None and net_of(lw).phase == "lobby"
+-                              and len(net_of(lw)._members) == len(wands)
+-                              and net_of(lw).can_start()), 20000, 10)
+-    press(sc, lw, sc.sim.now + 10)
+-    sc.run(400)
+-
+-
+-def ident_rgb(n):
+-    return splatpair.WAND_RGB[splatpair.identity_name(W[n])]
+-
+-
+-# ── lobbytest ──
+-sc = Sc()
+-w1, w2, w3 = sc.wand(1, [1]), sc.wand(2, [2]), sc.wand(3)
+-start(sc, [1, 2, 3], lobbytest, smin=2)
+-n1 = net_of(w1)
+-check("lobbytest: the lobby started a game of 3 wands, 2 Splats", n1.phase == "game"
+-      and len(n1.wands) == 3 and n1.splat_count == 2)
+-p1, p2 = w1.periph(S[1]), w2.periph(S[2])
+-pulse(sc, w2)
+-sc.run(300)
+-check("a follower's button lights pool Splat 0 in the follower's identity color",
+-      lit(p1) == BLUE, "%s (wand 2 identity %s)" % (lit(p1), splatpair.identity_name(W[2])))
+-pulse(sc, w1)
+-sc.run(300)
+-check("the leader's button lights the next pool Splat (a follower's) in its own identity color",
+-      lit(p2) == GREEN, str(lit(p2)))
+-check("...and turns the previous one off", lit(p1) == OFFC, str(lit(p1)))
+-pulse(sc, w3)
+-sc.run(300)
+-check("a plain wand's button works: pool Splat 0 again, in its identity color",
+-      lit(p1) == PURPLE, str(lit(p1)))
+-splat_press(sc, w2, S[2])
+-check("a Splat press lights that Splat in its owner's identity color", lit(p2) == BLUE, str(lit(p2)))
+-check("each wand showed its identity color on the matrix",
+-      all(pixel0(w) is not None for w in (w1, w2, w3)))
+-w1.nfc.stop_at = sc.sim.now + 5
+-sc.run(1500)
+-check("a stop card on the leader ends the game for everyone",
+-      w1.result == "done" and w2.result == "done" and w3.result == "done"
+-      and lit(p1) == OFFC and lit(p2) == OFFC, "%s %s %s" % (w1.result, w2.result, w3.result))
+-
+-# a follower leaving does not end the game for the others
+-sc = Sc()
+-w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
+-start(sc, [1, 2], lobbytest, smin=2)
+-w2.nfc.stop_at = sc.sim.now + 5
+-sc.run(1500)
+-check("a stop card on a follower leaves only that wand", w2.result == "done" and w1.result is None)
+-
+-# ── splattag ──
+-random.seed(3)
+-sc = Sc()
+-w1, w2, w3 = sc.wand(1, [1, 2]), sc.wand(2, [3]), sc.wand(3, [4])
+-start(sc, [1, 2, 3], splattag, smin=4)
+-n1 = net_of(w1)
+-check("splattag: 3 wands, 4 Splats in the pool", n1.phase == "game" and n1.splat_count == 4)
+-owners = {0: (w1, S[1]), 1: (w1, S[2]), 2: (w2, S[3]), 3: (w3, S[4])}
+-expected = [0, 0, 0]
+-for rnd in range(splattag.WIN_SCORE * 2):
+-    ok = sc.sim.run_until(lambda: any(lit(w.periph(m)) == GREEN for w, m in owners.values()), 4000, 5)
+-    if not ok:
+-        break
+-    idx = [i for i, (w, m) in owners.items() if lit(w.periph(m)) == GREEN]
+-    if len(idx) != 1:
+-        check("exactly one Splat is the target", False, str(idx))
+-        break
+-    w, m = owners[idx[0]]
+-    expected[w.n - 1] += 1
+-    splat_press(sc, w, m)
+-    sc.run(splattag.PAUSE_MS)
+-    if max(expected) >= splattag.WIN_SCORE:
+-        break
+-check("one target at a time, and a press on it scored for the Splat's owner",
+-      max(expected) == splattag.WIN_SCORE, str(expected))
+-msgs = [x[3]["d"] for x in sc.bus.sent(typ="pw_msg") if x[2] == W[2] or x[2] == "*"]
+-last_scores = [d["s"] for d in msgs if "s" in d][-1]
+-check("the leader's score messages match the presses", last_scores == expected, "%s vs %s" % (last_scores, expected))
+-check("the winner was announced to the followers", any("win" in d for d in msgs), str(msgs[-3:]))
+-sc.run(splattag.OVER_MS + 1500)
+-check("after the result the leader leaves and everyone's play() returns",
+-      all(w.result == "done" for w in (w1, w2, w3)), str([w.result for w in (w1, w2, w3)]))
+-check("every Splat was left dark", all(lit(w.periph(m)) == OFFC for w, m in owners.values()),
+-      str([lit(w.periph(m)) for w, m in owners.values()]))
++def stop(sc, w, wands):
++    w.nfc.stop_at = sc.sim.now + 5
++    sc.run(4500)
++    return all(x.result == "done" for x in wands)
++
++
++# ── host_lobbytest ──
++sc, h, (p2, p3) = session(host_lobbytest, [2, 3])
++nh = net_of(h)
++check("lobbytest: the host holds all 4 Splats, the players none",
++      nh.phase == "game" and nh.splat_count == 4 and net_of(p2).splat_count == 4
++      and [w[2] for w in nh.wands] == [4, 0, 0], str(nh.wands))
++pulse(sc, p2)
++check("a player's button lights Splat 0 in that player's identity color",
++      lit(h.periph(S[1])) == ident(2), str(lit(h.periph(S[1]))))
++pulse(sc, p3)
++check("the next press lights Splat 1 and turns Splat 0 off",
++      lit(h.periph(S[2])) == ident(3) and lit(h.periph(S[1])) == OFFC)
++splat_press(sc, h, S[4])
++check("a Splat press lights that Splat white", lit(h.periph(S[4])) == COLOR_RGB["turnwhite"],
++      str(lit(h.periph(S[4]))))
++check("a stop card on the host ends the game for all",
++      stop(sc, h, (h, p2, p3)))
+ 
+-# a wrong Splat press does not score
++# ── host_splattag ──
+ random.seed(5)
+-sc = Sc()
+-w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
+-start(sc, [1, 2], splattag, smin=2)
+-sc.sim.run_until(lambda: lit(w1.periph(S[1])) == GREEN or lit(w2.periph(S[2])) == GREEN, 3000, 5)
+-target = (w1, S[1]) if lit(w1.periph(S[1])) == GREEN else (w2, S[2])
+-other = (w2, S[2]) if target[0] is w1 else (w1, S[1])
+-n_before = len(sc.bus.sent(typ="pw_msg"))
+-splat_press(sc, *other)
+-check("a press on a Splat that is not the target scores nothing",
+-      lit(target[0].periph(target[1])) == GREEN and len(sc.bus.sent(typ="pw_msg")) == n_before)
+-
+-# target Splat drops: another target is picked, never the dropped one
+-random.seed(11)
+-sc = Sc()
+-w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
+-start(sc, [1, 2], splattag, smin=2)
+-sc.sim.run_until(lambda: lit(w1.periph(S[1])) == GREEN or lit(w2.periph(S[2])) == GREEN, 3000, 5)
+-tw, tm = (w1, S[1]) if lit(w1.periph(S[1])) == GREEN else (w2, S[2])
+-ow, om = (w2, S[2]) if tw is w1 else (w1, S[1])
+-tw.ble.periph(tm).available = False
+-tw.ble.drop(tm)
+-ok = sc.sim.run_until(lambda: lit(ow.periph(om)) == GREEN, 4000, 5)
+-check("the target Splat dropping makes the leader pick another", ok)
+-
+-# a wand that goes silent is skipped when picking targets
+-random.seed(2)
+-sc = Sc()
+-w1, w2, w3 = sc.wand(1, [1]), sc.wand(2, [2]), sc.wand(3, [3])
+-start(sc, [1, 2, 3], splattag, smin=3)
+-sc.bus.drop_frame = lambda src, dst, obj: src == W[3]
+-sc.run(lobby_game.WAND_LOST_MS + 1500)
+-check("(setup) the leader saw wand 3 go silent", net_of(w1)._members[2]["lost"])
+-picked = []
+-for rnd in range(6):
+-    ok = sc.sim.run_until(lambda: any(lit(w.periph(m)) == GREEN for w, m in ((w1, S[1]), (w2, S[2]), (w3, S[3]))),
+-                          splattag.ROUND_MS + 2000, 5)
+-    if not ok:
++sc, h, (p2, p3) = session(host_splattag, [2, 3])
++cols = (ident(2), ident(3))
++scores = {2: 0, 3: 0}
++wrong_done = False
++for _ in range(host_splattag.WIN_SCORE * 3):
++    if not sc.sim.run_until(lambda: any(lit(h.periph(m)) in cols for m in MACS), 9000, 5):
+         break
+-    for w, m in ((w1, S[1]), (w2, S[2]), (w3, S[3])):
+-        if lit(w.periph(m)) == GREEN:
+-            picked.append(w.n)
+-            if w is not w3:
+-                splat_press(sc, w, m)
+-    sc.run(splattag.PAUSE_MS)
+-check("a silent wand's Splats are never the target while it is lost",
+-      len(picked) >= 4 and 3 not in picked, str(picked))
+-sc.bus.drop_frame = None
+-
+-# ── relaycolor ──
+-sc = Sc()
+-w1, w2, w3 = sc.wand(1, [1]), sc.wand(2, [2]), sc.wand(3)
+-start(sc, [1, 2, 3], relaycolor, smin=1)
+-p1, p2 = w1.periph(S[1]), w2.periph(S[2])
+-sc.run(500)
+-check("relaycolor: the leader starts holding red on its matrix and Splat",
+-      lit(p1) == RED and pixel0(w1) == relaycolor.RED, "%s %s" % (lit(p1), pixel0(w1)))
+-check("...the others are dark", lit(p2) == OFFC)
+-pulse(sc, w1)
+-sc.run(400)
+-check("the holder's button passes the color to the next wand, green",
+-      lit(p2) == GREEN and pixel0(w2) == relaycolor.GREEN, "%s %s" % (lit(p2), pixel0(w2)))
+-check("...and the sender goes dark", lit(p1) == OFFC)
+-splat_press(sc, w2, S[2])
+-sc.run(400)
+-check("a press on the holder's own Splat passes it on; a wand with no Splats shows it on the matrix",
+-      pixel0(w3) == relaycolor.BLUE and lit(p2) == OFFC, "%s %s" % (pixel0(w3), lit(p2)))
+-pulse(sc, w3)
+-sc.run(400)
+-check("the last wand passes back to the first, purple", lit(p1) == PURPLE, str(lit(p1)))
+-splat_press(sc, w2, S[2])
+-sc.run(300)
+-check("the leader holding the token ignores a press on another wand's Splat",
+-      lit(p1) == PURPLE and lit(p2) == OFFC)
+-splat_press(sc, w1, S[1])
+-sc.run(400)
+-check("a press on the leader's own Splat passes the token on, yellow", lit(p2) == YELLOW, str(lit(p2)))
+-# the holder (wand 2) goes silent: the leader re-issues the token
++    m = [m for m in MACS if lit(h.periph(m)) in cols][0]
++    if not wrong_done:
++        other = [x for x in MACS if x != m][0]
++        splat_press(sc, h, other)
++        wrong_done = lit(h.periph(m)) in cols
++        check("a press on a Splat that is not the target scores nothing", wrong_done)
++    scores[2 if lit(h.periph(m)) == cols[0] else 3] += 1
++    splat_press(sc, h, m)
++    sc.run(host_splattag.PAUSE_MS)
++    if max(scores.values()) >= host_splattag.WIN_SCORE:
++        break
++check("splattag: presses on the target score for the player it was lit for until a win",
++      max(scores.values()) == host_splattag.WIN_SCORE, str(scores))
++sent = [x[3]["d"] for x in sc.bus.sent(typ="pw_msg") if x[1] == W[1]]
++check("the host sent the scores, then the winner", any(d.get("s") for d in sent if "s" in d)
++      and any("win" in d for d in sent), str(sent[-2:]))
++sc.run(4500)
++check("every wand's play() returns after the win", h.result == p2.result == p3.result == "done")
++
++# ── host_relaycolor ──
++sc, h, (p2, p3) = session(host_relaycolor, [2, 3])
++sc.run(200)
++check("relaycolor: the first player holds the token; every Splat in their color",
++      all(lit(h.periph(m)) == ident(2) for m in MACS))
++pulse(sc, p3)
++check("a button on a wand that does not hold the token is ignored",
++      all(lit(h.periph(m)) == ident(2) for m in MACS))
++pulse(sc, p2)
++check("the holder's button passes the token to the next player; Splats follow",
++      all(lit(h.periph(m)) == ident(3) for m in MACS))
++pulse(sc, p3)
++check("the last player passes back to the first",
++      all(lit(h.periph(m)) == ident(2) for m in MACS))
+ sc.bus.drop_frame = lambda src, dst, obj: src == W[2]
+ sc.run(lobby_game.WAND_LOST_MS + 1500)
+-check("the holder's wand lost: the leader hands the token to the next live wand",
+-      pixel0(w3) == relaycolor.AMBER, str(pixel0(w3)))
++check("the holder's wand lost: the host hands the token to the next live player",
++      all(lit(h.periph(m)) == ident(3) for m in MACS))
+ sc.bus.drop_frame = None
+-w1.nfc.stop_at = sc.sim.now + 5
+-sc.run(1500)
+-check("the leader leaving ends the game and darkens the Splats",
+-      all(w.result == "done" for w in (w1, w2, w3)) and lit(p1) == OFFC and lit(p2) == OFFC)
+-
+-# ── The README's two example games run ──
+-import re
+-import types
+-readme = open(os.path.join(BB, "..", "Wand Module", "README.md")).read()
+-section = readme.split("### Writing a lobby game")[1].split("Rules:")[0]
+-blocks = re.findall(r"```python\n(.*?)```", section, re.S)
+-check("the README has a pooled and a messages example", len(blocks) == 2, str(len(blocks)))
+-mods = []
+-for i, src in enumerate(blocks):
+-    m = types.ModuleType("readme_game%d" % i)
+-    exec(compile(src, "README block %d" % i, "exec"), m.__dict__)
+-    mods.append(m)
+-check("...declaring SPLATS_MIN", [m.SPLATS_MIN for m in mods] == [2, 1])
+-
+-sc = Sc()
+-w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
+-bystander = sc.wand(5)              # sends the ESP-NOW stop; a broadcast never reaches its sender
+-start(sc, [1, 2], mods[0], smin=2)
+-splat_press(sc, w2, S[2])
+-sc.run(500)
+-check("pooled example: the leader lights a pressed pool Splat in its owner's identity color",
+-      lit(w2.periph(S[2])) == BLUE, str(lit(w2.periph(S[2]))))
+-sc.sim.at(sc.sim.now + 5, lambda: bystander.enow.broadcast(["stop"]))
+-sc.run(800)
+-check("...and both wands return on the end", w1.result == "done" and w2.result == "done")
+-
+-sc = Sc()
+-w1, w2 = sc.wand(1, [1]), sc.wand(2, [2])
+-bystander = sc.wand(5)
+-start(sc, [1, 2], mods[1], smin=1)
+-splat_press(sc, w2, S[2])
+-sc.run(600)
+-check("messages example: a follower's press is sent to the next wand, which colors its own Splat",
+-      lit(w1.periph(S[1])) == GREEN, str(lit(w1.periph(S[1]))))
+-sc.sim.at(sc.sim.now + 5, lambda: bystander.enow.broadcast(["stop"]))
+-sc.run(800)
+-check("...and both wands return on the end", w1.result == "done" and w2.result == "done")
++check("a stop card on the host ends the game", stop(sc, h, (h, p2, p3)))
+ 
+ check.finish("lobby games OK")
+diff -ruN a/tools/devtests/test_splat_host.py b/tools/devtests/test_splat_host.py
+--- a/tools/devtests/test_splat_host.py	2026-11-13 05:30:48.924600746 +0000
++++ b/tools/devtests/test_splat_host.py	2026-11-13 05:30:48.927327586 +0000
+@@ -75,8 +75,9 @@
+ 
+ 
+ def pulse(sc, w):
+-    press(sc, w, sc.sim.now + 5)
+-    sc.run(300)
++    # held longer than one 100 ms exit-card read: the host games poll the button between reads
++    press(sc, w, sc.sim.now + 5, 200)
++    sc.run(450)
+ 
+ 
+ def ident_rgb(n):
+@@ -105,6 +106,7 @@
+ def hold_start(sc, h):
+     press(sc, h, sc.sim.now + 10, splat_host.START_HOLD_MS + 100)
+     sc.run(splat_host.START_HOLD_MS + 700)
++    sc.run(800)         # a player's wand shows the game icon for 700 ms before it reads the button
+ 
+ 
+ # ── host screen and slots (no radio) ──
+@@ -261,7 +263,7 @@
+         break
+ check("host_splattag: targets in player colors; presses score to that player until a win",
+       max(scores.values()) == host_splattag.WIN_SCORE, str(scores))
+-sc.run(host_splattag.OVER_MS + 1500)
++sc.run(4500)        # the players show the winner for 3 s
+ check("...and every wand leaves after the win", h.result == p2.result == p3.result == "done")
+ 
+ # ── host_relaycolor ──

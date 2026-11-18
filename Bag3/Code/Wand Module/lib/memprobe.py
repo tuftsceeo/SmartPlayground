@@ -2,7 +2,7 @@
 
 Deviation from Bag3/Code/Wand Module/. Heap probes for diagnosing the
 "OSError: WiFi Out of Memory" failure at enow.init() -- see
-Bag3/Code/BroadcastCode/docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md for the
+Bag3/Code/docs_and_design/old/2026-09-01-wifi-handoff-diagnosis.md for the
 background and REBOOT_PULL_PLAN.md for why enow.init() has to run on a
 cold radio. This module exists only so that claim can be checked against
 real heap numbers instead of guessed at.
@@ -115,3 +115,17 @@ def frag(tag):
     print("MEMFRAG tag=%s" % tag)
     micropython.mem_info(1)
     print("MEMFRAG-END tag=%s" % tag)
+
+
+def idf_regions(tag):
+    """One line per IDF HEAP_DATA region."""
+    if not ENABLED or esp32 is None:
+        return
+    gc.collect()
+    print("MEMIDF tag=%s gcf=%d" % (tag, gc.mem_free()))
+    try:
+        for r in esp32.idf_heap_info(esp32.HEAP_DATA):
+            print("MEMIDF  total=%d free=%d largest=%d minfree=%d" % (r[0], r[1], r[2], r[3]))
+    except Exception as e:
+        print("MEMIDF  unavailable: %s" % e)
+    print("MEMIDF-END tag=%s" % tag)

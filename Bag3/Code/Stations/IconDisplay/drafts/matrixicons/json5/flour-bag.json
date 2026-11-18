@@ -1,0 +1,19 @@
+{
+ "index": 53,
+ "rows": [
+  "..A..",
+  ".BCD.",
+  ".DEC.",
+  ".DFG.",
+  "....."
+ ],
+ "pal": {
+  "A": "#ffffff",
+  "B": "#ebedee",
+  "C": "#ebedef",
+  "D": "#ebebed",
+  "E": "#e5a21e",
+  "F": "#ebeced",
+  "G": "#ececef"
+ }
+}

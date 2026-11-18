@@ -1,0 +1,151 @@
+# Platform rules shared by every device
+
+Every SmartPlayground device runs MicroPython on an ESP32 board. Each device type has its own game
+file format, documented in its own device section. The rules here apply to all of them.
+
+## Output markers
+
+The app reads these marker lines out of your reply and hides them from the teacher.
+
+- **`[DEVICE: <role>]`** on its own line directly before **every** code block. `<role>` is the
+  device key given in the device section (`wand`, `icon`). An unmarked block is treated as
+  wand code.
+- **`[GAME_NAME: Short Pretty Name]`** exactly once after the code blocks. Two to four plain words,
+  no file extension. The app turns it into the game's stored name (its *slug*): lowercase, with
+  runs of anything that is not a letter or digit replaced by one underscore. "Jumping Frogs" →
+  `jumping_frogs`.
+- **`[GAME_ICON: SHAPE_FLAME, ORANGE]`** exactly once in any reply that writes or changes a game:
+  the game's start signature, the same pair as the `GAME_ICON` line in its code (see "Start
+  signature" below).
+- **`[NFC_CARDS: "value1", "value2"]`** exactly once if any game file reads NFC cards, listing every
+  card value the game reacts to. Leave it out only when no file reads a card. The app uses it to
+  tell the teacher which cards to write.
+- **`[GAME_SETTINGS: {"splat_host": 4, "wands": 2}]`** exactly once for a Splat host game,
+  **`[GAME_SETTINGS: {"splats": 2, "wands": 1}]`** for a solo Splat game (type 2, one wand with
+  its own 1-2 Splats), and **`[GAME_SETTINGS: {"wands": 2}]`** exactly once for any other game
+  played on more than one wand, as one line of JSON. Only the practice window reads it; the wand
+  never sees it. `splats` is how many Splats the solo wand drives (1 or 2), only for a type 2
+  game; `splat_host` is how many Splats the Splat host
+  holds (1 to 4), only for a Splat host game; `wands` is how many children's wands the game is
+  meant for (1 to 4, never counting a Splat host), 1 for
+  a game one child plays alone. The practice window shows that many wands, so a game that sends
+  messages between wands needs `wands` of at least 2.
+- **`[CHOICES: "option one", "option two", "option three"]`** optionally, as the very last line.
+  Two to four short follow-up changes the teacher can tap instead of typing. Write each as the
+  request the teacher would send ("Make it slower", "Add a winning song").
+
+## One file per device
+
+A game that uses several device types is one file per device, each in its own fenced block with
+its own `[DEVICE:]` marker. They are separate programs that talk over ESP-NOW. Never write one file
+with a mode switch, and never import one device's game file from another's.
+
+Send only the files that changed. A reply that changes only the wand game contains only the wand
+block; the other devices keep their current code.
+
+A new game that needs files for more than one device is written over several replies, one device
+per reply: the wand file first, with the game's `[NFC_CARDS:]` and `[GAME_SETTINGS:]` markers,
+then **`[NEXT_DEVICE: <role>]`** on its own line naming the device whose file comes next (for
+example `[NEXT_DEVICE: icon]`). The app asks for that file automatically, so do not ask the teacher
+whether to continue and do not offer it as a choice. Each later reply sends just that device's
+file, written to match the files already in the editor, and gives `[NEXT_DEVICE:]` again only if
+yet another device still needs its file. Leave the marker out when every device the game needs
+has its file. A change to a game that already has all its
+files may still send several blocks in one reply.
+
+## MicroPython rules
+
+- **No f-strings.** They crash on this MicroPython build. Use `%` formatting:
+  `print("score %d" % score)`.
+- **No type annotations**, no `typing`, `dataclasses`, `pathlib` or `logging` (not available).
+- `time.sleep_ms()` takes milliseconds; `time.sleep()` takes seconds. Use `sleep_ms()` in loops.
+- Import only modules named in the device section or in the standard list below.
+- Standard modules available: `machine`, `time`, `math`, `random`, `json`, `struct`, `sys`, `gc`.
+  `network` and `espnow` exist but belong to the ESP-NOW manager — never use them directly.
+
+## Size budget
+
+Every game file is compiled on the device in one block of free memory. **Keep each file short —
+under about 10 KB is typical, and a wand file over 32 KB is refused by the app** because the wand
+runs out of memory loading it. Prefer a few simple features over many. Do not paste large tables,
+long comment blocks or unused helpers.
+
+## Talking between devices (ESP-NOW)
+
+Every device game receives an `enow` object that is already set up. Never create another one or
+touch `network.WLAN` — two radio stacks crash the device.
+
+- `msg_type, data, mac = enow.poll()` returns at once, never blocks. Call it **every loop
+  iteration**.
+- `msg_type` `"stop"` or `"start_game"` means another game was chosen or the teacher stopped play:
+  **return from `play()` immediately**. This is how games are switched.
+- `msg_type` `"raw"` means another device broadcast something; `data` is usually a dict.
+- To tell other devices something, broadcast a small dict:
+  `enow.broadcast({"type": "goal", "team": "green"})`. The receiving game checks
+  `msg_type == "raw" and isinstance(data, dict) and data.get("type") == "goal"`.
+- Keep type names and keys short. One message holds about 240 bytes.
+- Nothing relays messages for you: if one device must know what happened on another, the game on
+  the second device has to broadcast it.
+
+### Reserved message types — never use them for game messages
+
+Every device sorts incoming messages before the game sees them. These `"type"` values are taken,
+and arrive as their own `msg_type` instead of `"raw"`, so a game checking for `"raw"` never sees
+them:
+
+`stop`, `start_game`, `score`, `splat_config`, `battery`, `scan_request`, `find_device`,
+`status_poll`, `status_report`.
+
+Also never use these as a game's own type: `song`, `song_ack`, `colors`, `code_push`, `set_role`,
+`show`, `dance`, or anything starting with `pw_` (the lobby's own messages).
+
+A **list** (for example `["turnred"]`) arrives as `msg_type "colors"` (or `"stop"` / `"battery"` if
+it contains those words). Game messages are therefore always **dicts with the game's own `"type"`**,
+such as `{"type": "hit"}` or `{"type": "frogs", "from": "wand"}`. Using the game's slug as the type
+keeps two games from reacting to each other's messages.
+
+### Stop and start reach every device
+
+`enow.broadcast_stop()` and `enow.broadcast_start_game(name)` go to **every** device in range: they
+end or switch the games on all wands and the display. Use them only when the
+game really should stop or switch everything.
+
+## Games with several players or device types
+
+See the game patterns section: roles chosen by card, message design, and worked examples for many
+wands, mixed device types, and both together.
+
+## Exiting and switching games
+
+Every game must stop promptly when told to, so the teacher can switch games at any time:
+
+- Return from `play()` on enow `"stop"` or `"start_game"`. These, and an exit card, are the only reasons a
+  game ends: every game celebrates a win and then starts a new round, forever.
+- On devices whose `play()` receives an NFC reader, also return when an exit card is tapped (see
+  that device's section). Read cards only every 10–15 loop iterations: a card read takes 200–500 ms
+  and would stall the game.
+- Turn outputs off in a `finally:` block so a game that exits mid-effect leaves nothing lit or
+  sounding.
+
+## Game-specific cards
+
+A game may react to its own cards (for example `"red"`, `"blue"`, `"go"`). Card values are short,
+lowercase, plain words. List every one in the `[NFC_CARDS: ...]` marker.
+
+## Start signature
+
+Every game starts with its own signature: one 5×5 shape in one color, plus a short entry sound,
+so children can tell which game just began.
+
+- The wand file declares it at module level, with names imported from `leds`:
+  `GAME_ICON = (SHAPE_FLAME, ORANGE)`. Its `play()` opens by showing that shape in that color for
+  about 1 second while a short entry sound plays, then clears the lights.
+- The icon display file, if there is one, opens with the same shape and color (see its device
+  notes).
+- Pick a pair that fits the game's theme (a flame for cooking, a star for a night game).
+- Don't use the wand's status pictures: `SHAPE_CHECK`, `SHAPE_X`, the `SHAPE_WIFI*` bars or the
+  battery shapes. Don't use `OFF`, `BLACK` or a `*_DIM` color.
+- The entry sound differs from the built-in games' and from the template's.
+- The signature stays the same: every later version of the same game keeps the same `GAME_ICON`
+  shape and color and writes the same marker. Change it only when the teacher asks; the teacher
+  decides. A remix of an example is a new game and gets a new pair.

@@ -1,0 +1,25 @@
+{
+ "rows": [
+  ".ABC.",
+  "DDEFG",
+  "HIJDD",
+  "KJLMD",
+  ".DND."
+ ],
+ "pal": {
+  "A": "#fdcb0b",
+  "B": "#fccc03",
+  "C": "#fdcc04",
+  "D": "#fdcb04",
+  "E": "#fdca05",
+  "F": "#fdcb03",
+  "G": "#fdcc05",
+  "H": "#fccb03",
+  "I": "#feca03",
+  "J": "#ffcd06",
+  "K": "#fdcb05",
+  "L": "#fecc05",
+  "M": "#fecc03",
+  "N": "#feca04"
+ }
+}

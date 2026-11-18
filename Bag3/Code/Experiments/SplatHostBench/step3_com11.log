@@ -1,0 +1,31 @@
+STEP 3
+MEM start          t=   101 gcf=326096 12116/4304/3648 12136/10380/10240 371216/279628/270336
+  ESPNow: active (MAC: A0:F2:62:85:F0:6C)
+MEM espnow         t=   586 gcf=270848 12116/4/0 12136/10380/10240 371216/232912/229376
+MEM ble            t=   615 gcf=241776 12116/4/0 12136/10380/10240 371216/204444/200704
+[hubtype] wand (25 LEDs)
+MEM imports        t=  5652 gcf=154288 12116/24/0 12136/10380/10240 371216/138884/135168
+MEM objects        t=  5688 gcf= 47008 12116/4/0 12136/10380/10240 371216/6568/6528
+host=True
+MEM pairing built  t=  6889 gcf= 26112 12116/4/0 12136/10380/10240 371216/6568/6528
+  SplatHub: unit 0 -> AB:42:00:00:64:3F
+  SplatHub: unit 1 -> AB:42:00:00:62:2F
+  SplatHub: unit 2 -> AB:42:00:00:80:B4
+  SplatHub: unit 3 -> AB:42:00:00:B2:16
+  SplatLink: ready, Splat AB:42:00:00:62:2F (connects=1)
+  [ERR] splat.glow write failed
+MEM ready 1        t= 16740 gcf= 25552 12116/4/0 12136/10380/10240 371216/180/52
+  SplatLink: connect to AB:42:00:00:80:B4: no result after 10501 ms, cancelling
+  SplatLink: cancel connect failed: [Errno 120] EALREADY
+  SplatLink: connect to AB:42:00:00:80:B4 failed: [Errno 5] EIO
+  SplatLink: connect to AB:42:00:00:B2:16 failed: -521
+MEM fail 80:B4     t= 26264 gcf= 25504 12116/4/0 12136/10380/10240 371216/180/52
+MEM fail B2:16     t= 26290 gcf= 25504 12116/4/0 12136/10380/10240 371216/180/52
+  SplatLink: connect to AB:42:00:00:64:3F failed: -521
+MEM fail 64:3F     t= 26322 gcf= 25504 12116/4/0 12136/10380/10240 371216/180/52
+RESULT step 3 connected 1 of 4
+MEM end            t= 51915 gcf= 25536 12116/4/0 12136/10380/10240 371216/180/52
+  SplatHub: unit 0 closed (was not connected)
+  SplatHub: unit 1 closed (disconnected)
+  SplatHub: unit 2 closed (was not connected)
+  SplatHub: unit 3 closed (was not connected)

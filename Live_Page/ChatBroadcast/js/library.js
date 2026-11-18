@@ -25,12 +25,12 @@ function writeAll(list) {
  * read it directly. Entries saved before a role existed simply have no
  * entry for it and load as if that role had no code.
  */
-export function saveGame({ name, desc, code, roleCode, iconCode, requiredTags, hardware, chatHistory, icons, simSettings, gameIcon }) {
+export function saveGame({ id: replaceId, name, desc, code, roleCode, iconCode, requiredTags, hardware, chatHistory, icons, simSettings, gameIcon }) {
     const list = loadSavedGames();
-    const id =
-        typeof crypto !== "undefined" && crypto.randomUUID
+    const id = replaceId ||
+        (typeof crypto !== "undefined" && crypto.randomUUID
             ? crypto.randomUUID()
-            : String(Date.now());
+            : String(Date.now()));
     const resolvedRoleCode = { ...(roleCode || {}) };
     if (iconCode && !resolvedRoleCode.icon) resolvedRoleCode.icon = iconCode;
     const entry = {
@@ -53,6 +53,9 @@ export function saveGame({ name, desc, code, roleCode, iconCode, requiredTags, h
         gameIcon: gameIcon || null,
         updatedAt: Date.now(),
     };
+    // Replacing keeps one copy, moved to the top as most recent.
+    const old = replaceId ? list.findIndex((g) => g.id === replaceId) : -1;
+    if (old >= 0) list.splice(old, 1);
     list.unshift(entry);
     writeAll(list);
     return entry;

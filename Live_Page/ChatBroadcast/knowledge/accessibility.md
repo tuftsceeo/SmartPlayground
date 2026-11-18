@@ -19,6 +19,11 @@ specify, lean toward:
 - **Deaf and hard-of-hearing children:** every important sound also shows something on the wand's
   lights or the icon display (a shape, an icon or a color). A game built around "listen for the
   beep" also shows when the beep happens.
+- **Children with limited mobility, including wheelchair users:** no game should need running.
+  Put cards and Splats where a seated child can reach them (Splats can be pressed by hand instead
+  of stomped), use zones a short walk or roll apart rather than a race, and offer a partner role
+  (holding the wand, calling the moves, tapping cards). In movement games, every move has a seated
+  version (wave arms instead of jump), and the game never checks how a move is done.
 - **Neurodivergent and sensory-sensitive children:**
   - Make mistakes gentle: a soft sound or a short vibration, not a scolding. Keep vibrations under
     about 4 seconds; long and short buzzes are easy to tell apart.

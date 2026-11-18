@@ -274,7 +274,8 @@ class Host:
         P.code.set_game(slug)
         P.dist = {"mode": "push", "slug": slug, "name": g["name"], "macs": list(macs), "done": False,
                   "state": {m: "wait" for m in macs}, "ts": time.ticks_ms()}
-        fl.distribute(P.mgr, slug, macs)
+        replace = cmd.get("replace")
+        fl.distribute(P.mgr, slug, macs, replace if isinstance(replace, str) and replace else None)
         P.happening = f"Send code - 0 of {len(macs)}"
         P.note_feed(f"Computer: send {g['name']}")
         self.ok(cmd, rid, slug=slug, total=len(macs))

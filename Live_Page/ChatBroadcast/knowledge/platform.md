@@ -21,11 +21,11 @@ The app reads these marker lines out of your reply and hides them from the teach
   card value the game reacts to. Leave it out only when no file reads a card. The app uses it to
   tell the teacher which cards to write.
 - **`[GAME_SETTINGS: {"splat_host": 4, "wands": 2}]`** exactly once for a Splat host game,
-  **`[GAME_SETTINGS: {"wand_splats": 1, "wands": 1}]`** for a Splat game on the children's own
-  wands (see the Splat games section), and **`[GAME_SETTINGS: {"wands": 2}]`** exactly once for any other game
+  **`[GAME_SETTINGS: {"splats": 2, "wands": 1}]`** for a solo Splat game (type 2, one wand with
+  its own 1-2 Splats), and **`[GAME_SETTINGS: {"wands": 2}]`** exactly once for any other game
   played on more than one wand, as one line of JSON. Only the practice window reads it; the wand
-  never sees it. `wand_splats` is how many Splats each child's wand has paired (0, 1 or 2), and
-  appears only for a Splat game without a host; `splat_host` is how many Splats the Splat host
+  never sees it. `splats` is how many Splats the solo wand drives (1 or 2), only for a type 2
+  game; `splat_host` is how many Splats the Splat host
   holds (1 to 4), only for a Splat host game; `wands` is how many children's wands the game is
   meant for (1 to 4, never counting a Splat host), 1 for
   a game one child plays alone. The practice window shows that many wands, so a game that sends
@@ -96,6 +96,9 @@ them:
 `stop`, `start_game`, `score`, `splat_config`, `battery`, `scan_request`, `find_device`,
 `status_poll`, `status_report`.
 
+Also never use these as a game's own type: `song`, `song_ack`, `colors`, `code_push`, `set_role`,
+`show`, `dance`, or anything starting with `pw_` (the lobby's own messages).
+
 A **list** (for example `["turnred"]`) arrives as `msg_type "colors"` (or `"stop"` / `"battery"` if
 it contains those words). Game messages are therefore always **dicts with the game's own `"type"`**,
 such as `{"type": "hit"}` or `{"type": "frogs", "from": "wand"}`. Using the game's slug as the type
@@ -116,7 +119,8 @@ wands, mixed device types, and both together.
 
 Every game must stop promptly when told to, so the teacher can switch games at any time:
 
-- Return from `play()` on enow `"stop"` or `"start_game"`.
+- Return from `play()` on enow `"stop"` or `"start_game"`. These, and an exit card, are the only reasons a
+  game ends: every game celebrates a win and then starts a new round, forever.
 - On devices whose `play()` receives an NFC reader, also return when an exit card is tapped (see
   that device's section). Read cards only every 10–15 loop iterations: a card read takes 200–500 ms
   and would stall the game.

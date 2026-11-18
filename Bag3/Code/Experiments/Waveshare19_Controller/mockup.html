@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Waveshare 1.9 bigger Box - 170x320 mockup</title>
+<!-- Mockup only. Tokens copied from Experiments/CrowPanel5_Display/ds_tokens.py.
+     Screens 1-7 of the confirmed list. Fake data. -->
+<style>
+:root{--pink:#EF4D92;--purple:#6C4CD1;--purple50:#F2EEFC;--teal:#1C9A82;--teal50:#E9FBF6;
+--ink:#231F2E;--ink3:#5B5468;--muted:#8B859A;--border:#E8E6F0;--bg:#F7F7FB;--surface:#fff;
+--danger:#C0392B;--blue:#2F6BFF;--green:#34C759;--warn:#A8781E}
+*{box-sizing:border-box}
+body{margin:0;padding:24px;background:#d9d6e4;font-family:Nunito,system-ui,sans-serif;color:var(--ink)}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+figure{margin:0}figcaption{font-size:13px;margin-top:8px;color:#3a3345}
+.scr{width:170px;height:320px;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;position:relative}
+.strip{height:32px;flex:none;display:flex;align-items:center;gap:6px;padding:0 8px;background:var(--surface);border-bottom:1px solid var(--border);font-size:12px;font-weight:700}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--teal)}
+.pill{padding:2px 7px;border-radius:99px;background:var(--teal50);color:var(--teal);font-size:12px}
+.sp{flex:1}
+.bat{color:var(--ink3)}
+.hd{height:44px;flex:none;display:flex;align-items:center;gap:6px;padding:0 8px;font-weight:800;font-size:16px}
+.back{width:44px;height:44px;margin-left:-8px;display:grid;place-items:center;color:var(--ink3);font-size:20px}
+.body{flex:1;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:0}
+.btn{flex:none;height:56px;border-radius:12px;display:flex;align-items:center;gap:8px;padding:0 12px;font-weight:800;font-size:16px;background:var(--surface);border:1.5px solid var(--border)}
+.btn.pri{background:var(--pink);border-color:var(--pink);color:#fff;justify-content:center}
+.btn.sm{height:44px}
+.btn.out{justify-content:center;color:var(--danger);border-color:var(--danger)}
+.ico{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.row48{height:44px;flex:none;border-radius:12px;background:var(--surface);border:1.5px solid var(--border);display:flex;align-items:center;gap:8px;padding:0 10px;font-weight:700;font-size:15px}
+.row48 .n{margin-left:auto;font-size:12px;color:var(--ink3);background:var(--bg);border-radius:99px;padding:2px 7px}
+.row48.sel{background:var(--purple50);border-color:var(--purple);color:var(--purple)}
+.c{width:10px;height:10px;border-radius:50%;flex:none}
+.card{border-radius:12px;background:var(--surface);border:1.5px solid var(--border);padding:10px}
+.big{font-size:26px;font-weight:800;line-height:1.1}
+.sub{font-size:13px;color:var(--ink3);font-weight:700}
+.bar{height:10px;border-radius:99px;background:var(--border);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--purple);border-radius:99px}
+.band{border-radius:12px;padding:14px 10px;text-align:center}
+.band.ok{background:var(--teal50);color:var(--teal)}
+.mid{flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px}
+.center{text-align:center}
+.nfc{width:84px;height:84px;margin:0 auto;border-radius:50%;background:var(--purple50);color:var(--purple);display:grid;place-items:center}
+.nfc .ico{width:44px;height:44px}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="i-games" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6M9 13h6M9 17h3"/></symbol>
+<symbol id="i-read" viewBox="0 0 24 24"><path d="M5 12a7 7 0 0 1 7-7M5 12a7 7 0 0 0 7 7M9 12a3 3 0 0 1 3-3M9 12a3 3 0 0 0 3 3"/><circle cx="16" cy="12" r="1"/></symbol>
+<symbol id="i-serve" viewBox="0 0 24 24"><path d="M5 9a10 10 0 0 1 14 0M8 12.5a6 6 0 0 1 8 0"/><circle cx="12" cy="17" r="1.5"/></symbol>
+</defs></svg>
+<div class="row">
+
+<figure><div class="scr">
+ <div class="strip"><span class="dot"></span>Linked<span class="sp"></span><span class="pill">Serving</span><span class="bat">82%</span></div>
+ <div class="body">
+  <div class="card"><div class="sub">Game</div><div class="big">Melody</div></div>
+  <div class="btn pri"><svg class="ico"><use href="#i-games"/></svg>Games</div>
+  <div class="btn"><svg class="ico"><use href="#i-read"/></svg>Read card</div>
+  <div class="btn"><svg class="ico"><use href="#i-serve"/></svg>Serving<span class="sp"></span><span class="pill">12</span></div>
+ </div></div><figcaption>1 Home</figcaption></figure>
+
+<figure><div class="scr">
+ <div class="strip"><span class="dot"></span>Linked<span class="sp"></span><span class="pill">Serving</span><span class="bat">82%</span></div>
+ <div class="hd"><span class="back">&#8249;</span>Games</div>
+ <div class="body" style="padding-top:0">
+  <div class="row48 sel">Melody<span class="n">12</span></div>
+  <div class="row48">Color Tag<span class="n">7</span></div>
+  <div class="row48">Animal Chase<span class="n">3</span></div>
+  <div class="row48">Utility tags</div>
+ </div></div><figcaption>2 Games</figcaption></figure>
+
+<figure><div class="scr">
+ <div class="strip"><span class="dot"></span>Linked<span class="sp"></span><span class="pill">Serving</span><span class="bat">82%</span></div>
+ <div class="hd"><span class="back">&#8249;</span>Melody</div>
+ <div class="body" style="padding-top:0">
+  <div class="row48"><span class="c" style="background:var(--purple)"></span>Code tag &#8226;</div>
+  <div class="row48"><span class="c" style="background:var(--blue)"></span>Play tag</div>
+  <div class="row48"><span class="c" style="background:var(--muted)"></span>Note C &#8226;</div>
+  <div class="sp"></div>
+  <div class="btn pri sm">Write all</div>
+ </div></div><figcaption>3 Game's tags</figcaption></figure>
+
+<figure><div class="scr">
+ <div class="strip"><span class="dot"></span>Linked<span class="sp"></span><span class="bat">82%</span></div>
+ <div class="body">
+  <div class="mid center">
+   <div class="nfc"><svg class="ico"><use href="#i-read"/></svg></div>
+   <div class="big">Play tag</div>
+   <div class="sub">Tag 2 of 5</div>
+   <div class="bar"><i style="width:40%"></i></div>
+  </div>
+  <div class="btn out sm">Cancel</div>
+ </div></div><figcaption>4 Write: hold card</figcaption></figure>
+
+<figure><div class="scr">
+ <div class="strip"><span class="dot"></span>Linked<span class="sp"></span><span class="bat">82%</span></div>
+ <div class="body">
+  <div class="mid center">
+   <div class="band ok"><div class="big">Written</div><div class="sub" style="color:var(--teal)">Play tag</div></div>
+   <div class="sub">Tag 2 of 5</div>
+  </div>
+  <div class="btn pri sm">Next</div>
+ </div></div><figcaption>5 Write result (ok; also busy, already, fail)</figcaption></figure>
+
+<figure><div class="scr">
+ <div class="strip"><span class="dot"></span>Linked<span class="sp"></span><span class="bat">82%</span></div>
+ <div class="body">
+  <div class="mid center">
+   <div class="nfc"><svg class="ico"><use href="#i-read"/></svg></div>
+   <div class="big">Tap a card</div>
+  </div>
+  <div class="btn out sm">Exit</div>
+ </div></div><figcaption>6 Read card</figcaption></figure>
+
+<figure><div class="scr">
+ <div class="strip"><span class="dot"></span>Linked<span class="sp"></span><span class="pill">Serving</span><span class="bat">82%</span></div>
+ <div class="body">
+  <div class="card"><div class="sub">Sharing</div><div class="big">7a3f</div><div class="sub" style="margin-top:4px">Melody</div></div>
+  <div class="card" style="display:flex;align-items:baseline;gap:8px"><span class="big">12</span><span class="sub">pulls</span></div>
+  <div class="row48" style="height:36px;font-size:13px">Wand 4<span class="n">now</span></div>
+  <div class="sp"></div>
+  <div class="btn out sm">Stop</div>
+ </div></div><figcaption>7 Serving</figcaption></figure>
+
+</div></body></html>

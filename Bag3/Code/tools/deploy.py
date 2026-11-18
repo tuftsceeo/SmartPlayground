@@ -74,7 +74,7 @@ def _list_ports():
     """Serial ports mpremote can see, falling back to a glob if that fails
     or finds nothing (e.g. `mpremote` too old for `connect list`)."""
     try:
-        r = subprocess.run(["python3", "-m", "mpremote", "connect", "list"],
+        r = subprocess.run([sys.executable, "-m", "mpremote", "connect", "list"],
                             capture_output=True, text=True, timeout=15)
         ports = []
         for line in r.stdout.splitlines():
@@ -258,7 +258,7 @@ def build_copy_cmd(port, files, dev_key):
     if dev_key == "wand":
         # New code: the next boot is a debug boot (MockWand/main.py BOOT_OK_PATH).
         setup += "try:\n    os.remove('/boot_ok')\nexcept OSError:\n    pass\n"
-    cmd = ["python3", "-m", "mpremote", "connect", port, "resume", "exec", setup]
+    cmd = [sys.executable, "-m", "mpremote", "connect", port, "resume", "exec", setup]
     for local, remote in files:
         cmd += ["+", "fs", "cp", local, ":" + remote]
     return cmd
@@ -280,7 +280,7 @@ def _run(cmd, dry_run):
 
 
 def deploy_one(port, files, dev_key, no_reset, dry_run):
-    reset = ["python3", "-m", "mpremote", "connect", port, "reset"]
+    reset = [sys.executable, "-m", "mpremote", "connect", port, "reset"]
     print("\n== %s ==" % port)
     print("# reset (break in once, so the copy hits a freshly booted board)")
     _run(reset, dry_run)  # a failure here is reported; the copy is the real test

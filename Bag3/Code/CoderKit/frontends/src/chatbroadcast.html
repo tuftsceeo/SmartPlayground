@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wand &amp; Station Coder</title>
+<script src="coderkit.js"></script>
+</head>
+<body>
+<!--
+  The ChatBroadcast web app's own page and stylesheet, driven by the kit.
+  The markup is copied from ChatBroadcast/index.html (simple mode); the
+  build pastes ChatBroadcast/css/app.css into the <style> below. Change the
+  markup, the script or add CSS after the pasted stylesheet; keep data-kit
+  attributes on the parts the kit needs.
+  Source: frontends/src/chatbroadcast.html. Built: frontends/chatbroadcast.html.
+-->
+<style data-inline="../../ChatBroadcast/css/app.css"></style>
+<style>
+  /* Additions for this template (not in the web app's stylesheet). */
+  #code-drawer textarea { width: 100%; height: 100%; border: 0; resize: none; padding: 12px; font: 12px/1.5 "SF Mono", Consolas, monospace; background: var(--code-bg); color: var(--code-text); outline: none; }
+  #code-editor-container { flex: 1; min-height: 0; display: flex; }
+  #preview-panel { width: 100%; height: 100%; }
+  .box-game-row { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .box-game-row span { flex: 1; font-weight: 700; }
+  .box-game-row.active span::after { content: " (playing)"; color: var(--teal-dark); font-weight: 600; }
+  .dist-row { display: flex; gap: 8px; align-items: center; padding: 6px 0; }
+  .dist-row span { flex: 1; }
+  .msg .md-h { color: var(--pink-dark); font-weight: 800; margin: 10px 0 4px; }
+  .msg p { margin: 0 0 6px; }
+  .msg ol, .msg ul { margin: 0 0 6px; padding-left: 22px; }
+</style>
+<div class="no-serial-banner" role="status">This browser can't send games to wands. Use Chrome or Edge on a computer.</div>
+<div id="app-shell">
+
+  <!-- Screen 1: Splash (data-kit="home") -->
+  <div id="view-splash" class="view-panel" data-kit="home">
+    <div class="splash-inner">
+      <div class="splash-logo">✦</div>
+      <div class="splash-title">Wand &amp; Station Coder</div>
+      <div class="splash-tagline">make magic for your playground</div>
+      <div class="splash-actions">
+        <div class="splash-card" id="btn-scratch" tabindex="0" role="button">
+          <div class="splash-card-icon" data-icon="message-circle"></div>
+          <h3>Start from scratch</h3>
+          <p>chat your idea into code</p>
+        </div>
+        <div class="splash-card primary" id="btn-gallery" tabindex="0" role="button">
+          <div class="splash-card-icon" data-icon="library"></div>
+          <h3>Browse examples</h3>
+          <p>remix a ready-made game</p>
+        </div>
+        <div class="splash-card" id="btn-saved" tabindex="0" role="button">
+          <div class="splash-card-icon" data-icon="folder-open"></div>
+          <h3>My saved games</h3>
+          <p>pick up where you left off</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 2: Gallery (data-kit="examples" and "saved-games") -->
+  <div id="view-gallery" class="view-panel hidden">
+    <header class="app-header" data-tab="gallery">
+      <button type="button" class="app-brand brand-home" title="Back to home">
+        <span class="brand-gem"><span class="brand-glyph-rest">✦</span><span class="brand-glyph-hover">◀</span></span>
+        <span class="brand-title">Wand &amp; Station Coder</span>
+      </button>
+      <div class="header-actions">
+        <nav class="app-tabs" aria-label="Main">
+          <button type="button" class="app-tab" data-nav="saved">My games</button>
+          <button type="button" class="app-tab" data-nav="examples">Examples</button>
+        </nav>
+        <button type="button" class="btn-new-game" id="btn-gallery-new" title="Start a new game">
+          <span data-icon="plus"></span><span>New game</span>
+        </button>
+      </div>
+    </header>
+    <div class="gallery-toolbar">
+      <h1 id="gallery-title">Example games</h1>
+      <input type="search" id="gallery-search" placeholder="Find a game…">
+    </div>
+    <div class="chips" id="gallery-chips" data-kit="examples"></div>
+    <div class="gallery-grid" id="gallery-grid" data-kit="saved-games"></div>
+  </div>
+
+  <!-- Screen 3: Workspace -->
+  <div id="view-workspace" class="view-panel hidden">
+    <header class="app-header" data-tab="home">
+      <button type="button" class="app-brand brand-home" title="Back to home">
+        <span class="brand-gem"><span class="brand-glyph-rest">✦</span><span class="brand-glyph-hover">◀</span></span>
+        <span class="brand-title">Wand &amp; Station Coder</span>
+      </button>
+      <div class="header-actions">
+        <button type="button" class="mode-pill muted" data-mode-pill title="Games on the controller" disabled>
+          <span class="mode-pill-icon" data-icon="box"></span>
+          <span class="mode-pill-label">Device</span>
+        </button>
+        <span class="conn-chip hidden" data-conn-chip></span>
+        <button class="btn-connect-header" data-kit="connect" type="button" title="Connect to the Box or Dial">
+          <span class="connect-icon" data-icon="cable"></span>
+          <span class="connect-label">Connect</span>
+        </button>
+        <div class="more-menu">
+          <button class="icon-btn btn-more" id="btn-more" type="button" title="More" aria-haspopup="true" aria-expanded="false">⋮</button>
+          <div class="more-panel hidden" id="more-panel">
+            <button class="more-item" id="btn-menu-distribute" type="button">Send to many devices</button>
+            <button class="more-item" id="btn-menu-log" type="button">Show the log</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="ws-titlebar">
+      <button type="button" class="ws-name" id="btn-game-name" title="Rename this game">
+        <span id="ws-name-label">Untitled game</span>
+        <span data-icon="pencil" data-icon-size="13"></span>
+      </button>
+      <input type="text" class="ws-name-input hidden" id="ws-name-input" maxlength="48" aria-label="Game name" data-kit="game-name">
+      <button class="icon-btn" id="btn-new-game" type="button" title="New game"><span class="code-glyph">+</span></button>
+      <button class="icon-btn" id="btn-save-game" type="button" title="Save"><span data-icon="save" data-icon-size="15"></span></button>
+      <button class="icon-btn" id="btn-open-game" type="button" title="Open a saved game"><span data-icon="folder-open" data-icon-size="15"></span></button>
+      <div class="ws-titlebar-actions">
+        <button class="btn-send-box" id="btn-send-box" data-kit="send-to-device" type="button" disabled>Send to Device →</button>
+      </div>
+    </div>
+
+    <div class="ws-body">
+      <div class="preview-col">
+        <div class="preview-stage">
+          <div id="preview-empty" class="preview-empty">
+            <span data-icon="wand" data-icon-size="46" data-icon-stroke="1.3" class="preview-empty-icon"></span>
+            <div class="preview-empty-caption">wand preview</div>
+          </div>
+          <div id="preview-panel" class="hidden" data-kit="simulator"></div>
+        </div>
+      </div>
+      <div class="ws-resizer" role="separator" aria-orientation="vertical"></div>
+      <div class="chat-col">
+        <div id="chat-box" data-kit="chat-log"></div>
+        <div class="chat-input-row">
+          <textarea id="user-input" rows="1" placeholder="type a request…" data-kit="chat-input"></textarea>
+          <button class="btn-send-round" id="btn-send" title="Send" type="button" data-kit="chat-send">
+            <span data-icon="send" data-icon-size="16"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Code drawer (data-kit="code-view"): opens from "See the code" -->
+<div id="code-drawer" class="hidden" data-kit="code-view">
+  <div class="drawer-header">
+    <span class="drawer-title">&lt;/&gt; generated code</span>
+    <div class="drawer-tools">
+      <button class="version-pill" id="btn-prev" type="button" title="Previous version">◄</button>
+      <span id="version-label">v0/0</span>
+      <button class="version-pill" id="btn-next" type="button" title="Next version">►</button>
+      <button class="icon-btn" id="btn-close-code" type="button" title="Close"><span data-icon="close" data-icon-size="18"></span></button>
+    </div>
+  </div>
+  <div class="drawer-device-tabs" id="code-device-tabs"></div>
+  <div id="code-editor-container"><textarea id="code-editor" spellcheck="false"></textarea></div>
+</div>
+
+<!-- Distribute (data-kit="distribute") -->
+<div id="distribute-overlay" class="overlay-view hidden" data-kit="distribute">
+  <div class="overlay-card overlay-card-distribute">
+    <div class="dist-top">
+      <button type="button" class="overlay-close-x dist-icon-btn" id="btn-dist-rescan" title="Refresh"><span data-icon="refresh" data-icon-size="18"></span></button>
+      <button type="button" class="overlay-close-x dist-icon-btn" id="btn-dist-close-x" title="Close"><span data-icon="close" data-icon-size="18"></span></button>
+    </div>
+    <h2 id="dist-title">Send to devices</h2>
+    <p id="dist-status"></p>
+    <div id="dist-replace" class="dist-replace"></div>
+    <div id="dist-cards" class="dist-cards"></div>
+    <button class="btn-primary" id="btn-dist-send" type="button">Send</button>
+  </div>
+</div>
+
+<!-- Games on the controller (data-kit="device-panel") -->
+<div id="box-library-overlay" class="overlay-view hidden" data-kit="device-panel">
+  <div class="overlay-card overlay-card-mybox">
+    <div class="mybox-top">
+      <div class="mybox-mode-chip"><span data-icon="modeServe" data-icon-size="14"></span><span id="mybox-mode-label">Device</span></div>
+      <button type="button" class="drawer-close" id="btn-box-lib-close" title="Close"><span data-icon="close" data-icon-size="18"></span></button>
+    </div>
+    <p id="box-library-status" class="muted"></p>
+    <div id="box-library-list" class="box-library-list"></div>
+    <div class="mybox-footer">
+      <button class="btn-secondary btn-compact" id="btn-box-lib-refresh" type="button">Refresh</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<!-- Log (data-kit="log") -->
+<div id="serial-log-panel" class="hidden" data-kit="log">
+  <div class="serial-log-bar">
+    <div class="log-tabs"><button type="button" class="log-tab active">Activity</button></div>
+    <span class="log-preview"></span>
+    <button type="button" id="btn-log-close">Close</button>
+  </div>
+  <pre id="serial-log-text" class="log-pane active"></pre>
+</div>
+
+<script>
+  const q = s => document.querySelector(s);
+  const qa = s => [...document.querySelectorAll(s)];
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let view = 'splash', gallery = 'examples', filter = 'all', role = null, codeOpen = false, simMounted = false;
+  const ideas = kit.starterIdeas ? kit.starterIdeas() : [];
+
+  // Fill every [data-icon] with the web app's icon.
+  function paintIcons(root = document) {
+    root.querySelectorAll('[data-icon]').forEach(el => {
+      if (el.dataset.painted) return;
+      el.innerHTML = kit.icon(el.dataset.icon, +(el.dataset.iconSize || 16)); el.dataset.painted = '1';
+    });
+  }
+
+  // ---------- views ----------
+  function show(v) {
+    view = v;
+    q('#view-splash').classList.toggle('hidden', v !== 'splash');
+    q('#view-gallery').classList.toggle('hidden', v !== 'gallery');
+    q('#view-workspace').classList.toggle('hidden', v !== 'workspace');
+    if (v === 'workspace' && !simMounted) { simMounted = true; kit.mountSimulator(q('#preview-panel')); }
+    render(kit.state);
+  }
+  function openGallery(which) { gallery = which; show('gallery'); }
+
+  // ---------- gallery ----------
+  function card({ name, thumb, tint, devices, note }, onOpen, onDelete) {
+    const c = document.createElement('div');
+    c.className = 'example-card game-card';
+    c.innerHTML = `<div class="example-thumb game-thumb" style="background:${tint}">${thumb}</div>`
+      + `<div class="card-body"><h3>${esc(name)}</h3>`
+      + (devices ? `<p class="card-devices">${esc(devices)}</p>` : '')
+      + `<p class="card-note">${esc(note)}</p></div>`
+      + `<div class="card-actions"><button type="button" class="card-open">Open</button>`
+      + (onDelete ? `<button type="button" class="card-more" title="Delete">${kit.icon('trash', 16)}</button>` : '') + `</div>`;
+    c.querySelector('.card-open').onclick = onOpen;
+    if (onDelete) c.querySelector('.card-more').onclick = onDelete;
+    return c;
+  }
+  function renderGallery() {
+    qa('.app-tab').forEach(b => b.classList.toggle('active', b.dataset.nav === gallery));
+    q('#gallery-title').textContent = gallery === 'examples' ? 'Example games' : 'My games';
+    const chips = q('#gallery-chips'); chips.textContent = '';
+    chips.classList.toggle('hidden', gallery !== 'examples');
+    const term = q('#gallery-search').value.toLowerCase();
+    const grid = q('#gallery-grid'); grid.textContent = '';
+    if (gallery === 'examples') {
+      const { categories, list } = kit.examples();
+      for (const c of categories) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip' + (c.id === filter ? ' active' : '');
+        b.innerHTML = (c.iconSvg ? c.iconSvg + ' ' : '') + esc(c.label);
+        b.onclick = () => { filter = c.id; renderGallery(); };
+        chips.appendChild(b);
+      }
+      for (const ex of list) {
+        if (filter !== 'all' && ex.category !== filter) continue;
+        if (term && !(ex.name + ' ' + ex.description).toLowerCase().includes(term)) continue;
+        grid.appendChild(card({ name: ex.name, thumb: ex.thumb, tint: ex.tint, devices: ex.devices, note: ex.description },
+          async () => { await kit.openExample(ex.id); show('workspace'); }));
+      }
+    } else {
+      const games = kit.saved().filter(g => !term || g.name.toLowerCase().includes(term));
+      if (!games.length) grid.innerHTML = '<p class="muted">Nothing saved yet.</p>';
+      for (const g of games) {
+        grid.appendChild(card({ name: g.name, thumb: g.thumb, tint: g.tint, devices: '', note: g.desc || new Date(g.updatedAt).toLocaleDateString() },
+          async () => { await kit.openSaved(g.id); show('workspace'); },
+          () => { if (confirm('Delete "' + g.name + '"?')) kit.deleteSaved(g.id); }));
+      }
+    }
+  }
+
+  // ---------- chat ----------
+  // A little markdown: headings, bold, numbered and bulleted lists.
+  function md(text) {
+    const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+    let html = '', list = null;
+    const close = () => { if (list) { html += `</${list}>`; list = null; } };
+    for (const line of text.replace(/```[\s\S]*?```/g, '').split('\n')) {
+      let m;
+      if ((m = line.match(/^#{1,6}\s+(.*)/)) || (m = line.match(/^\*\*(.+)\*\*:?$/))) { close(); html += `<div class="md-h">${inline(m[1])}</div>`; }
+      else if ((m = line.match(/^\s*\d+[.)]\s+(.*)/))) { if (list !== 'ol') { close(); html += '<ol>'; list = 'ol'; } html += `<li>${inline(m[1])}</li>`; }
+      else if ((m = line.match(/^\s*[-*]\s+(.*)/))) { if (list !== 'ul') { close(); html += '<ul>'; list = 'ul'; } html += `<li>${inline(m[1])}</li>`; }
+      else if (line.trim()) { close(); html += `<p>${inline(line)}</p>`; }
+    }
+    close();
+    return html;
+  }
+  function chip(text, cls, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'starter-chip' + (cls ? ' ' + cls : ''); b.innerHTML = text; b.onclick = onClick;
+    return b;
+  }
+  function newGameScreen() {
+    const tints = [['#fff0f6', '#d13a7c'], ['#e9fbf6', '#1c9a82'], ['#fff8dc', '#a87a00']];
+    const wrap = document.createElement('div');
+    wrap.className = 'starter-chips new-game';
+    wrap.innerHTML = `<div class="ng-head"><h1>What game shall we make?</h1><p>Pick a way to start.</p></div>`
+      + `<div class="ng-options"><button type="button" class="starter-chip starter-chip-guided ng-card ng-interview" data-kit="interview">`
+      + `${kit.icon('message-circle', 28)}<b>Interview me</b><span>Answer a few questions</span></button></div>`
+      + `<div class="ng-label">Or try an idea</div><div class="ng-ideas"></div>`;
+    wrap.querySelector('.ng-interview').onclick = () => kit.startInterview();
+    ideas.forEach((sp, i) => {
+      const [bg, fg] = tints[i % tints.length];
+      wrap.querySelector('.ng-ideas').appendChild(chip(`<span class="ng-tile" style="background:${bg};color:${fg}">${sp.iconSvg}</span><span>${esc(sp.text)}</span>`, 'ng-idea',
+        () => { const inp = q('#user-input'); inp.value = sp.text; inp.focus(); }));
+    });
+    return wrap;
+  }
+  function renderChat(s) {
+    const box = q('#chat-box'); box.textContent = '';
+    if (!s.messages.length && !s.interview) { box.appendChild(newGameScreen()); }
+    for (const m of s.messages) {
+      const div = document.createElement('div');
+      if (m.role === 'user') { div.className = 'msg user'; div.textContent = m.text; box.appendChild(div); continue; }
+      if (m.role === 'system') { div.className = 'msg system'; div.textContent = m.text; box.appendChild(div); continue; }
+      div.className = 'msg bot';
+      if (m.text) div.innerHTML = md(m.text);
+      if (m.streaming) div.insertAdjacentHTML('beforeend', '<span class="thinking-dots"><span></span><span></span><span></span></span>' + (m.text ? '' : 'Thinking…'));
+      if (m.code) {
+        const see = document.createElement('button');
+        see.type = 'button'; see.className = 'see-code'; see.textContent = 'See the code';
+        see.onclick = () => { codeOpen = true; role = Object.keys(m.code)[0]; renderCode(kit.state); };
+        div.appendChild(see);
+      }
+      const row = document.createElement('div');
+      row.className = 'msg-row bot';
+      row.innerHTML = `<span class="msg-avatar" aria-hidden="true">${kit.icon('sparkles', 16)}</span>`;
+      row.appendChild(div);
+      box.appendChild(row);
+      if (m.brief && s.brief === m.brief) box.appendChild(chip('Make this game', 'starter-chip-guided', () => kit.makeFromBrief()));
+    }
+    if (s.interview) {
+      const w = document.createElement('div'); w.className = 'starter-chips';
+      w.append(chip(`Make my game now (question ${s.interview.asked} of ${s.interview.max})`, 'starter-chip-guided', () => kit.finishInterview()),
+        chip('Stop the interview', '', () => kit.cancelInterview()));
+      box.appendChild(w);
+    }
+    if (s.choices.length) {
+      const w = document.createElement('div'); w.className = 'starter-chips';
+      for (const c of s.choices) w.appendChild(chip(esc(c), '', () => kit.chat(c)));
+      box.appendChild(w);
+    }
+    if (s.error) { const e = document.createElement('div'); e.className = 'msg system'; e.textContent = s.error; box.appendChild(e); }
+    box.scrollTop = box.scrollHeight;
+    q('#btn-send').disabled = s.busy;
+  }
+
+  // ---------- code drawer ----------
+  function renderCode(s) {
+    q('#code-drawer').classList.toggle('hidden', !codeOpen);
+    if (!codeOpen) return;
+    const roles = kit.roles.filter(r => s.code[r.key]);
+    if (!role || !s.code[role]) role = roles[0]?.key || kit.roles[0]?.key;
+    const tabs = q('#code-device-tabs'); tabs.textContent = '';
+    tabs.classList.toggle('hidden', roles.length < 2);
+    for (const r of roles) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'device-tab' + (r.key === role ? ' active' : ''); b.textContent = r.label + ' code';
+      b.onclick = () => { role = r.key; renderCode(kit.state); };
+      tabs.appendChild(b);
+    }
+    const v = s.versions[role] || { list: [], index: -1 };
+    q('#version-label').textContent = `v${v.index + 1}/${v.list.length}`;
+    const ta = q('#code-editor');
+    if (document.activeElement !== ta) ta.value = s.code[role] || '';
+  }
+
+  // ---------- device: header, controller games, distribute ----------
+  function renderDevice(s) {
+    const live = s.link === 'live';
+    const label = { idle: 'Connect', opening: 'Connecting…', live: 'Connected', sending: 'Sending…' }[s.link];
+    q('.connect-label').textContent = label + (s.progress != null ? ' ' + Math.round(s.progress * 100) + '%' : '');
+    q('.btn-connect-header').classList.toggle('is-connected', live);
+    const pill = q('[data-mode-pill]');
+    pill.disabled = !live; pill.classList.toggle('muted', !live);
+    q('.mode-pill-label').textContent = live ? (s.deviceName || 'Device') : 'Device';
+    const hasCode = Object.values(s.code).some(Boolean);
+    q('#btn-send-box').disabled = !hasCode || s.link === 'sending';
+    q('#ws-name-label').textContent = s.gameName || 'Untitled game';
+    q('#preview-empty').classList.toggle('hidden', hasCode);
+    q('#preview-panel').classList.toggle('hidden', !hasCode);
+
+    const d = s.device;
+    q('#mybox-mode-label').textContent = (s.deviceName || 'Device') + (d.mode ? ' · ' + d.mode : '');
+    q('#box-library-status').textContent = live ? `${d.games.length} game(s) on it.` : 'Connect to see the games on it.';
+    const list = q('#box-library-list'); list.textContent = '';
+    for (const g of d.games) {
+      const row = document.createElement('div');
+      row.className = 'box-game-row' + (g.slug === d.active ? ' active' : '');
+      row.innerHTML = `<span>${esc(g.name || g.slug)}</span>`;
+      row.append(chip('Play', '', () => kit.selectGame(g.slug)), chip('Delete', '', () => { if (confirm('Delete ' + (g.name || g.slug) + '?')) kit.deleteGame(g.slug); }));
+      list.appendChild(row);
+    }
+
+    const ds = s.distribute;
+    q('#distribute-overlay').classList.toggle('hidden', !ds);
+    if (ds) {
+      q('#dist-title').textContent = `Send "${ds.pretty}" to devices`;
+      q('#dist-status').textContent = ds.status + (ds.running ? ` ${ds.done} of ${ds.total}` : '');
+      const rep = q('#dist-replace'); rep.textContent = '';
+      if (ds.needsSlot) for (const o of ds.slots) rep.appendChild(chip(`Replace slot ${o.index + 1}`, '', () => kit.distribute.send(o.index)));
+      const cards = q('#dist-cards'); cards.textContent = '';
+      for (const r of ds.rows) {
+        const row = document.createElement('label'); row.className = 'dist-row';
+        row.innerHTML = `<input type="checkbox" ${r.selected ? 'checked' : ''} ${ds.running ? 'disabled' : ''}><span>${esc((r.kind || 'device') + ' ' + r.mac)}${r.battery != null ? ' · ' + r.battery + '%' : ''}</span><em>${esc(r.status)}</em>`;
+        row.querySelector('input').onchange = e => kit.distribute.toggle(r.mac, e.target.checked, true);
+        cards.appendChild(row);
+      }
+    }
+  }
+
+  // ---------- toast and log ----------
+  let seen = kit.state.log.length ? kit.state.log[kit.state.log.length - 1].id : 0, toastTimer;
+  function renderLog(s) {
+    for (const l of s.log) if (l.id > seen && (l.level === 'ok' || l.level === 'error')) {
+      const t = q('#toast'); t.textContent = l.text; t.classList.remove('hidden');
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), l.level === 'error' ? 6000 : 3000);
+    }
+    if (s.log.length) seen = s.log[s.log.length - 1].id;
+    q('#serial-log-text').textContent = s.log.map(l => new Date(l.t).toLocaleTimeString() + '  ' + l.text).join('\n');
+  }
+
+  function render(s) {
+    renderLog(s);
+    if (view === 'gallery') renderGallery();
+    if (view === 'workspace') { renderChat(s); renderCode(s); }
+    renderDevice(s);
+    paintIcons();
+  }
+
+  // ---------- wiring ----------
+  kit.on('change', render);
+  q('#btn-scratch').onclick = () => { kit.newGame(); show('workspace'); };
+  q('#btn-gallery').onclick = () => openGallery('examples');
+  q('#btn-saved').onclick = () => openGallery('saved');
+  qa('.brand-home').forEach(b => b.onclick = () => show('splash'));
+  qa('.app-tab').forEach(b => b.onclick = () => openGallery(b.dataset.nav));
+  q('#btn-gallery-new').onclick = () => { kit.newGame(); show('workspace'); };
+  q('#gallery-search').oninput = renderGallery;
+  q('#btn-game-name').onclick = () => { const i = q('#ws-name-input'); i.value = kit.state.gameName || ''; i.classList.remove('hidden'); q('#btn-game-name').classList.add('hidden'); i.focus(); };
+  q('#ws-name-input').onblur = q('#ws-name-input').onchange = e => { kit.setGameName(e.target.value); e.target.classList.add('hidden'); q('#btn-game-name').classList.remove('hidden'); };
+  q('#btn-new-game').onclick = () => kit.newGame();
+  q('#btn-save-game').onclick = () => kit.saveGame();
+  q('#btn-open-game').onclick = () => openGallery('saved');
+  q('#btn-send-box').onclick = () => kit.send();
+  q('.btn-connect-header').onclick = () => kit.state.link === 'idle' ? kit.connect() : kit.disconnect();
+  q('[data-mode-pill]').onclick = () => { kit.refreshGames(); q('#box-library-overlay').classList.remove('hidden'); };
+  q('#btn-box-lib-close').onclick = () => q('#box-library-overlay').classList.add('hidden');
+  q('#btn-box-lib-refresh').onclick = () => kit.refreshGames();
+  q('#btn-more').onclick = () => q('#more-panel').classList.toggle('hidden');
+  q('#btn-menu-distribute').onclick = () => { q('#more-panel').classList.add('hidden'); kit.distribute.open(); };
+  q('#btn-menu-log').onclick = () => { q('#more-panel').classList.add('hidden'); q('#serial-log-panel').classList.remove('hidden'); };
+  q('#btn-log-close').onclick = () => q('#serial-log-panel').classList.add('hidden');
+  q('#btn-dist-close-x').onclick = () => kit.distribute.close();
+  q('#btn-dist-rescan').onclick = () => kit.distribute.scan();
+  q('#btn-dist-send').onclick = () => kit.distribute.send();
+  q('#btn-close-code').onclick = () => { codeOpen = false; renderCode(kit.state); };
+  q('#btn-prev').onclick = () => kit.prevVersion(role);
+  q('#btn-next').onclick = () => kit.nextVersion(role);
+  q('#code-editor').onchange = e => kit.setCode(role, e.target.value);
+  const input = q('#user-input');
+  const send = () => { const t = input.value.trim(); if (!t) return; input.value = ''; kit.chat(t); };
+  q('#btn-send').onclick = send;
+  input.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
+  show('splash');
+</script>
+</body>
+</html>

@@ -28,7 +28,7 @@ const EXPECTED = {
     simpleicecream: [], multiicecream: [], sound: [],
 };
 
-const MW = resolve(HERE, "../../../Wand Module");
+const MW = resolve(HERE, "../../Wand Module");
 
 // Game files are moving out of the MockWand root into MockWand/games/,
 // which is also where a pulled game lands on the device. Either location
@@ -62,7 +62,7 @@ for (const [name, want] of Object.entries(EXPECTED)) {
 }
 
 console.log("\n== example gallery (code now loads from Simulator/vendor/games) ==");
-const VENDOR = resolve(HERE, "../../../Simulator/vendor/games");
+const VENDOR = resolve(HERE, "../../Simulator/vendor/games");
 for (const ex of EXAMPLES) {
     const src = readFileSync(`${VENDOR}/${ex.vendorGame}.py`, "utf8");
     const { declared, tags, unresolved } = extractGameTags(src);

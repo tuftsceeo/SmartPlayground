@@ -21,7 +21,8 @@ import {
 } from './editor.js';
 import { uploadPayload, validateGameCode, validateGameSignature, codeBytes, MAX_WAND_GAME_BYTES } from './upload.js';
 import { ROLES as ROLE_TABLE, roleInfo, DEFAULT_ROLE } from './roles.js';
-import { listSplatActions } from './splat/splatActionCheck.js';
+import { listSplatActions, unknownSplatActionsIn } from './splat/splatActionCheck.js';
+import { splatGameProblems } from './splat/splatGameCheck.js';
 import { updateTagChecklist, setCardWriter, cardWriteEnded } from './nfc.js';
 import { EXAMPLES, CATEGORIES, findExample, loadExampleCode } from './examples.js';
 import { showView, showOverlay, hideOverlay, setConnectionBadge, toast, setSendProgress, showConnectToast, syncNavTabs } from './router.js';
@@ -50,6 +51,7 @@ import {
     setGameIcons, getGameIcons, onIconsChange,
 } from './ledicons/iconLibrary.js';
 import { gameIconEntries, startingIcon, drawIcon } from './ledicons/iconView.js';
+import { groupIcons } from './ledicons/iconCategories.js';
 import { gameIconThumb, gameTint } from './ledicons/thumb5.js';
 import { GAME_ICONS } from './ledicons/shapes5.js';
 
@@ -141,13 +143,14 @@ function makeActivatable(el) {
 function savedGameDevices(g) {
     const code = g.code || '';
     const settings = g.simSettings || {};
-    const wands = settings.wands || 1;
     const lobby = isLobbyGame(code);
-    // A Splat host game's Splats are all on its host (settings.splat_host).
+    // A Splat host game's Splats are all on its host (settings.splat_host),
+    // and the host is one more wand than the children's (settings.wands).
     const host = /^SPLAT_HOST\s*=\s*True/m.test(code);
+    const wands = (settings.wands || 1) + (host ? 1 : 0);
+    const local = /^SPLATS_LOCAL\s*=/m.test(code);
     const splats = host ? Math.max(1, settings.splat_host || 1)
-        : /SPLATS_MIN/.test(code) || (lobby && settings.wand_splats > 0)
-            ? Math.max(1, (settings.wand_splats || 1) * wands) : 0;
+        : local ? Math.max(1, settings.splats || 1) : 0;
     const base = baselineTags(g.hardware?.slug || slugify(g.name || ''));
     return deviceLine(deviceNeeds({
         wands,
@@ -327,7 +330,7 @@ class App {
             setSendProgress(pct, `${p.status}: ${p.file}`);
         };
 
-        setWorkspaceHandler((code) => {
+        setWorkspaceHandler(async (code) => {
             const drawer = document.getElementById('code-drawer');
             // A block that is already some device's code just shows it.
             const role = rolesWithCode().find((r) => getCode(r).trim() === code.trim());
@@ -343,6 +346,7 @@ class App {
             addProcessMsg(`Code sent to editor (v${getVersionCount()})`);
             document.getElementById('code-drawer').classList.remove('hidden');
             this.updatePreview();
+            await this.checkNewGame();
         });
 
         this.updatePreview();
@@ -418,10 +422,10 @@ class App {
         const frame = document.getElementById('icon-maker-frame');
         if (!view || !frame) return;
         // ?embed=1 tells the Maker it is a panel inside this app rather than
-        // its own page -- see iconmaker/js/api.js. Its capabilities are
+        // its own page -- see IconEditor/webapp/js/api.js. Its capabilities are
         // reachable as frame.contentWindow.iconMaker.
         if (!frame.getAttribute('src')) {
-            frame.setAttribute('src', 'iconmaker/?embed=1');
+            frame.setAttribute('src', '../IconEditor/webapp/?embed=1');
             frame.addEventListener('load', () => this.wireIconMaker(frame), { once: true });
         } else {
             // Already loaded: re-point it, because the open game may have
@@ -540,7 +544,7 @@ class App {
 
     /**
      * The drawer's own toolbar. The editor iframe shows the canvas only, so
-     * these are its verbs -- each one a call into iconmaker/js/api.js rather
+     * these are its verbs -- each one a call into IconEditor/webapp/js/api.js rather
      * than a click synthesised on chrome this app does not own.
      */
     bindIconToolbar() {
@@ -549,7 +553,12 @@ class App {
         const run = async (fn) => { try { await fn(); } catch (e) { fail(e); } };
 
         const fileInput = document.getElementById('icon-file-input');
-        document.getElementById('btn-icon-import')?.addEventListener('click', () => fileInput?.click());
+        // Open = the categorised sample library; a photo upload is offered inside it.
+        document.getElementById('btn-icon-import')?.addEventListener('click', () => this.openIconSamples());
+        document.getElementById('btn-icon-upload-photo')?.addEventListener('click', () => {
+            hideOverlay('icon-samples-overlay');
+            fileInput?.click();
+        });
         fileInput?.addEventListener('change', (e) => {
             const file = e.target.files?.[0];
             e.target.value = '';
@@ -581,11 +590,21 @@ class App {
             api()?.exportFile.icon();
             this.closeIconMenu();
         }));
-        document.getElementById('btn-icon-samples')?.addEventListener('click', () => {
-            const grid = document.getElementById('icon-samples-grid');
-            if (!grid) return;
-            if (!grid.dataset.filled) {
-                for (const name of api()?.source.listSamples() || []) {
+        document.getElementById('icon-samples-close-x')?.addEventListener('click', () => hideOverlay('icon-samples-overlay'));
+    }
+
+    /** Sample library overlay: device icons grouped by category (iconCategories.js). */
+    openIconSamples() {
+        const api = () => this.iconApi();
+        const grid = document.getElementById('icon-samples-grid');
+        if (!grid) return;
+        if (!grid.dataset.filled) {
+            for (const group of groupIcons(api()?.source.listSamples() || [])) {
+                const head = document.createElement('h3');
+                head.className = 'samples-cat';
+                head.textContent = group.title;
+                grid.appendChild(head);
+                for (const name of group.names) {
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.className = 'samples-item';
@@ -594,22 +613,23 @@ class App {
                     canvas.width = 64;
                     canvas.height = 64;
                     const label = document.createElement('span');
-                    label.textContent = name;
+                    label.textContent = name.replace(/_/g, ' ');
                     btn.append(canvas, label);
-                    btn.addEventListener('click', () => run(async () => {
-                        await api()?.source.loadSample(name);
-                        hideOverlay('icon-samples-overlay');
-                    }));
+                    btn.addEventListener('click', async () => {
+                        try {
+                            await api()?.source.loadSample(name);
+                            hideOverlay('icon-samples-overlay');
+                        } catch (e) { toast(String(e?.message || e), true); }
+                    });
                     // Only names with a saved icon: a stale Maker build can still
                     // list photo-only samples, which would draw blank.
                     if (drawIcon(canvas, name, 0.3).ok) grid.appendChild(btn);
                 }
-                grid.dataset.filled = '1';
             }
-            this.closeIconMenu();
-            showOverlay('icon-samples-overlay');
-        });
-        document.getElementById('icon-samples-close-x')?.addEventListener('click', () => hideOverlay('icon-samples-overlay'));
+            grid.dataset.filled = '1';
+        }
+        this.closeIconMenu();
+        showOverlay('icon-samples-overlay');
     }
 
     closeIconMenu() {
@@ -639,7 +659,7 @@ class App {
     wireIconMaker(frame) {
         const api = frame.contentWindow?.iconMaker;
         if (!api) {
-            dbgWarn('app', 'icons view: iconMaker API not present — is iconmaker/js/api.js loaded?');
+            dbgWarn('app', 'icons view: iconMaker API not present — is IconEditor/webapp/js/api.js loaded?');
             return;
         }
         api.library.setBackend({
@@ -1430,6 +1450,7 @@ class App {
         });
         document.getElementById('btn-save-game').addEventListener('click', () => this.onSaveGame());
         document.getElementById('btn-open-game').addEventListener('click', () => this.openSavedFromWorkspace());
+        document.getElementById('btn-open-saved-pill').addEventListener('click', () => this.openSavedFromWorkspace());
 
         // The brand replaced the Home tab on every screen that had one, so it
         // routes through onNavTab: that keeps the unsaved-work guard on the
@@ -1634,7 +1655,11 @@ class App {
         for (const [key, c] of Object.entries(this.retiredRoleCode || {})) {
             if (!(key in roleCode)) roleCode[key] = c;
         }
+        // Save vs Save As: same name as the copy this workspace came from
+        // (opened or last saved) replaces it; a renamed game is a new copy.
+        const replaceId = this.savedId && this.gameName === this.savedName ? this.savedId : null;
         const entry = saveGame({
+            id: replaceId,
             name: this.gameName,
             desc: this.gameDesc,
             code,
@@ -1648,8 +1673,10 @@ class App {
             simSettings: this.simSettings,
             gameIcon: this.gameIcon,
         });
+        this.savedId = entry.id;
+        this.savedName = entry.name;
         this.dirty = false;
-        toast(`Saved “${entry.name}”`);
+        toast(replaceId ? `Updated “${entry.name}”` : `Saved “${entry.name}”`);
         dbg('app', `saved game ${entry.id}`);
     }
 
@@ -1755,6 +1782,16 @@ class App {
         });
     }
 
+    /** Gallery rename; if that copy is open in the workspace, it follows,
+     * so the next Save still replaces it rather than making a new one. */
+    renameSaved(id, name) {
+        const entry = renameSavedGame(id, name);
+        if (entry && id === this.savedId) {
+            this.gameName = this.savedName = entry.name;
+            this.syncGameName();
+        }
+    }
+
     startRenameSaved(card, g) {
         const body = card.querySelector('[data-card-body]');
         if (!body) return;
@@ -1769,7 +1806,7 @@ class App {
         input.select();
         body.querySelector('.card-rename-ok').addEventListener('click', (e) => {
             e.stopPropagation();
-            renameSavedGame(g.id, input.value);
+            this.renameSaved(g.id, input.value);
             this.renderGallery();
         });
         body.querySelector('.card-rename-cancel').addEventListener('click', (e) => {
@@ -1779,7 +1816,7 @@ class App {
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                renameSavedGame(g.id, input.value);
+                this.renameSaved(g.id, input.value);
                 this.renderGallery();
             } else if (e.key === 'Escape') {
                 this.renderGallery();
@@ -1812,6 +1849,8 @@ class App {
             return;
         }
         this.gameName = g.name;
+        this.savedId = g.id;
+        this.savedName = g.name;
         // DIAGNOSTIC (temporary -- name-field investigation, see chat).
         dbg('app', `openSavedGame(${id}): stored name=${JSON.stringify(g.name)} -> this.gameName=${JSON.stringify(this.gameName)}`);
         this.gameDesc = g.desc || '';
@@ -2207,7 +2246,9 @@ class App {
                 this.interview = null;
                 dbg('chat', `interview finished after ${iv.asked} question(s)`, { brief });
                 if (lead) addMsg(lead, 'bot');
-                addMsg(brief, 'bot');
+                // Simple mode shows a short summary; the full brief, written
+                // for the model, still goes with "Make this game".
+                addMsg(getUiMode() === 'simple' ? briefSummary(brief) : brief, 'bot');
                 this.renderBriefChips(brief);
                 return;
             }
@@ -2313,6 +2354,8 @@ class App {
      */
     resetGameContext() {
         dbg('app', 'resetGameContext() — clearing name/tags/example');
+        this.savedId = null;
+        this.savedName = null;
         // Every role's code and history goes with the game it belonged to:
         // a display file left behind would be sent alongside the next game.
         // Edited icons go the same way, for the same reason -- and so a new
@@ -2364,6 +2407,8 @@ class App {
 
         this.currentExample = ex;
         this.gameName = remixName(ex.name);
+        this.savedId = null;
+        this.savedName = null;
         this.gameDesc = ex.description;
         this.declaredTags = [...ex.tags];
         this.simSettings = null;
@@ -2423,6 +2468,8 @@ class App {
         const ex = this.currentExample;
         dbg('app', `useExampleAsIs("${ex.name}")`);
         this.gameName = remixName(ex.name);
+        this.savedId = null;
+        this.savedName = null;
         this.gameDesc = ex.description;
         this.declaredTags = [...ex.tags];
         this.simSettings = null;
@@ -2675,7 +2722,15 @@ class App {
         const log = err.phase === 'run' && this._simRecentLog?.length
             ? `\n\nRecent simulator log:\n${this._simRecentLog.join('\n')}` : '';
         const ask = `The simulator failed while ${when}. Please find the problem in the current code and fix it.`;
-        const details = `${err.message}${log}`;
+        await this.sendProblemToChat(ask, `${err.message}${log}`);
+    }
+
+    /** The "fix it" request shared by the Simulator failure and the game
+     * check: the ask is shown as the teacher's message, the details below
+     * it collapsed, and both go to the chat. `shown` replaces the ask on
+     * screen only (Simple mode's wording without code terms). */
+    async sendProblemToChat(ask, details, shown = ask) {
+        if (this.isGenerating) return;
         const msg = `${ask}\n\n<error>\n${details}\n</error>`;
         if (!this.simNotes) {
             try {
@@ -2687,9 +2742,74 @@ class App {
         }
         document.querySelector('.starter-chips')?.remove();
         document.querySelectorAll('.choice-chips').forEach(el => el.remove());
-        addMsg(ask, 'user').appendChild(buildCodeBlock('error', details, { collapsed: true, editor: false }));
+        addMsg(shown, 'user').appendChild(buildCodeBlock('error', details, { collapsed: true, editor: false }));
         this.dirty = true;
         await this.callClaude(msg);
+    }
+
+    /** Send-time wand checks (upload.js validateGameCode: Splat
+     * declarations, `net` use, Splat action names) as plain sentences;
+     * none when the game passes. Size is warned about separately. */
+    gameCheckProblems() {
+        const code = getCode('wand');
+        if (!code.trim() || !validateGameSignature(code, 'wand')[0]) return [];
+        const out = splatGameProblems(code);
+        const unknown = unknownSplatActionsIn(code);
+        if (unknown.length) out.push(`The wand game uses Splat action names the Splats do not have: ${unknown.join(', ')}.`);
+        return out;
+    }
+
+    /**
+     * Run the game check on a newly generated or edited game. A failure
+     * shows the problems with a "Fix it" chip that asks the chat to fix
+     * them. In Simple mode the request goes automatically, once per game
+     * the teacher asked for (reset in onSend); if that version still fails
+     * the problems are shown and nothing more is sent.
+     * @returns {Promise<void>}
+     */
+    async checkNewGame() {
+        const problems = this.gameCheckProblems();
+        if (!problems.length) return;
+        dbgWarn('chat', 'game check failed', problems);
+        const ask = 'The game check found problems that would stop this game from being sent. '
+            + 'Please fix them in the current code.';
+        const details = problems.join('\n');
+        const simple = getUiMode() === 'simple';
+        if (simple && !this._autoFixSent) {
+            this._autoFixSent = true;
+            await this.sendProblemToChat(ask, details,
+                'I found something in the game that would stop it from working. Fixing it now.');
+            return;
+        }
+        // Simple mode keeps code terms out of sight: the problem sentences
+        // (worded for the chat) go in a collapsed block.
+        if (simple) {
+            addMsg('This game still has a problem I could not fix on my own.', 'system')
+                .appendChild(buildCodeBlock('error', details, { collapsed: true, editor: false }));
+        } else {
+            const note = addMsg('This game has problems to fix before it can be sent:', 'system');
+            const list = document.createElement('ul');
+            for (const p of problems) {
+                const li = document.createElement('li');
+                li.textContent = p;
+                list.appendChild(li);
+            }
+            note.appendChild(list);
+        }
+        this.renderChoiceChips([]);
+        const wrap = document.querySelector('#chat-box .choice-chips:last-child');
+        const fix = document.createElement('button');
+        fix.type = 'button';
+        fix.className = 'starter-chip starter-chip-guided';
+        fix.dataset.gameCheckFix = '';
+        fix.textContent = 'Fix it';
+        fix.addEventListener('click', () => {
+            if (this.isGenerating) return;
+            wrap.remove();
+            this.sendProblemToChat(ask, details);
+        });
+        wrap.appendChild(fix);
+        wrap.scrollIntoView({ block: 'end' });
     }
 
     /**
@@ -2805,8 +2925,7 @@ class App {
             declared: this.declaredTags,
             minWands: this.simSettings?.wands,
             displays: getCode('icon').trim() ? 1 : 0,
-            splats: (this.simSettings?.splat_host || 0)
-                + (this.simSettings?.wand_splats || 0) * (this.simSettings?.wands || 1),
+            splats: (this.simSettings?.splat_host || 0) + (this.simSettings?.splats || 0),
             // Every non-wand role with no simulator is a physical station
             // the game needs, named for the send-confirm overlay.
             stations: ROLE_TABLE
@@ -2920,18 +3039,24 @@ class App {
      * overlay does not wait on it. Auto-closes on a timer as well as Done,
      * since a teacher mid-classroom may not click through every dialog.
      */
+    /** A Box on firmware from before S12, which has no fleet.* commands. */
+    boxWithoutFleet() {
+        const info = this.device.deviceInfo;
+        return info?.device === 'broadcast_box' && !(info.fleet >= 1);
+    }
+
     showSendSuccess(prettyName) {
         document.getElementById('send-confirm-form').classList.add('hidden');
         document.getElementById('send-confirm-success').classList.remove('hidden');
         document.getElementById('send-success-title').textContent = `${prettyName} is on the ${this.deviceShort()}!`;
         // "Reconnecting…" until the device is back from its restart.
         document.getElementById('send-success-note').textContent = this.link.state === 'live' ? '' : 'Reconnecting…';
-        // A Dial can push the new game to nearby wands and stations. Shown
-        // for any Box/Dial link unless identity says Box: identity is not
-        // always in hand by now, and a Box answers fleet.scan with
-        // unknown_cmd, which the overlay reports.
-        const canDistribute = this.device.kind === 'box'
-            && this.device.deviceInfo?.device !== 'broadcast_box';
+        // A Dial, or a Box whose identity says fleet (S12), can push the new
+        // game to nearby wands and stations. Shown for any Box/Dial link
+        // unless identity is a Box without fleet: identity is not always in
+        // hand by now, and old firmware answers fleet.scan with unknown_cmd,
+        // which the overlay reports.
+        const canDistribute = this.device.kind === 'box' && !this.boxWithoutFleet();
         document.getElementById('btn-send-distribute')?.classList.toggle('hidden', !canDistribute);
         // The question card holds the Distribute button.
         const nextCard = document.getElementById('send-next');
@@ -2945,6 +3070,9 @@ class App {
     /** "Distribute code" on the Dial send-success screen: close it as Done
      * does, then open the distribute overlay for the game just sent. */
     openDistribute(slug = this._lastSentSlug, pretty = this.gameName) {
+        // Device kinds the game has code for; known only for the game just
+        // sent (the controller's game list does not say), else no filter.
+        const kinds = slug && slug === this._lastSentSlug ? this._lastSentKinds : null;
         if (document.getElementById('send-confirm-overlay')?.classList.contains('hidden') === false) {
             this.finishSend();
         }
@@ -2952,7 +3080,7 @@ class App {
         if (!this._distribute) {
             this._distribute = new DistributeOverlay({ app: this, showOverlay, hideOverlay, toast });
         }
-        this._distribute.open(slug, pretty);
+        this._distribute.open(slug, pretty, kinds);
     }
 
     /** Close the send-confirm overlay after a successful send (Done, its
@@ -3132,12 +3260,20 @@ class App {
         }
 
         dbg('app', 'send succeeded — showing success screen');
+        // Sent over the JSON link (jsonGameUpload.js): the device never
+        // restarted, so the link is still up.
+        if (result.live) {
+            this.setLinkState('live');
+            this.fetchBoxGames().catch(() => {});
+        }
         // Tag-writing to-do list is out of scope here now -- the device
         // manages that itself. The overlay's job is just to make "it worked,
         // the device is restarting" visible and unambiguous. A wand says
         // something different because it auto-launches what it was just sent
         // (see wandGameInstaller.js) rather than waiting for a card.
         this._lastSentSlug = slug;
+        // status_report kinds are the roles' hubtypes (roles.js).
+        this._lastSentKinds = ROLE_TABLE.filter((r) => getCode(r.key).trim()).map((r) => r.hubtype);
         this.showSendSuccess(check.pretty);
         if (isWand) toast('Sent! The wand is starting the game now.');
 
@@ -3213,14 +3349,14 @@ class App {
                 del.innerHTML = iconSvg('trash', { size: 15 });
                 del.addEventListener('click', () => this.askDeleteBoxGame(li, g));
 
-                // Dial only (see showSendSuccess): push this game to nearby
-                // wands and stations.
+                // Dial, or a Box with fleet (see showSendSuccess): push this
+                // game to nearby wands and stations.
                 const dist = document.createElement('button');
                 dist.type = 'button';
                 dist.className = 'btn-secondary btn-compact box-lib-dist';
                 dist.textContent = 'Distribute';
                 dist.title = `Send "${g.name || g.slug}" to nearby wands and stations`;
-                dist.classList.toggle('hidden', this.device.deviceInfo?.device === 'broadcast_box');
+                dist.classList.toggle('hidden', this.boxWithoutFleet());
                 dist.addEventListener('click', () => {
                     hideOverlay('box-library-overlay');
                     this.openDistribute(g.slug, g.name || g.slug);
@@ -3429,6 +3565,8 @@ class App {
         document.querySelector('.starter-chips')?.remove();
         document.querySelectorAll('.choice-chips').forEach(el => el.remove());
         addMsg(msg, 'user');
+        // A new request from the teacher earns one automatic fix again.
+        this._autoFixSent = false;
         if (getUiMode() === 'simple') collapseEarlier(this.gameName);
         if (this.interview) {
             await this.answerInterview(msg);
@@ -3498,6 +3636,9 @@ class App {
         // Set when this reply wrote a game file and named another device
         // whose file is still to come; requested once this call has finished.
         let nextRole = null;
+        // Set when this reply put a game file in the editor; the game check
+        // runs once the reply (and any next-device request) is done.
+        let wroteGame = false;
 
         this.chatHistory.push(hidden ? { role: 'user', content: userMsg, hidden: true } : { role: 'user', content: userMsg });
         addThinkingMsg();
@@ -3624,7 +3765,9 @@ class App {
                 addProcessMsg('This is a code snippet — your game was not changed.');
             }
             if (games.length) {
-                if (gameName) {
+                // The agent only names an unnamed game; a name the teacher
+                // wrote (or one already set) is never overwritten.
+                if (gameName && (!this.gameName || this.gameName === 'Your game')) {
                     this.gameName = gameName;
                     dbg('chat', `game name from marker: ${gameName}`);
                 }
@@ -3671,6 +3814,7 @@ class App {
                 if (!chain && !retried) this.gameDesc = userMsg;
                 this.dirty = true;
                 this.updatePreview();
+                wroteGame = true;
 
                 // A multi-device game is written one device per reply. When
                 // this reply names the device that comes next, ask for it now
@@ -3715,8 +3859,29 @@ class App {
             await this.callClaude(`Now write the ${label.toLowerCase()} file `
                 + `([DEVICE: ${nextRole}]) for this game, matching the files already in the editor.`,
                 { hidden: true, chain: chain + 1 });
+            return;
         }
+        if (wroteGame) await this.checkNewGame();
     }
+}
+
+/**
+ * The brief for Simple mode: the game's name, what players do, and the
+ * devices it needs, from the "- Label: text" lines (BRIEF_FIELDS labels).
+ * Falls back to the whole brief when those lines are missing.
+ * @param {string} brief
+ */
+function briefSummary(brief) {
+    const field = {};
+    for (const line of brief.split('\n')) {
+        const m = line.match(/^\s*[-*]\s*([^:]+):\s*(.+)$/);
+        if (m) field[m[1].trim().toLowerCase()] = m[2].trim();
+    }
+    const play = field['how to play'] || field.play;
+    if (!field.title || !play) return brief;
+    const devices = [field.wands, field.extras].filter((t) => t && !/^none\b/i.test(t)).join('; ');
+    return [`- Name: ${field.title}`, `- What players do: ${play}`,
+        devices ? `- Devices: ${devices}` : null].filter(Boolean).join('\n');
 }
 
 /** An icon for a follow-up chip, picked by keyword in its text; null when none matches. */

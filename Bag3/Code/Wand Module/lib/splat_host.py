@@ -1,28 +1,5 @@
-"""
-splat_host.py -- the Splat host role: a wand that holds Splats for a game
-=========================================================================
-A wand in this role is not a game controller. It pairs with up to
-pairing.HOST_MAX_SPLATS Splats, keeps them across reboots, and runs the Splat
-side of Splat host games (game modules that set SPLAT_HOST = True): it always
-leads the game's lobby, and game wands join it (lib/lobby_game.py).
-
-Imported by main.py only after the radio is up (AGENTS.md: nothing may allocate
-before the radio claims its memory).
-
-The role is the text "splat_host" in /role.txt (pairing.ROLE_PATH). It is set
-or cleared by:
-  - NFC card "splathost" (any wand) or "player" (a host);
-  - ESP-NOW unicast {"type": "set_role", "mac": <wand MAC>, "role":
-    "splat_host" | "player"} from a teacher controller.
-Each change resets the wand. A wand becoming host keeps its current Splats.
-
-Host idle screen: one corner per Splat slot (identity color when paired, dim
-blue when empty) and a white center pixel. In a host lobby the screen is the
-player count as a numeral, the host not counted.
-
-The host reads Splat cards, "unpair", "player", "stop", game cards and
-getcode cards. Its button does nothing at idle; in a lobby it starts the game.
-"""
+"""Splat host role: a wand that holds up to pairing.HOST_MAX_SPLATS Splats
+and leads Splat host game lobbies. See Experiments/SplatHostBench/README.md."""
 
 import os
 import time
@@ -30,8 +7,24 @@ import time
 import pairing
 
 HOST_NFC_MS = 100          # NFC detect timeout per host-loop pass
-SLOT_PIXELS = (0, 4, 20, 24)
+HOST_IDLE_SLEEP_MS = 20    # host-loop sleep, as splatpair.PAIRED_IDLE_SLEEP_MS
+CORNERS = ((0, 1, 5, 6), (3, 4, 8, 9), (15, 16, 20, 21), (18, 19, 23, 24))
+CROSS_FILL = (7, 11, 13, 17, 2, 10, 14, 22)   # the cross, center outward
 CENTER_PIXEL = 12
+LOBBY_RGB = (60, 140, 0)   # yellow-green
+PLAY_RGB = (0, 180, 240)   # cyan
+EMPTY_RGB = (0, 4, 24)
+HOLD_RGB = (140, 150, 150)
+PAIR_SCALE = 0.4           # a paired corner; a pulsed one is full
+FRAME_MS = 40
+BOOT_SOLID_MS = 1000       # stored pairs show solid this long after boot
+MISSING_FLASH_MS = 400
+PULSE_MS = 600
+PEEK_MS = 4000
+SHORT_PRESS_MS = 400
+START_HOLD_MS = 1500
+END_HOLD_MS = 3000
+FORGET_HOLD_MS = 4000      # one corner goes out per second
 ROLES = ("splat_host", "player")
 
 
@@ -44,11 +37,11 @@ def set_role(role):
         print("  splat_host: already %s" % role)
         return
     import machine
+    _clear_nosplat()
     if role == "splat_host":
         with open(pairing.ROLE_PATH, "w") as f:
             f.write("splat_host")
         if pairing.exists():
-            # Keep this wand's Splats through the reset (main.py _read_pairing).
             with open("/pair_boot", "w") as f:
                 f.write("1")
     else:
@@ -58,45 +51,284 @@ def set_role(role):
     machine.reset()
 
 
-def _draw(leds, ctl, last):
-    from leds import OFF, WHITE, BLUE_DIM
-    from splatpair import WAND_RGB
-    n = ctl.count if ctl is not None else 0
-    view = ("idle", n)
-    if view == last:
-        return last
-    for i in range(leds.num):
-        leds.np[i] = OFF
-    rgb = WAND_RGB[ctl.identity] if ctl is not None else BLUE_DIM
-    for k in range(pairing.HOST_MAX_SPLATS):
-        if k < len(SLOT_PIXELS):
-            leds.np[SLOT_PIXELS[k]] = rgb if k < n else BLUE_DIM
-    leds.np[CENTER_PIXEL] = WHITE
-    leds.np.write()
-    return view
+# Host boots in a row with no Splat connected and no Splat card tapped. After
+# NOSPLAT_BOOTS of them the next boot drops back to player.
+NOSPLAT_PATH = "/host_nosplat"
+NOSPLAT_BOOTS = 2
 
 
-def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game):
+def _clear_nosplat():
+    try:
+        os.remove(NOSPLAT_PATH)
+    except OSError:
+        pass
+
+
+def _count_nosplat_boot():
+    """Count this host boot; True if the previous NOSPLAT_BOOTS had no Splat."""
+    try:
+        with open(NOSPLAT_PATH) as f:
+            n = int(f.read() or 0)
+    except (OSError, ValueError):
+        n = 0
+    if n >= NOSPLAT_BOOTS:
+        return True
+    with open(NOSPLAT_PATH, "w") as f:
+        f.write(str(n + 1))
+    return False
+
+
+def _take_push():
+    """main.py's queued code_push (a push that ended a game), cleared as read."""
+    import sys
+    m = sys.modules.get("wand_main") or sys.modules.get("__main__")
+    p = getattr(m, "_pending_push", None)
+    if p is not None:
+        m._pending_push = None
+    return p
+
+
+def _then_push(launch, pull):
+    """Wrap launch/pull so a push that ends a game is pulled, as main's idle loop does."""
+    def drain():
+        p = _take_push()
+        while p is not None:
+            print("  Splat host: pulling pushed %s" % p[0])
+            pull(*p)
+            p = _take_push()
+
+    def launch2(name):
+        launch(name)
+        drain()
+
+    def pull2(slug, host, replace=""):
+        pull(slug, host, replace)
+        drain()
+
+    return launch2, pull2
+
+
+def _scale(c, f):
+    return (int(c[0] * f), int(c[1] * f), int(c[2] * f))
+
+
+def _breathe(now, period=2000):
+    t = (now % period) / period
+    return 0.15 + 0.85 * (1 - abs(2 * t - 1))
+
+
+def _beat(now, period=1200):
+    t = now % period
+    return 1.0 if t < 120 or 240 <= t < 360 else 0.15
+
+
+def frame(slots, present, mode, now, hold=0.0, gone=0, pulse=None, lobby_rgb=None,
+          boot=False):
+    """25 RGB tuples for the host screen."""
+    px = [(0, 0, 0)] * 25
+    nxt = None
+    for k in range(len(CORNERS)):
+        if k < len(slots) and slots[k] is None and nxt is None:
+            nxt = k
+    for k in range(len(CORNERS)):
+        c = CORNERS[k]
+        if k >= len(CORNERS) - gone:
+            continue
+        e = slots[k] if k < len(slots) else None
+        if e is None:
+            rgb = _scale(EMPTY_RGB, 2 * _breathe(now)) if k == nxt else EMPTY_RGB
+            for p in c:
+                px[p] = rgb
+            continue
+        if not (boot or present[k]) and (now // MISSING_FLASH_MS) % 2:
+            continue
+        f = 1.0 if pulse == k else PAIR_SCALE
+        px[c[0]] = px[c[2]] = _scale(e[0], f)
+        px[c[1]] = px[c[3]] = _scale(e[1], f)
+    if mode == "lobby":
+        base = _scale(LOBBY_RGB, _breathe(now))
+    elif mode == "playing":
+        base = _scale(PLAY_RGB, _beat(now))
+    else:
+        base = (0, 0, 0)
+    n = int(hold * len(CROSS_FILL) + 0.999) if hold > 0 else 0
+    for i in range(len(CROSS_FILL)):
+        px[CROSS_FILL[i]] = HOLD_RGB if i < n else base
+    if lobby_rgb is not None and mode != "idle":
+        px[CENTER_PIXEL] = lobby_rgb
+    return px
+
+
+class HostScreen:
+    """Host screen and button: idle loop, lobby and game."""
+
+    def __init__(self, born=None):
+        self.born = time.ticks_ms() if born is None else born
+        self.slots = pairing.load_slots()
+        self._down_at = None
+        self._fired = False
+        self.peek_until = None
+        self._drawn_at = None
+        self._peek_shown = None
+
+    def reload(self):
+        self.slots = pairing.load_slots()
+
+    def button(self, down, mode, now, can_start=True):
+        """Returns (action, hold, gone)."""
+        act, hold, gone = None, 0.0, 0
+        if down and self._down_at is None:
+            self._down_at = now
+            self._fired = False
+        if self._down_at is None:
+            return act, hold, gone
+        el = time.ticks_diff(now, self._down_at)
+        if not down:
+            self._down_at = None
+            if el < SHORT_PRESS_MS and not self._fired:
+                self.peek_until = time.ticks_add(now, PEEK_MS)
+                act = "peek"
+            return act, hold, gone
+        if self._fired:
+            return act, hold, gone
+        if mode == "lobby":
+            need = START_HOLD_MS
+        elif mode == "playing":
+            need = END_HOLD_MS
+        else:
+            need = FORGET_HOLD_MS
+        if el >= SHORT_PRESS_MS:
+            if mode == "idle":
+                gone = min(len(CORNERS), el // 1000)
+            else:
+                hold = min(1.0, (el - SHORT_PRESS_MS) / (need - SHORT_PRESS_MS))
+        if el >= need:
+            self._fired = True
+            act = {"lobby": "start", "playing": "end", "idle": "forget"}[mode]
+            if act == "start" and not can_start:
+                act = "refuse"
+        return act, hold, gone
+
+    def peeking(self, now):
+        if self.peek_until is None:
+            return False
+        if time.ticks_diff(self.peek_until, now) > 0:
+            return True
+        self.peek_until = None
+        return False
+
+    def draw(self, leds, ctl, mode, now, hold=0.0, gone=0, count=0, lobby_rgb=None):
+        """Write the screen (at most every FRAME_MS), or the peeked count."""
+        if self.peeking(now):
+            if self._peek_shown != count:
+                import leds as L
+                from leds import WHITE
+                leds.show_shape(getattr(L, "SHAPE_%d" % min(count, 9)), WHITE)
+                self._peek_shown = count
+            return
+        self._peek_shown = None
+        if self._drawn_at is not None and time.ticks_diff(now, self._drawn_at) < FRAME_MS:
+            return
+        self._drawn_at = now
+        from splatpair import WAND_RGB
+        slots, present = [], []
+        pulse = None
+        for k in range(len(CORNERS)):
+            e = self.slots[k] if k < len(self.slots) else None
+            slots.append(None if e is None else (WAND_RGB[e[1]], WAND_RGB[e[2]]))
+            on = False
+            if e is not None and ctl is not None and e[0] in ctl.macs:
+                j = ctl.macs.index(e[0])
+                on = ctl.hub is not None and ctl.hub.links[j].ready
+                if (getattr(ctl, "pulse_mac", None) == e[0]
+                        and time.ticks_diff(now, ctl.pulse_at) < PULSE_MS):
+                    pulse = k
+            present.append(on)
+        boot = time.ticks_diff(now, self.born) < BOOT_SOLID_MS
+        px = frame(slots, present, mode, now, hold, gone, pulse, lobby_rgb, boot)
+        for i in range(min(leds.num, 25)):
+            leds.np[i] = px[i]
+        leds.np.write()
+
+
+HOST_FIRMWARE = (1, 28)      # Splat hosts are tested on MicroPython v1.28.0 only
+
+
+def _check_firmware(leds, buz):
+    # Flag (not block) a host on other firmware: v1.29 fails to hold 4 Splats
+    # (known_issues/2026-11-12-splat-host-v129-firmware.md).
+    import sys
+    v = sys.implementation.version
+    if tuple(v[:2]) == HOST_FIRMWARE:
+        return
+    print("  [WARN] Splat host needs MicroPython v%d.%d; this is v%d.%d.%d"
+          % (HOST_FIRMWARE + tuple(v[:3])))
+    from leds import SHAPE_X, RED
+    for _ in range(3):
+        leds.show_shape(SHAPE_X, RED)
+        time.sleep_ms(300)
+        leds.off()
+        time.sleep_ms(200)
+    buz.error()
+
+
+def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game, button_down=None):
     """The host's idle loop; never returns (a role change resets the wand).
 
     get_ctl() -> the current splatpair.SplatPairing or None
     pair_card(text) -> handle a Splat or unpair card (may reset)
     launch(name) -> run a game through main.py's game path
-    pull(slug, host) -> getcode pull and launch
+    pull(slug, host, replace="") -> getcode pull and launch
     is_game(name) -> True for a known game slug
+    button_down() -> True while the button is pressed
     """
     from nfc_reader import read_ndef_text, parse_splat_card, split_prefixed
+    launch, pull = _then_push(launch, pull)
     print("  Splat host: up to %d Splats; tap 'player' to leave this role"
           % pairing.HOST_MAX_SPLATS)
-    shown = None
+    if _count_nosplat_boot():
+        print("  Splat host: %d boots with no Splat; back to player" % NOSPLAT_BOOTS)
+        set_role("player")
+    _check_firmware(leds, buz)
+    try:
+        _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
+              button_down, read_ndef_text, parse_splat_card, split_prefixed)
+    except KeyboardInterrupt:
+        print("\n  Splat host: interrupted; radios off")
+        try:
+            import ubluetooth
+            ubluetooth.BLE().active(False)
+        except Exception:
+            pass
+        try:
+            enow.shutdown()
+        except Exception:
+            pass
+        try:
+            leds.off()
+        except Exception:
+            pass
+        raise
+
+
+def _loop(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game,
+          button_down, read_ndef_text, parse_splat_card, split_prefixed):
+    import stdin_drain   # keeps Ctrl-C working; see lib/stdin_drain.py
+    drain = stdin_drain.Drainer()
+    screen = HostScreen()
     last_text = None
+    had_splat = False
     while True:
+        drain.tick()
+        now = time.ticks_ms()
         ctl = get_ctl()
+        if not had_splat and ctl is not None and ctl.connected_macs():
+            had_splat = True
+            _clear_nosplat()
         if ctl is not None:
             for i, ev in ctl.poll():
                 if ev == "press":
                     ctl.on_press(i)
-                    shown = None
             ctl.refresh_glow()
 
         mt, data, sender = enow.poll()
@@ -106,10 +338,9 @@ def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game):
             name = data.get("name")
             if is_game(name):
                 launch(name)
-                shown = None
         elif mt == "code_push" and isinstance(data, dict):
-            pull(data.get("slug") or "", data.get("host") or "")
-            shown = None
+            pull(data.get("slug") or "", data.get("host") or "",
+                 data.get("replace") or "")
         elif mt == "raw" and ctl is not None and isinstance(data, dict):
             ctl.on_msg(data, sender)
 
@@ -117,19 +348,29 @@ def run(enow, nfc, leds, buz, get_ctl, pair_card, launch, pull, is_game):
         if text != last_text:
             last_text = text
             if text == "unpair" or (text and parse_splat_card(text)):
+                if text != "unpair":
+                    _clear_nosplat()
                 pair_card(text)
-                shown = None
+                screen.reload()
             elif text == "player":
                 set_role("player")
             elif text and is_game(text):
                 launch(text)
-                shown = None
                 last_text = None
             elif text:
                 head, slug, host = split_prefixed(text)
                 if head == "getcode":
                     pull(slug, host)
-                    shown = None
                     last_text = None
-        shown = _draw(leds, ctl, shown)
-        time.sleep_ms(1)
+        down = button_down() if button_down is not None else False
+        act, hold, gone = screen.button(down, "idle", now)
+        if act == "forget":
+            print("  Splat host: forgetting every Splat")
+            if ctl is not None:
+                ctl.release_all()
+            else:
+                pairing.clear()
+            buz.confirm()
+            screen.reload()
+        screen.draw(leds, ctl, "idle", now, hold, gone, ctl.count if ctl is not None else 0)
+        time.sleep_ms(HOST_IDLE_SLEEP_MS)    # leaves time for USB serial (raw REPL)

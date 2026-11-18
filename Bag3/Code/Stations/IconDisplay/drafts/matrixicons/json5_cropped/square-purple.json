@@ -1,0 +1,18 @@
+{
+ "rows": [
+  "ABCDE",
+  "DCDDF",
+  "CCBDC",
+  "DCCCC",
+  "CCCGC"
+ ],
+ "pal": {
+  "A": "#7d1e8e",
+  "B": "#7f1e91",
+  "C": "#7d1f8f",
+  "D": "#7f1e8f",
+  "E": "#7d1d8e",
+  "F": "#7f1f8f",
+  "G": "#7d1e8f"
+ }
+}

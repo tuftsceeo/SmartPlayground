@@ -1,0 +1,20 @@
+{
+ "rows": [
+  "..AB.",
+  "CCDEE",
+  "CCEEE",
+  "FFFFG",
+  ".FHFI"
+ ],
+ "pal": {
+  "A": "#4eb5ed",
+  "B": "#4eb5ec",
+  "C": "#ffffff",
+  "D": "#4db7ed",
+  "E": "#4fb6ed",
+  "F": "#50b5ed",
+  "G": "#51b7ee",
+  "H": "#4fb5ed",
+  "I": "#53b8f0"
+ }
+}

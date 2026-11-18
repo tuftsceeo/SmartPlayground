@@ -1,0 +1,28 @@
+{
+ "rows": [
+  ".AAB.",
+  "CDEDC",
+  "FGHIJ",
+  "KLMNK",
+  ".OPQ."
+ ],
+ "pal": {
+  "A": "#6fa1f6",
+  "B": "#689efa",
+  "C": "#baba79",
+  "D": "#ffffff",
+  "E": "#9db2a8",
+  "F": "#f5c916",
+  "G": "#fefffc",
+  "H": "#f5c715",
+  "I": "#f2e07c",
+  "J": "#d9c34a",
+  "K": "#ffcb06",
+  "L": "#ffcc01",
+  "M": "#bc9418",
+  "N": "#59320c",
+  "O": "#ffce04",
+  "P": "#fdc902",
+  "Q": "#fdcb02"
+ }
+}

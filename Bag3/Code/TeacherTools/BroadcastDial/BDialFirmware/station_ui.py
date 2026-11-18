@@ -419,6 +419,13 @@ class StationUI:
         """Write-all: the next tag, shown until the written card is removed."""
         self._status("scan", WRITE_FG, text, "Next %d/%d" % (i, n), "Remove Card", 0)
 
+    def show_emulate(self, text, ready, progress=""):
+        """Tag 2 Click: the Dial is the card. Press closes."""
+        if ready:
+            self._status("ok", SERVE_FG, text, "Tap Wand", progress or "Press: Done", 100)
+        else:
+            self._status("busy", WRITE_FG, text, "Loading", progress, 30)
+
     def show_result(self, kind, title, body=""):
         glyph, color, fill = KIND_STYLE[kind]
         self._status(glyph, color, title, body, "", fill)

@@ -3,7 +3,7 @@ import json, os, sys
 from PIL import Image, ImageDraw
 OUT = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(OUT)
-DESTS = [os.path.join(ROOT, 'icons'), os.path.join(os.path.dirname(ROOT), 'Icon Display Station', 'icons')]
+DESTS = [os.path.join(ROOT, 'icons'), os.path.join(os.path.dirname(os.path.dirname(ROOT)), 'IconEditor', 'icons')]
 PAL = dict(W=(185,255,150), L=(131,180,106), G=(80,110,65), Y=(255,150,0), O=(255,60,0), R=(255,0,0),
   g=(20,160,0), D=(0,100,0), B=(0,0,255), S=(0,60,200), U=(100,0,255), N=(150,45,5), E=(80,20,0),
   P=(255,94,50), T=(180,60,10), C=(255,140,60), K=(0,0,0),

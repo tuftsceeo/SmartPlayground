@@ -113,6 +113,7 @@ class ESPNowManager:
         self._peers = {}  # mac_str -> mac_bytes
         self._status_provider = None
         self._status_kind = None
+        self.status_extra = None    # fn() -> dict merged into status_report
         self._pending_report_due = None
         self._pending_report_mac = None
         self._pending_report_second_due = None
@@ -128,8 +129,9 @@ class ESPNowManager:
         sta.active(True)
         sta.disconnect()
         self.enow = espnow.ESPNow()
-        self.enow.config(rxbuf=ESPNOW_RXBUF)
-        self.enow.active(True)
+        if not self.enow.active():     # main.py's prewarm may have started it
+            self.enow.config(rxbuf=ESPNOW_RXBUF)
+            self.enow.active(True)
         try:
             self.enow.add_peer(BROADCAST_MAC)
         except Exception:
@@ -367,12 +369,18 @@ class ESPNowManager:
         return self.broadcast({"type": "status_poll"})
 
     def broadcast_status_report(self, battery, rssi):
-        return self.broadcast({
+        d = {
             "type": "status_report",
             "battery": battery,
             "rssi": rssi,
             "kind": self._status_kind,
-        })
+        }
+        if self.status_extra:
+            try:
+                d.update(self.status_extra())
+            except Exception:
+                pass
+        return self.broadcast(d)
 
     def send_score(self, mac_bytes, colors, elapsed_ms):
         msg = json.dumps({

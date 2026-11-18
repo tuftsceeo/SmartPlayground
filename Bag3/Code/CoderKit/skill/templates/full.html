@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Full IDE</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="coderkit.js"></script>
+</head>
+<body class="h-screen flex flex-col bg-white text-gray-900">
+  <!--
+    A full Playground Coder front end: every kit part in plain default
+    Tailwind. Start here and remove, rearrange or restyle. The host page
+    provides window.kit; parts carry data-kit attributes.
+  -->
+  <header class="flex flex-wrap items-center gap-2 p-2 border-b">
+    <button id="go-home" class="font-bold">Playground Coder</button>
+    <input data-kit="game-name" class="border px-1 w-40" placeholder="Game name">
+    <span class="flex-1"></span>
+    <span id="status" class="text-sm text-gray-500">Not connected</span>
+    <button data-kit="connect" class="border px-2 py-1">Connect</button>
+    <button data-kit="send-to-device" class="border px-2 py-1">Send to controller</button>
+    <button id="open-distribute" class="border px-2 py-1">Distribute</button>
+    <button id="save" class="border px-2 py-1">Save</button>
+    <button id="log-toggle" class="border px-2 py-1">Log</button>
+  </header>
+
+  <!-- Home: new game, interview, examples, saved -->
+  <section data-kit="home" id="home" class="flex-1 overflow-auto p-4 space-y-6">
+    <div class="flex flex-wrap gap-2">
+      <button id="home-new" class="border px-3 py-2">New game</button>
+      <button id="home-interview" class="border px-3 py-2">Plan a game with questions</button>
+    </div>
+    <div data-kit="examples">
+      <h2 class="font-bold mb-2">Examples</h2>
+      <div id="example-cats" class="flex gap-2 mb-2 flex-wrap"></div>
+      <ul id="example-list" class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"></ul>
+    </div>
+    <div data-kit="saved-games">
+      <h2 class="font-bold mb-2">Saved games</h2>
+      <ul id="saved-list" class="space-y-1"></ul>
+    </div>
+  </section>
+
+  <!-- Workspace: chat on the left, simulator / code / controller on the right -->
+  <section id="work" class="hidden flex-1 flex min-h-0">
+    <div class="w-full md:w-1/2 flex flex-col border-r min-w-0">
+      <div data-kit="interview" id="interview-bar" class="hidden px-2 py-1 text-sm bg-gray-100 flex gap-2 items-center">
+        <span id="interview-count" class="flex-1"></span>
+        <button id="interview-done" class="border px-2">Make my game now</button>
+        <button id="interview-cancel" class="border px-2">Stop</button>
+      </div>
+      <main data-kit="chat-log" class="flex-1 overflow-auto p-2 space-y-2"></main>
+      <p id="error" class="text-red-600 px-2 text-sm"></p>
+      <div data-kit="choices" id="choices" class="flex gap-2 px-2 flex-wrap"></div>
+      <form class="flex gap-2 p-2 border-t">
+        <textarea data-kit="chat-input" rows="2" class="flex-1 border p-1" placeholder="Describe a game…"></textarea>
+        <button data-kit="chat-send" class="border px-3">Send</button>
+      </form>
+    </div>
+    <div class="hidden md:flex w-1/2 flex-col min-w-0">
+      <nav class="flex border-b text-sm">
+        <button data-tab="sim" class="px-3 py-1 border-r">Simulator</button>
+        <button data-tab="code" class="px-3 py-1 border-r">Code</button>
+        <button data-tab="device" class="px-3 py-1 border-r">Controller</button>
+      </nav>
+      <div data-pane="sim" class="flex-1 min-h-0 flex flex-col">
+        <div data-kit="simulator" id="sim" class="flex-1 min-h-0 flex items-center justify-center text-gray-500 text-sm p-4"></div>
+        <button id="sim-fix" class="hidden border m-2 px-2 py-1 text-sm">Ask Claude to fix the simulator error</button>
+      </div>
+      <div data-pane="code" data-kit="code-view" class="hidden flex-1 min-h-0 flex flex-col">
+        <div class="flex items-center gap-2 p-1 text-sm">
+          <select id="code-role" class="border"></select>
+          <button id="v-prev" class="border px-2">‹</button>
+          <span id="v-label" class="text-gray-500"></span>
+          <button id="v-next" class="border px-2">›</button>
+        </div>
+        <textarea id="code" class="flex-1 font-mono text-xs border-t p-2" spellcheck="false"></textarea>
+      </div>
+      <div data-pane="device" data-kit="device-panel" class="hidden flex-1 overflow-auto p-2 text-sm space-y-2">
+        <p id="device-summary" class="text-gray-500"></p>
+        <button id="device-refresh" class="border px-2">Refresh</button>
+        <ul id="device-games" class="space-y-1"></ul>
+        <div id="tag-writes"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Distribute drawer -->
+  <section data-kit="distribute" id="dist" class="hidden border-t p-2 text-sm space-y-2 max-h-72 overflow-auto">
+    <div class="flex items-center gap-2">
+      <strong class="flex-1" id="dist-title">Distribute</strong>
+      <button id="dist-scan" class="border px-2">Scan again</button>
+      <button id="dist-send" class="border px-2">Send to selected</button>
+      <button id="dist-close" class="border px-2">Close</button>
+    </div>
+    <p id="dist-status" class="text-gray-500"></p>
+    <div id="dist-slots" class="flex gap-2 flex-wrap"></div>
+    <ul id="dist-rows" class="space-y-1"></ul>
+  </section>
+
+  <!-- Log drawer -->
+  <section data-kit="log" id="log-panel" class="hidden border-t h-48 flex flex-col">
+    <div class="flex items-center gap-2 px-2 py-1 text-sm text-gray-500">
+      <span class="flex-1">Activity</span>
+      <label><input id="log-device" type="checkbox"> controller and simulator messages</label>
+      <button id="log-clear" class="border px-2">Clear</button>
+    </div>
+    <pre id="log" class="flex-1 overflow-auto px-2 text-xs font-mono"></pre>
+  </section>
+  <div id="toasts" class="fixed bottom-20 right-4 flex flex-col gap-2 items-end pointer-events-none"></div>
+
+<script>
+  const q = s => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const LINK = { idle: 'Not connected', opening: 'Connecting…', live: 'Connected', sending: 'Sending…' };
+  let view = 'home', tab = 'sim', role = 'wand', category = 'all', simMounted = false;
+
+  function show(v) {
+    view = v;
+    q('#home').classList.toggle('hidden', v !== 'home');
+    q('#work').classList.toggle('hidden', v !== 'work');
+    if (v === 'work' && !simMounted) { simMounted = true; kit.mountSimulator(q('#sim')); }
+    render(kit.state);
+  }
+  function showTab(t) {
+    tab = t;
+    document.querySelectorAll('[data-pane]').forEach(p => p.classList.toggle('hidden', p.dataset.pane !== t));
+    document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('font-bold', b.dataset.tab === t));
+  }
+
+  // ---- toasts and log ----
+  let seen = kit.state.log.length ? kit.state.log[kit.state.log.length - 1].id : 0;
+  function toast(line) {
+    const d = el('div', 'border rounded px-3 py-2 bg-white shadow text-sm ' + (line.level === 'error' ? 'text-red-700 border-red-300' : 'text-green-700 border-green-300'), line.text);
+    q('#toasts').appendChild(d);
+    setTimeout(() => d.remove(), line.level === 'error' ? 6000 : 3000);
+  }
+  function renderLog(s) {
+    for (const l of s.log) if (l.id > seen && (l.level === 'ok' || l.level === 'error')) toast(l);
+    if (s.log.length) seen = s.log[s.log.length - 1].id;
+    const box = q('#log'), atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 4;
+    box.textContent = s.log.filter(l => q('#log-device').checked || l.level !== 'device')
+      .map(l => new Date(l.t).toLocaleTimeString() + '  ' + (l.level === 'error' ? '✗ ' : l.level === 'ok' ? '✓ ' : '  ') + l.text).join('\n');
+    if (atEnd) box.scrollTop = box.scrollHeight;
+    q('#sim-fix').classList.toggle('hidden', !s.log.some(l => l.level === 'error' && l.text.startsWith('Simulator:') && l.id > (window.fixedAt || 0)));
+  }
+
+  // ---- home ----
+  function renderHome() {
+    const { categories, list } = kit.examples();
+    const cats = q('#example-cats'); cats.textContent = '';
+    for (const c of categories) {
+      const b = el('button', 'border rounded px-2 text-sm' + (c.id === category ? ' font-bold' : ''), c.label);
+      b.onclick = () => { category = c.id; renderHome(); };
+      cats.appendChild(b);
+    }
+    const ul = q('#example-list'); ul.textContent = '';
+    for (const ex of list.filter(e => category === 'all' || e.category === category)) {
+      const li = el('li', 'border p-2 space-y-1');
+      li.append(el('div', 'font-bold', ex.name), el('div', 'text-sm text-gray-600', ex.description), el('div', 'text-xs text-gray-500', ex.tagNote || ''));
+      const open = el('button', 'border px-2 text-sm mr-1', 'Open');
+      open.onclick = async () => { await kit.openExample(ex.id); show('work'); };
+      const remix = el('button', 'border px-2 text-sm', 'Remix');
+      remix.onclick = async () => { await kit.remixExample(ex.id); show('work'); };
+      li.append(open, remix);
+      ul.appendChild(li);
+    }
+    const saved = q('#saved-list'); saved.textContent = '';
+    const games = kit.saved();
+    if (!games.length) saved.appendChild(el('li', 'text-gray-500 text-sm', 'Nothing saved yet.'));
+    for (const g of games) {
+      const li = el('li', 'flex gap-2 items-center');
+      const open = el('button', 'underline flex-1 text-left', g.name);
+      open.onclick = async () => { await kit.openSaved(g.id); show('work'); };
+      const del = el('button', 'border px-2 text-sm', 'Delete');
+      del.onclick = () => { if (del.textContent === 'Delete') { del.textContent = 'Really delete?'; return; } kit.deleteSaved(g.id); };
+      li.append(open, el('span', 'text-xs text-gray-500', new Date(g.updatedAt).toLocaleDateString()), del);
+      saved.appendChild(li);
+    }
+  }
+
+  // ---- workspace ----
+  function busyDots() {
+    // Three bouncing dots while Claude is replying.
+    const s = document.createElement('span');
+    s.className = 'inline-flex gap-1 align-middle ml-1';
+    s.setAttribute('aria-label', 'Claude is replying');
+    for (const delay of ['0ms', '150ms', '300ms']) {
+      const b = document.createElement('span');
+      b.className = 'w-2 h-2 rounded-full bg-gray-400 animate-bounce';
+      b.style.animationDelay = delay;
+      s.appendChild(b);
+    }
+    return s;
+  }
+  function renderChat(s) {
+    const log = q('[data-kit=chat-log]'); log.textContent = '';
+    for (const m of s.messages) {
+      const d = el('div', 'whitespace-pre-wrap ' + (m.role === 'user' ? 'text-right' : m.role === 'system' ? 'text-gray-500 text-sm' : ''), m.text || '');
+      if (m.code) d.textContent += '\n\n[Game code ready: ' + Object.keys(m.code).join(', ') + ']';
+      if (m.streaming) d.appendChild(busyDots());
+      log.appendChild(d);
+      if (m.brief && s.brief === m.brief) {
+        const make = el('button', 'border px-2 mt-1', 'Make this game');
+        make.onclick = () => kit.makeFromBrief();
+        log.appendChild(make);
+      }
+    }
+    log.scrollTop = log.scrollHeight;
+    const c = q('#choices'); c.textContent = '';
+    for (const choice of s.choices) {
+      const b = el('button', 'border rounded px-2 text-sm', choice);
+      b.onclick = () => kit.chat(choice);
+      c.appendChild(b);
+    }
+    q('#interview-bar').classList.toggle('hidden', !s.interview);
+    if (s.interview) q('#interview-count').textContent = `Question ${s.interview.asked} of ${s.interview.max}`;
+    q('[data-kit=chat-send]').disabled = s.busy;
+    q('#error').textContent = s.error || '';
+  }
+
+  function renderCode(s) {
+    const sel = q('#code-role');
+    if (!sel.options.length) for (const r of kit.roles) sel.appendChild(new Option(r.label, r.key));
+    sel.value = role;
+    const v = s.versions[role] || { list: [], index: -1 };
+    q('#v-label').textContent = v.index >= 0 ? `v${v.index + 1} of ${v.list.length}: ${v.list[v.index].label}` : 'No code yet';
+    const ta = q('#code');
+    if (document.activeElement !== ta) ta.value = s.code[role] || '';
+  }
+
+  function renderDevice(s) {
+    const d = s.device;
+    q('#device-summary').textContent = s.link === 'live'
+      ? `${s.deviceName || 'Controller'}${d.mode ? ', ' + d.mode + ' mode' : ''}. ${d.games.length} game(s) on it.`
+      : 'Connect the controller to see its games.';
+    const ul = q('#device-games'); ul.textContent = '';
+    for (const g of d.games) {
+      const li = el('li', 'flex gap-2 items-center');
+      li.append(el('span', 'flex-1' + (g.slug === d.active ? ' font-bold' : ''), (g.name || g.slug) + (g.slug === d.active ? ' (playing)' : '')));
+      const sel = el('button', 'border px-2', 'Play this');
+      sel.onclick = () => kit.selectGame(g.slug);
+      const del = el('button', 'border px-2', 'Delete');
+      del.onclick = () => { if (del.textContent === 'Delete') { del.textContent = 'Really delete?'; return; } kit.deleteGame(g.slug); };
+      li.append(sel, del);
+      ul.appendChild(li);
+    }
+    const tags = Object.entries(s.tagWrites);
+    q('#tag-writes').textContent = tags.length ? 'Cards written: ' + tags.map(([k, n]) => `${k} ×${n}`).join(', ') : '';
+  }
+
+  function renderDistribute(s) {
+    const d = s.distribute;
+    q('#dist').classList.toggle('hidden', !d);
+    if (!d) return;
+    q('#dist-title').textContent = `Distribute "${d.pretty}"`;
+    q('#dist-status').textContent = d.status + (d.running ? ` ${d.done} of ${d.total}` : '');
+    const slots = q('#dist-slots'); slots.textContent = '';
+    if (d.needsSlot) for (const o of d.slots) {
+      const b = el('button', 'border px-2', `Replace slot ${o.index + 1} (${o.games.map(g => g.slug).join(', ')})`);
+      b.onclick = () => kit.distribute.send(o.index);
+      slots.appendChild(b);
+    }
+    const ul = q('#dist-rows'); ul.textContent = '';
+    for (const r of d.rows) {
+      const li = el('li', 'flex gap-2 items-center');
+      const cb = el('input'); cb.type = 'checkbox'; cb.checked = r.selected; cb.disabled = d.running;
+      cb.onchange = () => kit.distribute.toggle(r.mac, cb.checked, true);
+      const find = el('button', 'border px-2', 'Find');
+      find.onclick = () => kit.distribute.find(r.mac);
+      li.append(cb, el('span', 'flex-1', `${r.kind || 'device'} ${r.mac}` + (r.battery != null ? ` · ${r.battery}%` : '') + (r.needsUpdate ? ' · needs update' : '') + (!r.fits ? ' · no code for this device' : '')),
+        el('span', r.status === 'failed' ? 'text-red-600' : 'text-gray-500', r.status + (r.why ? ` (${r.why})` : '')), find);
+      ul.appendChild(li);
+    }
+  }
+
+  function render(s) {
+    renderLog(s);
+    q('#status').textContent = (s.link === 'live' && s.deviceName ? 'Connected to ' + s.deviceName : LINK[s.link])
+      + (s.progress != null ? ' ' + Math.round(s.progress * 100) + '%' : '') + (s.can.realDevice ? '' : ' (simulated)');
+    q('[data-kit=connect]').textContent = s.link === 'idle' ? 'Connect' : 'Disconnect';
+    const name = q('[data-kit=game-name]');
+    if (document.activeElement !== name) name.value = s.gameName || '';
+    if (view === 'home') renderHome();
+    else { renderChat(s); renderCode(s); renderDevice(s); }
+    renderDistribute(s);
+  }
+
+  kit.on('change', render);
+  showTab('sim');
+  show('home');
+
+  q('#go-home').onclick = () => show('home');
+  q('#home-new').onclick = () => { kit.newGame(); show('work'); };
+  q('#home-interview').onclick = () => { kit.newGame(); kit.startInterview(); show('work'); };
+  q('form').onsubmit = e => { e.preventDefault(); const t = q('[data-kit=chat-input]').value; q('[data-kit=chat-input]').value = ''; kit.chat(t); };
+  q('[data-kit=chat-input]').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); q('form').requestSubmit(); } };
+  q('[data-kit=connect]').onclick = () => kit.state.link === 'idle' ? kit.connect() : kit.disconnect();
+  q('[data-kit=send-to-device]').onclick = () => kit.send();
+  q('[data-kit=game-name]').onchange = e => kit.setGameName(e.target.value);
+  q('#open-distribute').onclick = () => kit.distribute.open();
+  q('#save').onclick = () => kit.saveGame();
+  q('#interview-done').onclick = () => kit.finishInterview();
+  q('#interview-cancel').onclick = () => kit.cancelInterview();
+  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+  q('#code-role').onchange = e => { role = e.target.value; renderCode(kit.state); };
+  q('#v-prev').onclick = () => kit.prevVersion(role);
+  q('#v-next').onclick = () => kit.nextVersion(role);
+  q('#code').onchange = e => kit.setCode(role, e.target.value);
+  q('#device-refresh').onclick = () => kit.refreshGames();
+  q('#sim-fix').onclick = () => { window.fixedAt = kit.state.log.length ? kit.state.log[kit.state.log.length - 1].id : 0; kit.fixSimError(); };
+  q('#dist-scan').onclick = () => kit.distribute.scan();
+  q('#dist-send').onclick = () => kit.distribute.send();
+  q('#dist-close').onclick = () => kit.distribute.close();
+  q('#log-toggle').onclick = () => q('#log-panel').classList.toggle('hidden');
+  q('#log-clear').onclick = () => kit.clearLog();
+  q('#log-device').onchange = () => renderLog(kit.state);
+</script>
+  <!-- Chat callout: points at claude.ai's Chat button (top right, outside
+       this page). Shows only on claude.ai; Close is remembered. Delete this
+       block in your own version. -->
+  <div id="chat-callout" hidden class="fixed top-9 right-2 z-50 w-72 rounded-lg border border-blue-400 bg-white text-gray-900 shadow-lg p-3 text-sm dark:bg-gray-900 dark:text-gray-100">
+    <svg class="absolute -top-7 left-1/2 -translate-x-1/2 w-6 h-7 text-blue-500" viewBox="0 0 24 28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 26 V3"/><path d="M4 11 L12 3 L20 11"/>
+    </svg>
+    <button id="chat-callout-close" class="absolute top-1 left-2 text-gray-500 text-lg leading-none" aria-label="Close">&times;</button>
+    <p class="mt-3"><strong>Want your own version?</strong> Click the <strong>Chat</strong> button to change this with Claude.</p>
+  </div>
+  <script>
+    (function () {
+      var KEY = 'coderkit.chatCalloutClosed', box = document.getElementById('chat-callout');
+      var closed = false;
+      try { closed = localStorage.getItem(KEY) === '1'; } catch (e) {}
+      if (window.claude && !closed) box.hidden = false;
+      document.getElementById('chat-callout-close').onclick = function () {
+        box.hidden = true;
+        try { localStorage.setItem(KEY, '1'); } catch (e) {}
+      };
+    })();
+  </script>
+</body>
+</html>

@@ -16,8 +16,8 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SRC = HERE.parents[2] / "Wand Module" / "lib" / "leds.py"
-MAIN = HERE.parents[2] / "Wand Module" / "main.py"
+SRC = HERE.parents[1] / "Wand Module" / "lib" / "leds.py"
+MAIN = HERE.parents[1] / "Wand Module" / "main.py"
 OUT = HERE.parent / "js" / "ledicons" / "shapes5.js"
 
 SHAPE_RE = re.compile(r"^(SHAPE_[A-Za-z0-9_]+)\s*=\s*\(([0-9,\s]*)\)\s*(?:#.*)?$")

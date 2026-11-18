@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serial frame check</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: flex; flex-direction: column; font: 14px system-ui, sans-serif; }
+  #bar { padding: 6px 12px; background: #231f2e; color: #fff; }
+  iframe { flex: 1; border: 0; width: 100%; }
+</style>
+</head>
+<body>
+<!-- Step 0 of the Variant Studio plan: does Web Serial work for
+     Chat Broadcast when it runs inside a same-origin frame? -->
+<div id="bar">Serial frame check — connect a wand inside the frame below.</div>
+<iframe id="app" src="../ChatBroadcast/index.html"></iframe>
+<script>
+  const frame = document.getElementById('app');
+  const bar = document.getElementById('bar');
+  frame.addEventListener('load', () => {
+    const w = frame.contentWindow;
+    const d = frame.contentDocument;
+    const hasSerial = !!(w.navigator && w.navigator.serial);
+    let allowed = 'unknown';
+    try {
+      if (d.permissionsPolicy) allowed = d.permissionsPolicy.allowsFeature('serial');
+      else if (d.featurePolicy) allowed = d.featurePolicy.allowsFeature('serial');
+    } catch (e) { allowed = 'error: ' + e.message; }
+    bar.textContent = 'Serial frame check — navigator.serial in frame: ' + hasSerial +
+      ' · policy allows serial: ' + allowed + ' · now connect a wand below.';
+  });
+</script>
+</body>
+</html>

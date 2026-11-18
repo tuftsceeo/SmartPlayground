@@ -10,10 +10,8 @@ One user-facing state: the tag menus. The invariant this file holds:
 
     at most one of {radio, NFC RF field} is energized at any instant.
 
-    WRITE  The menus. ESP-NOW serves the active game to wands
-           (code_link.py) whenever the reader field is off; the radio goes
-           down only while a card is being scanned or written.
-    IDLE   Neither.  No game on flash, so there is nothing to do.
+    WRITE  A game on flash.  IDLE  None.  In both, ESP-NOW serves
+           whenever the reader field is off.
 
 There is deliberately no RECEIVING mode: the app pushes code over the raw
 REPL, which interrupts this program and soft-resets the board
@@ -44,7 +42,7 @@ HEARTBEAT_MS = 5000
 # catch; that is the only thing it is for.
 GRACE_S = 0
 
-SHARE_RETRY_MS = 2000        # wait after a failed menu-share arm()
+SHARE_RETRY_MS = 2000        # wait after a failed CodeLink.radio_on()
 
 INDEX_PATH = GAMES_DIR + '/index.json'
 
@@ -110,9 +108,13 @@ class BdialServer:
         self._input = None      # DialInput, built in run()
         self.ui = None          # StationUI, built in run()
         self.st = None          # station.Station, built in run()
+        self._rescan_pending = False
         self.link = JsonLink(self.dispatch, debug=debug)
         self.code = CodeLink()
         self.nfc = None
+        self.tag = None         # NT3H2111 Tag 2 Click on Port A, or None
+        self.nfc_kind = None    # nfc_detect: pn532 / ws1850s / click / internal
+        self.emu = None         # TagEmulator, built in run() when tag is set
         self.running = True
         self.linked = True
 
@@ -123,8 +125,8 @@ class BdialServer:
         # entry label -> cumulative successful writes, seeded from
         # stats_log at boot by _load_stats() and incremented in memory.
         self._written = {}
-        # slug -> wands that pulled it since boot. A new game arrives by a
-        # reset (module docstring), so this restarts with each code update.
+        # slug -> wands that pulled it since boot. Kept across games.rescan;
+        # a game sent by the raw-REPL fallback resets it.
         self._pulls = {}
         self._share_retry_at = 0
         self.fleet = None       # fleet.Fleet, built on the first fleet.* cmd
@@ -150,7 +152,13 @@ class BdialServer:
             "fleet.find": self.do_fleet_find,
             "fleet.distribute": self.do_fleet_distribute,
             "fleet.cancel": self.do_fleet_cancel,
+            "file.begin": self.do_file,
+            "file.chunk": self.do_file,
+            "file.end": self.do_file,
+            "file.abort": self.do_file,
+            "games.rescan": self.do_games_rescan,
         }
+        self._upload = None     # game_upload.Upload, built on the first file.* cmd
 
     # ─────────────────────────────────────────────
     # HARDWARE INIT
@@ -176,7 +184,9 @@ class BdialServer:
             print("# mem[%s] log failed: %s" % (label, str(e)))
 
     def _init_nfc(self):
-        self.nfc = make_reader()
+        self.nfc, self.tag, self.nfc_kind = make_reader()
+        if self.emu is not None and self.tag is not None:
+            self.emu.tag = self.tag
 
     # ─────────────────────────────────────────────
     # MODES
@@ -188,9 +198,6 @@ class BdialServer:
         if new_mode == self._mode:
             return
         old = self._mode
-        if old == MODE_WRITE:
-            self._fleet_cancel("radio_off")
-            self.code.disarm()
         self._mode = new_mode
         reset_log.note_mode(new_mode)
         print("# mode %s -> %s" % (old, new_mode))
@@ -242,8 +249,11 @@ class BdialServer:
             # Report what _init_nfc() actually did. Never hardcode True —
             # a failed init must surface as nfc:false so the app can say so.
             "w": SCREEN_W, "h": SCREEN_H, "nfc": self._nfc_ok,
+            "nfc_kind": self.nfc_kind,
             # Fixed for the life of the boot (see code_link.HOST_ID).
             "host_id": HOST_ID,
+            # file.* and games.rescan: send a game with no reset (S5 step 4).
+            "upload": 1,
         }
 
     def _send_identity(self, rid=None):
@@ -264,22 +274,15 @@ class BdialServer:
         self.link.send({
             "type": "info", "id": rid,
             "version": VERSION, "mem": gc.mem_free(),
-            "armed": self.code.armed, "linked": self.linked,
+            "armed": self.code.is_on, "linked": self.linked,
             "payload_ready": self._payload_ready(),
             "written": sum(self._written.values()), "up": time.ticks_ms(),
         })
 
     def do_arm(self, cmd, rid):
-        """Sharing follows the menus (_serve); this only reports it.
-        Kept for hosts that still send it."""
-        if not self._payload_ready():
-            self.link.send({"type": "error", "id": rid, "code": "no_payload",
-                             "msg": "no game on device"})
-            return
-        if self.st is not None:
-            self._serve()
+        """No-op kept for older hosts."""
         self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": None,
-                        "armed": self.code.armed})
+                        "armed": self.code.is_on})
 
     def do_disarm(self, cmd, rid):
         """No-op kept for hosts that still send it: sharing is not
@@ -377,6 +380,54 @@ class BdialServer:
         self._rebuild_entries()
         self.link.send({"type": "ok", "id": rid, "cmd": "games.clear"})
         self._set_mode(MODE_IDLE)
+
+    # file.* -- write a game over the JSON link; game_upload.py has the steps.
+    def do_file(self, cmd, rid):
+        if self._upload is None:
+            from game_upload import Upload
+            self._upload = Upload()
+        name = cmd.get("cmd")
+        err = getattr(self._upload, name[5:])(cmd)
+        if err:
+            err["type"] = "error"
+            err["id"] = rid
+            err["cmd"] = name
+            self.link.send(err)
+            return
+        reply = {"type": "ok", "id": rid, "cmd": name}
+        if name == "file.chunk":
+            reply["seq"] = cmd.get("seq")
+        self.link.send(reply)
+
+    # After file.*: rescan /flash/games as at boot, without a reset, so the
+    # radio stays up and pull counts survive. "active" picks the game just sent
+    # (a re-sent game is not new to the index, so the scan alone keeps the old one).
+    def do_games_rescan(self, cmd, rid):
+        if self.code.sender is not None:
+            self.code.sender._digest = (None, None, None)
+        self._boot_scan_games(reload=False)
+        want = cmd.get("active")
+        if want and want in self._index:
+            self._set_active(want)
+            self.code.set_game(want)
+        self.link.send({"type": "ok", "id": rid, "cmd": "games.rescan",
+                        "active": self._active, "games": len(self._index)})
+        # Only move the screens (and mode) from a menu screen; a teacher on
+        # the keyboard or a held result is left alone until they get back
+        # to one (_apply_rescan from the main loop).
+        self._rescan_pending = True
+        if self.st is None or self.st.serving():
+            self._apply_rescan()
+
+    def _apply_rescan(self):
+        self._rescan_pending = False
+        if self.st is not None:
+            self.st.reload()
+        if self._payload_ready():
+            self._set_mode(MODE_WRITE)
+        else:
+            self._set_mode(MODE_IDLE)
+        self._emit_mode()
 
     def do_stats_get(self, cmd, rid):
         try:
@@ -507,7 +558,7 @@ class BdialServer:
             print("# stats load failed: %s" % str(e))
             self._written = {}
 
-    def _boot_scan_games(self):
+    def _boot_scan_games(self, reload=True):
         """Merge /flash/games/*.py into index.json; pick active.
 
         New-this-boot files (not in previous index) become active; if several,
@@ -574,7 +625,7 @@ class BdialServer:
 
         if self._active:
             self.code.set_game(self._active)
-        self._rebuild_entries()
+        self._rebuild_entries(reload)
         print("# games: %d active=%s" % (len(self._index), self._active))
 
     def _pick_active_fallback(self):
@@ -587,7 +638,7 @@ class BdialServer:
             self.code.set_game(slug)
             return
 
-    def _rebuild_entries(self):
+    def _rebuild_entries(self, reload=True):
         """One group per game -- Code (getcode:<slug>), Play (<slug>), then
         the tags the game pushed in <slug>.tags.json, with All -- then
         Utility (stop, battery)."""
@@ -611,7 +662,7 @@ class BdialServer:
             if k in live:
                 keep[k] = v
         self._written = keep
-        if self.st is not None:
+        if self.st is not None and reload:
             self.st.reload()
 
     # ─────────────────────────────────────────────
@@ -654,9 +705,9 @@ class BdialServer:
         return _card_text(tag)
 
     def radio_off(self):
-        if self.code.armed:
+        if self.code.is_on:
             self._fleet_cancel("radio_off")
-            self.code.disarm()
+            self.code.radio_off()
 
     def on_card(self, tag, existing):
         _log("card uid=%s existing=%s" % (tag['uid_hex'], repr(existing)))
@@ -681,27 +732,25 @@ class BdialServer:
     # ─────────────────────────────────────────────
 
     def _serve(self):
-        """Serve the active game over ESP-NOW on the menu screens; the
-        radio is down everywhere else (Read, scans, results, keyboard)."""
-        if self.code.armed:
-            if self.st.serving():
-                self.code.poll(on_event=self._on_share_event,
-                               on_msg=self._on_fleet_msg)
+        """Radio up whenever the reader field is off."""
+        if self.code.is_on:
+            self.code.poll(on_event=self._on_share_event,
+                           on_msg=self._on_fleet_msg)
+            ref = self.code.sender.last_refused
+            if ref is not None:
+                self.code.sender.last_refused = None
                 if self.fleet is not None:
-                    self.fleet.step()
-            else:
-                self._fleet_cancel("radio_off")
-                self.code.disarm()
+                    self.fleet.on_refused(*ref)
+            if self.fleet is not None:
+                self.fleet.step()
             return
-        if (self._mode != MODE_WRITE or not self.st.serving()
+        if (self.st._field
                 or time.ticks_diff(self._share_retry_at, time.ticks_ms()) > 0):
             return
         if self._active:
             self.code.set_game(self._active)
-        elif self.code.resolve() is None:
-            return
-        if not self.code.arm():
-            print("# share: CodeLink.arm() failed")
+        if not self.code.radio_on():
+            print("# share: CodeLink.radio_on() failed")
             self._share_retry_at = time.ticks_add(time.ticks_ms(), SHARE_RETRY_MS)
 
     def _on_share_event(self, event):
@@ -728,10 +777,10 @@ class BdialServer:
 
     def _fleet_ready(self, rid):
         """The Fleet when the radio is up, else an error reply and None.
-        The radio is up on the menu screens in WRITE mode (_serve)."""
-        if not self.code.armed:
+        The radio is up whenever the reader field is off (_serve)."""
+        if not self.code.is_on:
             self.link.send({"type": "error", "id": rid, "code": "not_serving",
-                            "msg": "radio is off: Dial must be on a menu with a game loaded"})
+                            "msg": "radio is off: the Dial is reading or writing a card"})
             return None
         if self.fleet is None:
             from fleet import Fleet
@@ -771,7 +820,10 @@ class BdialServer:
         if fl.busy:
             self.link.send({"type": "error", "id": rid, "code": "busy"})
             return
-        fl.distribute(self.code.mgr, slug, macs)
+        replace = cmd.get("replace")
+        if not (isinstance(replace, (str, dict)) and replace):
+            replace = None      # str: one game for all; dict: {mac: game}
+        fl.distribute(self.code.mgr, slug, macs, replace)
         self.link.send({"type": "ok", "id": rid, "cmd": "fleet.distribute",
                         "slug": slug, "total": len(macs)})
 
@@ -829,6 +881,9 @@ class BdialServer:
         self._log_mem("after _init_nfc")
 
         self.st = Station(self.ui, self._input, self, card_writer)
+        if self.tag is not None:
+            from tag_emulator import TagEmulator
+            self.emu = TagEmulator(self.tag, _card_text)
         self._load_stats()
         self._boot_scan_games()
         # Unsolicited identity, once, purely informational: an app that
@@ -846,8 +901,12 @@ class BdialServer:
             while self.running:
                 self.link.pump(idle_ms=20, drain_ms=40)
                 self.st.step()
+                if self._rescan_pending and self.st.serving():
+                    self._apply_rescan()
                 self.ui.tick()
                 self._serve()
+                if self.emu is not None:
+                    self.emu.poll(self.st)
                 now = time.ticks_ms()
                 if time.ticks_diff(now, last_hb) > HEARTBEAT_MS:
                     self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
@@ -866,8 +925,8 @@ class BdialServer:
         the radio coming down.
         """
         try:
-            if self.code.armed:
-                self.code.disarm()
+            if self.code.is_on:
+                self.code.radio_off()
                 _log("shutdown: radio down")
         except Exception as e:
             print("# shutdown: radio disarm FAILED: %s" % str(e))

@@ -2,11 +2,11 @@
  * Icon helpers for the workspace Icons view: which icons a game uses, which
  * one a display game starts on, and drawing one as the panel would show it.
  *
- * The renderer is the Icon Maker's, reached through iconmaker/js/pipeline/
+ * The renderer is the Icon Maker's, reached through IconEditor/webapp/js/pipeline/
  * rather than reimplemented -- it models the device's truncating LUT and the
  * additive bloom of real LEDs.
  */
-import { renderPreview } from '../../iconmaker/js/pipeline/preview.js';
+import { renderPreview } from '../../../IconEditor/webapp/js/pipeline/preview.js';
 import {
     getIcon, getGameIcons, isCustom, iconNamesIn, missingIconsIn, W, H,
 } from './iconLibrary.js';

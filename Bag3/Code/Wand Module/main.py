@@ -13,6 +13,33 @@ Controls: start, stop, plus game tags (see lib/game_tags.py);
 Utility: battery (LED flash; status_poll is auto-answered by espnow_manager)
 """
 
+# Radio prewarm, before any other import (the wand's prewarm_ap(); AGENTS.md:
+# nothing may allocate before the radio claims its memory). ESPNowManager.init()
+# in _boot() finds ESP-NOW active and keeps it. Same antenna and rxbuf as
+# lib/espnow_manager.py (EXTERNAL_ANTENNA, ESPNOW_RXBUF).
+try:
+    import network, espnow
+    from machine import Pin
+    Pin(3, Pin.OUT).value(0)
+    import time
+    time.sleep_ms(100)
+    Pin(14, Pin.OUT).value(1)
+    network.WLAN(network.STA_IF).active(True)
+    _e = espnow.ESPNow()
+    _e.config(rxbuf=4096)
+    _e.active(True)
+    del _e
+except Exception as _err:
+    print("  [WARN] radio prewarm failed; ESPNowManager.init() will retry:", _err)
+# Splat host: BLE up before other imports (see known_issues 2026-11-12).
+try:
+    import os
+    os.stat("/role.txt")
+    import ubluetooth
+    ubluetooth.BLE().active(True)
+except Exception:
+    pass
+
 import machine
 import time
 import sys
@@ -91,10 +118,6 @@ GAME_MODULES = {
     "goalrace":       "goalrace",
     # Two-device game: wand half; the Splat Companion runs its splatecho.py.
     "splatecho":      "splatecho",
-    # Lobby games (SPLATS_MIN): each wand taps the card and joins one lobby.
-    "lobbytest":      "lobbytest",
-    "splattag":       "splattag",
-    "relaycolor":     "relaycolor",
     # Hidden (ESP-NOW only, never NFC): targeted identify animation.
     "finddevice":     "finddevice",
 }
@@ -164,10 +187,15 @@ def game_module(name):
 # `identity`/`heartbeat` lines -- same shapes, so ChatBroadcast's existing
 # NDJSON line reader (ChatBroadcast/js/device/bboxLink.js) parses it unchanged.
 #
-# Deliberately output-only: there is no command listener here. Polling
-# sys.stdin would add work to a timing-sensitive NFC/LED loop for a feature
-# the raw REPL already provides (ChatBroadcast drives file pushes and resets
-# from there, same as it does for the Box's firmware install).
+# Output-only: there is no command listener here. ChatBroadcast drives file
+# pushes and resets from the raw REPL, same as for the Box's firmware install.
+#
+# The main loop and the boot countdown still read and discard stdin
+# (lib/stdin_drain.py, every 250 ms) so that Ctrl-C keeps working: on
+# MicroPython v1.28 a program that never reads stdin over USB-Serial-JTAG
+# fills its 259-byte buffer with whatever the host sends, and from then on
+# every Ctrl-C is left unseen in the USB FIFO. lib/stdin_drain.py has the
+# source details; known_issues/2026-11-17-wand-ctrlc-stdin-full.md the test.
 WAND_VERSION = "0.1.0"
 
 
@@ -211,9 +239,6 @@ GAME_ICON = {
     "gestures":       (SHAPE_POINTER,    INDIGO),
     "goalrace":       (SHAPE_FASTFORWARD, LIME),
     "splatecho":      (SHAPE_DIAMOND,    YELLOW),
-    "lobbytest":      (SHAPE_DIAMOND,    CYAN),
-    "splattag":       (SHAPE_BULLSEYE,   RED),
-    "relaycolor":     (SHAPE_SPIRAL,     ORANGE),
     "finddevice":     (SHAPE_EXCLAIM,    WHITE),
 }
 
@@ -262,8 +287,9 @@ ALL_COMMANDS   = BASE_COMMANDS | set(game_store.slugs())
 #      start_game is received (poll enow every loop). Parameters are
 #      passed positionally up to as many as play() declares (6, 7 or 8);
 #      `batt` is the MAX17048 fuel gauge and is None when the board has
-#      none. `net` is None unless the module declares SPLATS_MIN (a lobby
-#      game, see README.md).
+#      none. The 8th argument is `net` for a lobby game (SPLAT_HOST with
+#      SPLATS_MIN, or PLAYERS_MIN alone), the wand's own Splats for a
+#      SPLATS_LOCAL game, else None (see README.md).
 #   2. Add the tag name `"yourgame"` to GAME_TAGS in lib/game_tags.py.
 #   3. Add `"yourgame": "yourgame"` to GAME_MODULES in this file --
 #      key is the tag name, value is the module's filename (no `.py`).
@@ -420,16 +446,44 @@ def _splat_limits(name):
     """(SPLATS_MIN, SPLATS_MAX, SPLAT_HOST, PLAYERS_MIN) if the loaded game
     module declares a lobby game, else None. Raises ValueError for an
     invalid declaration."""
+    # A lobby with Splats is a Splat host game: SPLAT_HOST = True and
+    # SPLATS_MIN 1..4 (pairing.HOST_MAX_SPLATS). A lobby without Splats
+    # declares PLAYERS_MIN alone: (None, None, False, PLAYERS_MIN).
     mod = sys.modules[game_module(name)]
     lo = getattr(mod, "SPLATS_MIN", None)
-    if lo is None:
-        return None
     hi = getattr(mod, "SPLATS_MAX", None)
-    if (not isinstance(lo, int) or isinstance(lo, bool) or lo < 1
-            or (hi is not None and (not isinstance(hi, int) or isinstance(hi, bool) or hi < lo))):
-        raise ValueError("%s: SPLATS_MIN=%r SPLATS_MAX=%r (need int >= 1, and None or >= SPLATS_MIN)"
-                         % (name, lo, hi))
-    return lo, hi, getattr(mod, "SPLAT_HOST", False) is True, getattr(mod, "PLAYERS_MIN", 1)
+    host = getattr(mod, "SPLAT_HOST", False) is True
+    pmin = getattr(mod, "PLAYERS_MIN", None)
+    if pmin is not None and (not isinstance(pmin, int) or isinstance(pmin, bool) or pmin < 1):
+        raise ValueError("%s: PLAYERS_MIN=%r (need int >= 1)" % (name, pmin))
+    if not host:
+        if lo is not None or hi is not None:
+            raise ValueError("%s: SPLATS_MIN/SPLATS_MAX need SPLAT_HOST = True" % name)
+        if pmin is None:
+            return None
+        return None, None, False, pmin
+    if (not isinstance(lo, int) or isinstance(lo, bool) or lo < 1 or lo > 4
+            or (hi is not None and (not isinstance(hi, int) or isinstance(hi, bool)
+                                    or hi < lo or hi > 4))):
+        raise ValueError("%s: SPLATS_MIN=%r SPLATS_MAX=%r (int 1..4)" % (name, lo, hi))
+    return lo, hi, True, 1 if pmin is None else pmin
+
+
+def _splats_local(name):
+    """SPLATS_LOCAL (1 or 2) if the loaded game drives its own paired Splats
+    without a lobby, else None. Raises ValueError for an invalid value or a
+    mix with SPLATS_MIN / SPLAT_HOST."""
+    mod = sys.modules[game_module(name)]
+    n = getattr(mod, "SPLATS_LOCAL", None)
+    if n is None:
+        return None
+    if (not isinstance(n, int) or isinstance(n, bool) or n < 1 or n > 2
+            or getattr(mod, "SPLATS_MIN", None) is not None
+            or getattr(mod, "PLAYERS_MIN", None) is not None
+            or getattr(mod, "SPLAT_HOST", False) is True):
+        raise ValueError("%s: SPLATS_LOCAL=%r (int 1..2, alone)"
+                         % (name, n))
+    return n
 
 
 def _unload_game(name):
@@ -452,6 +506,24 @@ def _unload_game(name):
 
 
 UNLOAD_AFTER_GAME = True  # bench toggle -- see the post-unload probe
+
+
+def _too_few_splats(name, need, have):
+    """A solo game with fewer Splats connected than SPLATS_LOCAL: the needed
+    count in amber, three times with the reject sound, so it reads apart
+    from the load-failure X."""
+    from leds import SHAPE_1, SHAPE_2
+    print("  [FAIL] %s needs %d Splat(s), %d connected" % (name, need, have))
+    _emit({"type": "error", "where": "game_load", "slug": name,
+           "err": "needs %d Splat(s), %d connected" % (need, have)})
+    shape = SHAPE_1 if need == 1 else SHAPE_2
+    for _ in range(3):
+        leds.show_shape(shape, AMBER)
+        buz.reject()
+        time.sleep_ms(400)
+        leds.off()
+        time.sleep_ms(150)
+    _unload_game(name)
 
 
 def _game_load_failed(name, exc):
@@ -571,25 +643,38 @@ def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             return
         wrapper = _StartGameCapture(enow)
         net = None
+        splats = None
         try:
             limits = _splat_limits(name)
+            local = _splats_local(name)
         except ValueError as e:
             _game_load_failed(name, e)
             return
         if _ROLE == "splat_host" and (limits is None or not limits[2]):
             print("  Splat host: %s is not a Splat host game" % name)
+            leds.show_shape(SHAPE_X, RED)
             buz.reject()
+            time.sleep_ms(500)
+            leds.off()
             play_func = None
             _unload_game(name)
             break
         if limits is not None:
             net = _enter_lobby(name, limits, wrapper, nfc, leds, buz)
+        elif local is not None:
+            splats = _pair_ctl.game_handle() if _pair_ctl is not None else None
+            have = splats.count if splats is not None else 0
+            if have < local:
+                if splats is not None:
+                    splats.close()
+                _too_few_splats(name, local, have)
+                return
         if limits is None or net is not None:
             _emit({"type": "game_start", "slug": name})
             try:
                 try:
                     _start_play(play_func, name, nfc, leds, buz, accel, i2c,
-                                wrapper, batt_ref, net)
+                                wrapper, batt_ref, net if net is not None else splats)
                 except TypeError as e:
                     # A game that cannot even be CALLED is a load failure, not a
                     # reason to take the main loop down with it. Anything raised
@@ -601,6 +686,8 @@ def _run_games(name, nfc, leds, buz, accel, i2c, enow, batt_ref):
             finally:
                 if net is not None:
                     net.close()
+                if splats is not None:
+                    splats.close()
             _emit({"type": "game_end", "slug": name})
         next_name = wrapper.pending_name
         # Drop the reference before unloading -- play_func is what pins
@@ -737,20 +824,27 @@ def run_event_loop(reader, rules, runner, accel_ref, enow=None, batt_ref=None):
 
 
 # Seconds of countdown before main() takes the board, so a Ctrl-C can land
-# and leave you at the REPL. ZERO by default: the wand should boot straight
-# into being a wand, and every board here answers Ctrl-C without help. Set it
-# to a few seconds on a test rig that does not -- a board whose REPL is hard
-# to catch is the only thing this is for.
-GRACE_S = 0
+# and leave you at the REPL. Short: with stdin drained (lib/stdin_drain.py)
+# the main loop answers Ctrl-C too, so this is only a backstop. Was 30 from
+# 2026-11-12 until the drain fix; 2 since 2026-11-17.
+GRACE_S = 2
 
 
 def _boot_grace():
     if GRACE_S <= 0:
         return
     print("# booting -- Ctrl-C within %ds to stay at the REPL" % GRACE_S)
+    # Drain stdin here too: on the bench a full stdin survived a reset by
+    # port reopen (not a power-off), which would hide this countdown's
+    # Ctrl-C. Why it survives is not known (see the comment above
+    # WAND_VERSION and the stdin-full known-issue note).
+    import stdin_drain
+    drain = stdin_drain.Drainer()
     for remaining in range(GRACE_S, 0, -1):
         print("# %d..." % remaining)
-        time.sleep_ms(1000)
+        for _q in range(4):
+            drain.drain()
+            time.sleep_ms(250)
 
 
 # ─────────────────────────────────────────────
@@ -786,7 +880,7 @@ def _pull_progress(received, total):
 # ─────────────────────────────────────────────
 # ESP-NOW CODE PULL — getcode over the radio already up, no reset
 # ─────────────────────────────────────────────
-def _espnow_pull_and_launch(enow, slug, host_id, nfc, accel, i2c, batt):
+def _espnow_pull_and_launch(enow, slug, host_id, nfc, accel, i2c, batt, replace=""):
     """Receive a game from the Box/Dial over ESP-NOW (lib/espnow_code.py),
     then launch it. On failure the old copy stays and the wand returns to
     idle with the pull-failure display."""
@@ -817,6 +911,9 @@ def _espnow_pull_and_launch(enow, slug, host_id, nfc, accel, i2c, batt):
         buz.success()
         time.sleep_ms(600)
         name = stats.get("name") or slug
+        import game_slots
+        for old in game_slots.record(name, replace):
+            _unload_game(old)
         _unload_game(name)
         _launch_game(name, nfc, leds, buz, accel, i2c, enow, batt)
 
@@ -831,13 +928,14 @@ _PAIR_BOOT_PATH = "/pair_boot"    # same file as lib/splatpair.py PAIR_BOOT_PATH
 _pair_ctl = None                  # splatpair.SplatPairing for a paired wand
 _ROLE_PATH = "/role.txt"          # same file as lib/pairing.py ROLE_PATH
 _ROLE = ""                        # "splat_host" or "" (read after the radio is up)
-_pending_push = None              # (slug, host) from a Dial code_push
+_pending_push = None              # (slug, host, replace) from a Dial code_push
 
 
 def _queue_push(data):
     """Record a Dial code_push; the idle loop runs it as a getcode pull."""
     global _pending_push
-    _pending_push = (data.get("slug") or "", data.get("host") or "")
+    _pending_push = (data.get("slug") or "", data.get("host") or "",
+                     data.get("replace") or "")
 
 
 def _read_pairing():
@@ -872,7 +970,7 @@ def _boot_pairing(enow):
         import ubluetooth
         ubluetooth.BLE().active(True)
         import splatpair
-        _pair_ctl = splatpair.SplatPairing(macs, enow, leds, buz)
+        _pair_ctl = splatpair.SplatPairing(macs, enow, leds, buz, motor=motor)
         print("  Splat pairing: %d Splat(s) %s" % (_pair_ctl.count, _pair_ctl.macs))
     except Exception as e:
         print("  [WARN] Splat pairing unavailable, booting unpaired:")
@@ -895,7 +993,7 @@ def _pair_card(cmd, enow):
     global _pair_ctl
     import splatpair
     if _pair_ctl is None:
-        _pair_ctl = splatpair.SplatPairing([], enow, leds, buz)
+        _pair_ctl = splatpair.SplatPairing([], enow, leds, buz, motor=motor)
     if _pair_ctl.on_card(cmd) == "reset":
         time.sleep_ms(300)           # let the confirm tone finish
         machine.reset()
@@ -974,6 +1072,8 @@ def _boot():
             _ROLE = f.read().strip()
     except OSError:
         _ROLE = ""
+    import game_slots    # after the radio claim; adds role and slots to status_report
+    enow.status_extra = lambda: game_slots.report(_ROLE)
     _boot_pairing(enow)
     if DEBUG_BOOT:
         memprobe.probe("post-ble")  # BENCH
@@ -1148,6 +1248,12 @@ def main():
         _forget_boot_ok()
         raise
     pled.start()
+
+    # Stdin drain (see the comment above WAND_VERSION). Set up here, after
+    # the radio is up, so nothing is allocated for it at import.
+    import stdin_drain
+    drain = stdin_drain.Drainer()
+
     if nfc is None:
         pled.boot_fail()
         return
@@ -1193,8 +1299,8 @@ def main():
         splat_host.run(enow, nfc, leds, buz, lambda: _pair_ctl,
                        lambda t: _pair_card(t, enow),
                        lambda n: _launch_game(n, nfc, leds, buz, accel, i2c, enow, batt),
-                       lambda sl, h: _espnow_pull_and_launch(enow, sl, h, nfc, accel, i2c, batt),
-                       is_game)
+                       lambda sl, h, r="": _espnow_pull_and_launch(enow, sl, h, nfc, accel, i2c, batt, r),
+                       is_game, lambda: btn.value() == 0)
 
     show_idle(last_soc, 0)
     print("\n  Tap a TRIGGER tag to start programming\n")
@@ -1208,9 +1314,14 @@ def main():
             last_heartbeat_ms = time.ticks_ms()
             _emit({"type": "heartbeat", "up": last_heartbeat_ms})
         try:
+            # Inside the try, ahead of every `continue`, so both the awake and
+            # the sleep paths run it, and a Ctrl-C it uncovers reaches the
+            # `except KeyboardInterrupt` below.
+            drain.tick()
+
             # ── DIAL CODE PUSH ── same path as a getcode card tap.
             if _pending_push is not None:
-                wanted, wanted_host = _pending_push
+                wanted, wanted_host, wanted_replace = _pending_push
                 _pending_push = None
                 _clear_rules_state(enow)
                 rules = {}; editing = None; pending_combinator = None
@@ -1218,7 +1329,8 @@ def main():
                 if nfc_sleeping:
                     _nfc_wake(nfc)
                 nfc_sleeping = False
-                _espnow_pull_and_launch(enow, wanted, wanted_host, nfc, accel, i2c, batt)
+                _espnow_pull_and_launch(enow, wanted, wanted_host, nfc, accel, i2c, batt,
+                                        wanted_replace)
                 last_activity_ms = time.ticks_ms()
                 idle_frame = 0
                 show_idle(last_soc, 0)

@@ -15,19 +15,19 @@ async function loadFirmwareFiles(device) {
   // Bag3/Code/TeacherTools/.
   if (device === "broadcast_dial") {
     const { loadDialFiles } = await import(
-      "../../../../TeacherTools/BroadcastDial/BDialFirmware/manifest.js"
+      "../../../TeacherTools/BroadcastDial/BDialFirmware/manifest.js"
     );
-    return loadDialFiles("../../TeacherTools/BroadcastDial/BDialFirmware/");
+    return loadDialFiles("../TeacherTools/BroadcastDial/BDialFirmware/");
   }
   if (device === "emulated_tag_dial") {
-    // EmulatedTagDial/ sits in Bag3/Code/, beside BroadcastCode/ and TeacherTools/.
+    // EmulatedTagDial/ sits in Bag3/Code/, beside ChatBroadcast/ and TeacherTools/.
     const { loadDialFiles } = await import(
-      "../../../../EmulatedTagDial/ETDialFirmware/manifest.js"
+      "../../../EmulatedTagDial/ETDialFirmware/manifest.js"
     );
-    return loadDialFiles("../../EmulatedTagDial/ETDialFirmware/");
+    return loadDialFiles("../EmulatedTagDial/ETDialFirmware/");
   }
-  const { loadBoxFiles } = await import("../../../../TeacherTools/BroadcastBox/BBoxFirmware/manifest.js");
-  return loadBoxFiles("../../TeacherTools/BroadcastBox/BBoxFirmware/");
+  const { loadBoxFiles } = await import("../../../TeacherTools/BroadcastBox/BBoxFirmware/manifest.js");
+  return loadBoxFiles("../TeacherTools/BroadcastBox/BBoxFirmware/");
 }
 
 export async function installBoxFirmware(repl, adapter, onProgress, device = null) {

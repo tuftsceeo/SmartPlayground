@@ -1,6 +1,6 @@
 /**
  * ledColor.js -- copied verbatim from the Icon Maker webapp's
- * js/pipeline/ledcolor.js (Bag3/Code/Stations/Icon Display Station/webapp).
+ * js/pipeline/ledcolor.js (Bag3/Code/IconEditor/webapp).
  * PEER: the two are hand-kept copies; fix both or neither.
  *
  * The forward model for

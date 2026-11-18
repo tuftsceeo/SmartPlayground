@@ -30,11 +30,13 @@ _TRANSFORM_LIBS = (
     "leds",
     "buzzer",
     "actions",
+    "signals",
     "battery",
     "espnow_manager",
     # Lobby games (in import order: each imports the ones before it).
     "pwire",
     "splatpair",
+    "splat_host",
     "lobby_game",
 )
 
@@ -558,7 +560,9 @@ class Runtime:
         smin = getattr(mod, "SPLATS_MIN", None)
         smax = getattr(mod, "SPLATS_MAX", None)
         return {
-            "lobby_game": smin is not None,
+            # main.py: a host game declares SPLATS_MIN, a plain lobby PLAYERS_MIN.
+            "lobby_game": smin is not None or getattr(mod, "PLAYERS_MIN", None) is not None,
+            "splats_local": getattr(mod, "SPLATS_LOCAL", None),
             "splat_host": getattr(mod, "SPLAT_HOST", False) is True,
             "role": self._role,
             "local_splats": self._local_splats,
@@ -597,12 +601,18 @@ class Runtime:
         # exit_tags_excluding(own_tag) drops exactly one tag from EXIT_TAGS;
         # recover it by diffing rather than re-parsing the game's call site.
         own_tag = (game_tags.EXIT_TAGS - own_exit_tags) if own_exit_tags is not None else set()
-        game_specific = (commands - game_tags.EXIT_TAGS) | (own_tag & commands)
+        table = _TEACHER_TABLE.get(self._game_name, {})
+        # The game's own start tag is not a play card: the Simulator starts
+        # the game itself, and the tag is used to reset or clear a game.
+        # Only the shipped examples that use it in play (melody's erase,
+        # cooking's clear) keep it; a generated game (not in the table) never.
+        game_specific = commands - game_tags.EXIT_TAGS
+        if self._game_name in _TEACHER_TABLE:
+            game_specific |= own_tag & commands
         nfc_tags = sorted(game_specific)
 
         battery = self._game_reads_battery()
 
-        table = _TEACHER_TABLE.get(self._game_name, {})
         motion = table.get("motion")
         if motion is None:
             motion = _ALL_MOTION if self._game_reads_accel() else []
@@ -701,20 +711,51 @@ class Runtime:
             self._local_splats = n
             self._pair_ctl = None
 
+    # Copied from Wand Module/main.py _splat_limits / _splats_local (module
+    # lookup swapped for the loaded game). Keep them in step with the wand.
     def _splat_limits(self):
-        """main.py _splat_limits: (SPLATS_MIN, SPLATS_MAX, SPLAT_HOST,
-        PLAYERS_MIN) for a lobby game, else None. ValueError for an invalid
-        declaration."""
+        """(SPLATS_MIN, SPLATS_MAX, SPLAT_HOST, PLAYERS_MIN) if the loaded game
+        module declares a lobby game, else None. Raises ValueError for an
+        invalid declaration."""
+        # A lobby with Splats is a Splat host game: SPLAT_HOST = True and
+        # SPLATS_MIN 1..4 (pairing.HOST_MAX_SPLATS). A lobby without Splats
+        # declares PLAYERS_MIN alone: (None, None, False, PLAYERS_MIN).
+        name = self._game_name
         mod = self._game_mod
         lo = getattr(mod, "SPLATS_MIN", None)
-        if lo is None:
-            return None
         hi = getattr(mod, "SPLATS_MAX", None)
-        if (not isinstance(lo, int) or isinstance(lo, bool) or lo < 1
-                or (hi is not None and (not isinstance(hi, int) or isinstance(hi, bool) or hi < lo))):
-            raise ValueError("%s: SPLATS_MIN=%r SPLATS_MAX=%r (need int >= 1, and None or >= SPLATS_MIN)"
-                             % (self._game_name, lo, hi))
-        return lo, hi, getattr(mod, "SPLAT_HOST", False) is True, getattr(mod, "PLAYERS_MIN", 1)
+        host = getattr(mod, "SPLAT_HOST", False) is True
+        pmin = getattr(mod, "PLAYERS_MIN", None)
+        if pmin is not None and (not isinstance(pmin, int) or isinstance(pmin, bool) or pmin < 1):
+            raise ValueError("%s: PLAYERS_MIN=%r (need int >= 1)" % (name, pmin))
+        if not host:
+            if lo is not None or hi is not None:
+                raise ValueError("%s: SPLATS_MIN/SPLATS_MAX need SPLAT_HOST = True" % name)
+            if pmin is None:
+                return None
+            return None, None, False, pmin
+        if (not isinstance(lo, int) or isinstance(lo, bool) or lo < 1 or lo > 4
+                or (hi is not None and (not isinstance(hi, int) or isinstance(hi, bool)
+                                        or hi < lo or hi > 4))):
+            raise ValueError("%s: SPLATS_MIN=%r SPLATS_MAX=%r (int 1..4)" % (name, lo, hi))
+        return lo, hi, True, 1 if pmin is None else pmin
+
+    def _splats_local(self):
+        """SPLATS_LOCAL (1 or 2) if the loaded game drives its own paired Splats
+        without a lobby, else None. Raises ValueError for an invalid value or a
+        mix with SPLATS_MIN / SPLAT_HOST."""
+        name = self._game_name
+        mod = self._game_mod
+        n = getattr(mod, "SPLATS_LOCAL", None)
+        if n is None:
+            return None
+        if (not isinstance(n, int) or isinstance(n, bool) or n < 1 or n > 2
+                or getattr(mod, "SPLATS_MIN", None) is not None
+                or getattr(mod, "PLAYERS_MIN", None) is not None
+                or getattr(mod, "SPLAT_HOST", False) is True):
+            raise ValueError("%s: SPLATS_LOCAL=%r (int 1..2, alone)"
+                             % (name, n))
+        return n
 
     def local_splat_macs(self):
         """The simulated wand's Splat MACs: 5A:00:<wand's last two bytes>:00:<i>."""
@@ -787,6 +828,30 @@ class Runtime:
             if ctl is not None:
                 await ctl.after_game()
 
+    async def _run_solo(self, play, hw, local):
+        """main.py _run_games for a SPLATS_LOCAL game: play() gets the wand's
+        own Splats as its last argument; too few connected is a load failure."""
+        ctl = await self._pairing(hw)
+        splats = await self._maybe_await(ctl.game_handle()) if ctl is not None else None
+        have = splats.count if splats is not None else 0
+        try:
+            if have < local:
+                from leds import SHAPE_X, RED
+                print("  [ERROR] %s needs %d Splat(s), %d connected" % (self._game_name, local, have))
+                self.lobby_end = "too_few_splats"
+                await self._maybe_await(hw["leds"].show_shape(SHAPE_X, RED))
+                await self._maybe_await(hw["buz"].reject())
+                return
+            args = (hw["nfc"], hw["leds"], hw["buz"], hw["accel"], hw["i2c"], hw["enow"],
+                    hw["batt"], splats)
+            n = play.__code__.co_argcount
+            await self._maybe_await(play(*args[:n]))
+        finally:
+            if splats is not None:
+                await self._maybe_await(splats.close())
+            if ctl is not None:
+                await ctl.after_game()
+
     async def _run_play(self):
         from transform import reset_watchdog
         reset_watchdog()
@@ -803,6 +868,10 @@ class Runtime:
             return
         if self._role == "splat_host":
             print("  Splat host: %s is not a Splat host game" % self._game_name)
+            return
+        local = self._splats_local()
+        if local is not None:
+            await self._run_solo(play, hw, local)
             return
         args = (hw["nfc"], hw["leds"], hw["buz"], hw["accel"], hw["i2c"], hw["enow"])
         try:

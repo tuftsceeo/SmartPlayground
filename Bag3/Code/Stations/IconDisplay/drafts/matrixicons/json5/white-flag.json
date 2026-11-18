@@ -1,0 +1,17 @@
+{
+ "index": 38,
+ "rows": [
+  ".....",
+  ".ABA.",
+  ".CAD.",
+  ".EE..",
+  ".E.EE"
+ ],
+ "pal": {
+  "A": "#ededed",
+  "B": "#ececec",
+  "C": "#edeeed",
+  "D": "#ededec",
+  "E": "#010101"
+ }
+}

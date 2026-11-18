@@ -1,5 +1,5 @@
 # ws1850s rev 2026-10-06: _select() returns -1 on failure so a real SAK of 0x00 (NTAG/Ultralight, 7-byte UID) is not read as a failed select.
-# PEER: verbatim copy of Bag3/Code/BroadcastCode/BroadcastBox/BBoxFirmware/ws1850s.py.
+# PEER: verbatim copy of Bag3/Code/TeacherTools/BroadcastBox/BBoxFirmware/ws1850s.py.
 # Keep the two in sync -- see HARDWARE_PROTOCOL.md's PEER convention.
 """
 ws1850s.py - MicroPython driver for the M5Stack RFID 2 Unit (WS1850S)

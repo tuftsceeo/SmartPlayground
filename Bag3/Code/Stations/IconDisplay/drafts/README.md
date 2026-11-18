@@ -14,8 +14,8 @@ need multi-frame support (or a host streaming `frame` commands) before they can 
 colours use the icon editor's LED model (`ledScreenRgb` in `Simulator/js/panels/display.js`).
 Designs target a black background in a dark room: flat or two-tone colours, no outlines.
 
-To make one live, write its map for `Stations/Icon Display Station/hand_author_icons.py`, generate
-`../icons/<name>.py`, then run `BroadcastCode/ChatBroadcast/tools/sync_icons.py`.
+To make one live, write its map for `IconEditor/tools/hand_author_icons.py`, generate
+`../icons/<name>.py`, then run `ChatBroadcast/tools/sync_icons.py`.
 
 ## Halloween bench game
 

@@ -27,6 +27,7 @@ Write all device files to **`/flash`**, not `/`.
 | Board | M5 Dial 2 (StampS3A) | UIFlow2 MicroPython; assume Dial family bring-up via `M5.begin()` + `m5ui.init()` (H1) |
 | Display | LVGL / `m5ui`, 240×240 round | Home, list and status pages built at boot; the keyboard page on first use. Pages are re-textured and swapped with `screen_load()` |
 | NFC | WS1850S @ I2C `0x28`, external Grove unit preferred | `dial_board.py`'s `make_reader()` auto-detects: it tries an external Grove RFID2 unit on Port A first (`sda=13 scl=15`, confirmed live 2026-09-22 via `probe_dial.py` stage 4 and a real card test) and falls back to the built-in reader (`sda=11 scl=12`, shares the bus with touch @ `0x38` and RTC @ `0x51`) when nothing acks on Port A. Both are hardware `machine.I2C` (confirmed H2/H3). The built-in reader's read/write was markedly less reliable than the Box's external Grove RFID2 unit despite identical code (`card_writer.py`/`ws1850s.py` are PEER copies, same poll timeouts) -- antenna detuning from sharing the enclosure with the LCD, touch controller, RTC, encoder and speaker, not software, confirmed by wiring the external unit and re-testing |
+| NFC (Port A options) | PN532 `0x24`, WS1850S `0x28`, or MIKROE NFC Tag 2 Click (NT3H2111) `0x55` | `nfc_detect.py` scans Port A once at boot and prints `# nfc: <kind>`; identity reports `nfc_kind` (`pn532` / `ws1850s` / `click` / `internal`). PN532 goes through `pn532_writer.py` (NfcWriter's method names over `pn532.py`). With the Click, Read uses the built-in reader, and a tag "write" instead loads that card into the Click (`tag_emulator.py`): the screen shows Tap Wand, a wand reads it off the Dial, a press closes (write-all: next tag), and the Click keeps the card until the knob moves off that menu position. On the game and tag lists the Click otherwise follows the highlighted game's getcode card. No RF field, so the radio stays up. PN532 and Click paths not yet run on a Dial. |
 | Encoder | `hardware.Rotary` | CW/CCW → `NEXT`/`PREV`. Lists over 10 items and the keyboard move once the knob has been still 300 ms; shorter lists move per detent |
 | Button | `M5.BtnA` (encoder press) | Short click → `ACT`; hold 1 s → `EXIT` (back); a grey rim ring fills while held |
 | Touch | LVGL callbacks | Enqueue intents only; server drains from its own loop |
@@ -46,7 +47,7 @@ exhaustion.
 `run()` calls `code_link.prewarm()` (ESP-NOW and STA up, then down) right after
 `M5.begin()`, before the UI and reader are built. `code_link.py` is imported at
 `bdial_server.py` module scope, so anything added to it is allocated before
-`prewarm()`. `code_sender.py` is imported inside `CodeLink.arm()`, after the
+`prewarm()`. `code_sender.py` is imported inside `CodeLink.radio_on()`, after the
 radio is up.
 
 With the UI built before the radio, transfers fail: each send blocks 2 s and
@@ -71,14 +72,14 @@ At most one of {radio, NFC RF field} is energized at any instant.
 | Tags | dot ring: loaded games, then Utility Tags ("No Game" title when none loaded) | open group | Home | serves |
 | Group | All, Code, Play, the game's tags (Utility: `stop`, `battery`) | write the tag (All: each in turn) | Tags | serves |
 | Read | each card's text | copy it to the next card | Home | off |
-| Scan / write-all / result | target, Hold Card, result ring | — | back | off |
-| Text | ring keyboard; word bank = loaded games' tags, then `/flash/words.json` | type | discard prompt / Home | off |
+| Scan / write-all / result | target, Hold Card, result ring | — | back | off while the field is on |
+| Text | ring keyboard; word bank = loaded games' tags, then `/flash/words.json` | type | discard prompt / Home | serves |
 
-The radio serves only when a game is loaded (`WRITE` mode over serial;
-`IDLE` with no game). `bdial_server._serve()` arms and polls it on the
-serving screens and disarms it elsewhere; `station.py` calls
-`radio_off()` before the field comes up. A failed arm is retried after
-`SHARE_RETRY_MS`.
+The radio serves whenever the reader field is off, with or without a game
+loaded (S4, 2026-11-14; a request for a missing game is refused).
+`station.py` calls `radio_off()` before the field comes up, and
+`bdial_server._serve()` turns the radio back on (`CodeLink.radio_on()`) once
+the field is off. A failed start is retried after `SHARE_RETRY_MS`.
 
 Code tags are written as `getcode:<slug>@<id>`. A card that already carries
 the target is reported, not rewritten. Success returns to the screen the
@@ -164,14 +165,14 @@ text; Classic writes never touch sector trailers; NTAG writes start at page
 | `tools/test_dial_station.py` | Host tests (no hardware): menus, radio on/off per screen, writes, read/copy, text |
 
 Copied peers differ from the Box originals only by a leading `# PEER: …`
-header. `opcodes.py` / `pn532.py` / `nfc_reader.py` are not carried over.
+header. `opcodes.py` / `nfc_reader.py` are not carried over; `pn532.py` is a copy from `Stations/SplatCompanion/Companion/lib/` for the PN532 option.
 
 ## Serial protocol
 
 Same commands and events as the Box, with these differences:
 
 - `ssid` is always `null` in `armed`, `mode` and the `arm` reply.
-- `arm` and `disarm` are accepted and change nothing; serving follows the screens.
+- `arm` and `disarm` are accepted and change nothing; `armed` reports whether the radio is on.
 - `games.list` `pulls` is the number of successful wand pulls of that game since boot.
 - Each finished transfer sends
   `{"type":"pull","slug":s,"role":r,"wand":"<mac>","ok":b,"ms":n,"why":w}`;
@@ -185,20 +186,28 @@ Identity payload:
 {"type":"identity","device":"broadcast_dial","version":"0.1.0","w":240,"h":240,"nfc":true|false,"host_id":"004c"}
 ```
 
-Fleet commands (Dial only; need the radio up, i.e. a menu screen in WRITE,
-else `error` `not_serving`):
+Fleet commands (Dial only; need the radio up, i.e. no card being read or
+written, else `error` `not_serving`):
 
 - `fleet.scan`: broadcasts `status_poll` and, over 6 s, sends
   `{"type":"status_report","mac","kind","battery","rssi"}` per reply, then
-  `{"type":"status_done","n"}`. `kind` is the device's `HUB_TYPE`.
+  `{"type":"status_done","n"}`. `kind` is the device's `HUB_TYPE`. Wands and
+  icon displays with `lib/game_slots.py` also send `"role"` (`player`,
+  `splat_host`, `icon_display`) and `"g"`: their custom games, oldest first,
+  as `[[slug, mode], ...]` (mode `s` solo, `h` Splat host game, `l` plain
+  lobby, `o` ordinary, `x` will not load); the Dial passes both through.
 - `fleet.find {mac}`: broadcasts `find_device` for that MAC.
-- `fleet.distribute {slug, macs}`: unicasts
-  `{"type":"code_push","mac","slug","host"}` to one MAC every 2.5 s, at most
+- `fleet.distribute {slug, macs[, replace]}`: unicasts
+  `{"type":"code_push","mac","slug","host"[,"replace"]}` to one MAC every 2.5 s, at most
   3 unfinished at once. The device runs its getcode pull and launches the
   game. Each device sends `{"type":"dist_progress","done","total","mac","ok","why"}`
   (`ok` null and `why` `"pushed"` when sent; then true/false from its
   `pull`, `no_ack`, or `timeout` after 30 s), then `{"type":"dist_done"}`.
   The Dial shows a teal ring and "N of M updated" until 3 s after the end.
+  `replace` is one game name for every device, or `{mac: game}` so each
+  device gets its own (ChatBroadcast sends the game in the slot the teacher
+  picked). A device holding three custom games drops `replace` if it has it,
+  else its oldest, after the new game arrives.
 - `fleet.cancel`: fails every unfinished device with `why` `"cancelled"`.
   Leaving the menus (scan, write, Read, keyboard) cancels with `"radio_off"`.
 

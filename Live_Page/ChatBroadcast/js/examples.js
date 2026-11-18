@@ -31,6 +31,10 @@ export const EXAMPLES = [
         simProfile: {
             button: "tap",
             motion: [],
+            // Loaded as source, so the tray would drop its own tag, which
+            // this game uses in play (clear); list the tray in full.
+            nfcTags: ["backspace", "double_length", "erase", "halve_length", "melody",
+                "note_a", "note_b", "note_c", "note_c_high", "note_d", "note_e", "note_f", "note_g", "rest"],
         },
     },
     {
@@ -106,6 +110,9 @@ export const EXAMPLES = [
         simProfile: {
             button: "tap",
             motion: [],
+            // Loaded as source, so the tray would drop its own tag, which
+            // this game uses in play (clear); list the tray in full.
+            nfcTags: ["butter", "cheese", "cooking", "egg", "flour", "milk", "sugar", "tomato"],
         },
     },
     {

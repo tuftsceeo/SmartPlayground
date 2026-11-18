@@ -155,7 +155,7 @@ The boot log prints the active settings.
 ## Tests
 
 - `python3 -m py_compile` on each file.
-- `BroadcastCode/tools/devtests/music_board_song.py` runs the song handling under stubs:
+- `tools/devtests/music_board_song.py` runs the song handling under stubs:
   addressing, ack, retry de-dup, person+ append, the 64-note cap, malformed input, presence of
   all 72 note files, song-clock timing per voice, and that `MockWand/melody.py`'s `NOTE_CHAR`
   matches `NOTE_CHARS`.

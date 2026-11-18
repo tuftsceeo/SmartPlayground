@@ -372,7 +372,8 @@ class OpenSplat():
                 print("Sent: %s" % ' '.join('%02X' % b for b in data))
             return True
         except Exception as e:
-            print("Send error: %s" % str(e))
+            if self._verbose:
+                print("Send error: %s" % str(e))
             return False
 
     # ── Response capture ──

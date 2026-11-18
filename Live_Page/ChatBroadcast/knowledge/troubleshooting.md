@@ -30,7 +30,7 @@ Box**, the app says "Hold a card on the device to write it".
 
 | Box / Dial screen | Meaning |
 |---|---|
-| "Tap Tag Now" (Box) / "Hold Card on Screen" (Dial) | Waiting for a card |
+| "Tap Tag Now" (Box) / "Hold Card" (Dial) | Waiting for a card |
 | "Writing …" "Hold Card Steady" | Writing — keep the card still |
 | "… Written!" with a happy beep | Card is ready |
 | "Already …" "No Change Needed" | The card already had that value; it is fine |
@@ -47,11 +47,14 @@ Box**, the app says "Hold a card on the device to write it".
 | **Amber wifi bars** while getting a game | The Box or Dial is busy serving other wands | Wait a moment and tap again |
 | **Green check** | New game received | Tap the game's card to play |
 | **Game suddenly stops** with no X and no special sound | The game hit a mistake while running (the wand shows nothing for this) | Tell the assistant what the children were doing when it stopped |
-| **Low beep** after tapping a card | The wand does not know that card, or that game is not on this wand | Check the card; send the game to this wand |
+| **Low beep** after tapping a card | The wand does not know that card, or that game is not on this wand | Check the card; send the game to this wand. A wand keeps only its three newest games, so a game sent a while ago may have been replaced — send it again |
 | Middle lights **blink red** while idle | Battery is low | Charge the wand |
 | During start-up, a start-up light **flashes red twice and stays red**, and the wand goes no further | The card reader did not start | Turn the wand off and on; if it repeats, contact the team |
 
 When a wand is on, a short row of lights shows each start-up step. This is normal.
+
+A Splat host wand that is turned on twice in a row with no Splat connected goes back to being an ordinary player the next time it starts. The teacher sees it restart and then behave like any other wand. To make it the Splat host again, tap the Splat host card: the card the SmartPlayground team gave you for the Splat host wand. If you don't have one, ask the team to make one. (The player card is what turns a Splat host wand back into an ordinary wand.)
+<!-- TODO: confirm the printed label on the Splat host card matches "Splat host card"; update this wording if it differs. -->
 
 ## Broadcast Box and Dial
 
@@ -61,7 +64,9 @@ When a wand is on, a short row of lights shows each start-up step. This is norma
 | "No Game Loaded Yet" | No game has been sent yet |
 | "Sharing …", "Pickups: N" | Wands can get the game now; N wands have got it |
 | "No Game to Serve" (red) | Share was chosen but there is no game on the Box — send one first |
-| "Transfer Failed" (red) | A wand could not get the game; tap the wand again. If it always fails, the game may be too big — ask for a simpler version |
+| "Sending 2/5" in the top line (Box) / a ring filling with "2 of 5 updated" (Dial) | Sending a game to wands. The count includes wands that did not get it; the final count stays for about three seconds |
+
+When a wand cannot get a game, the Box and Dial show no error; the "Pickups" count just does not go up. Look at the wand instead (red X or wifi bars, above).
 
 On the Box, a red battery line means the battery is at 15% or below.
 

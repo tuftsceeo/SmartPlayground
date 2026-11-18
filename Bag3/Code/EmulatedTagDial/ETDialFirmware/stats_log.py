@@ -1,4 +1,4 @@
-# PEER: Bag3/Code/BroadcastCode/BroadcastBox/BBoxFirmware/stats_log.py — keep in sync
+# PEER: Bag3/Code/TeacherTools/BroadcastBox/BBoxFirmware/stats_log.py — keep in sync
 """
 stats_log.py — append-only pull / tag-write event log.
 

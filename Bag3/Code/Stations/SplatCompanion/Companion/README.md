@@ -3,7 +3,7 @@
 Bag3 broadcast station that runs games on a stock, unmodified Splat toy
 over BLE. ChatBroadcast can generate games for it and a Broadcast Box or
 Dial can serve them, per
-`Bag3/Code/BroadcastCode/docs_and_design/DEVICE_ONBOARDING_SURFACES.md`.
+`Bag3/Code/docs_and_design/DEVICE_ONBOARDING_SURFACES.md`.
 
 ```
 SPLAT <-[BLE]-> companion (XIAO C6) <-[UART]-> modem board <-[ESP-NOW]-> playground
@@ -128,7 +128,7 @@ def play(splat, leds, enow, batt=None):
   Action names are the tables in `splat_api.py` (`COLOR_RGB`,
   `NOTE_VALUES`, `ANIMAL_SOUNDS`): the wand's action-card names. After
   editing any of them, run `python3 ChatBroadcast/tools/sync_splat_actions.py`
-  (from `BroadcastCode/`): ChatBroadcast puts the generated list in its
+  (from `Bag3/Code/`): ChatBroadcast puts the generated list in its
   system prompt and refuses to send a Splat game that names anything else.
 - **`leds`**: this device's 12-LED ring, `fill(color)` / `off()` -- not
   a wand's 25-pixel matrix.

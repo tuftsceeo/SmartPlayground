@@ -8,3 +8,6 @@ These files are the ones on that Dial that were new or differed from `../BDialFi
 at `fa2db5d`. Every other file on it (`boot.py`, `card_writer.py`, `code_sender.py`,
 `dial_input.py`, `json_link.py`, `reset_log.py`, `station_fonts.py`, `stats_log.py`,
 `text_entry.py`, `ws1850s.py`, `kb_rings.json`) matched `BDialFirmware/` byte for byte.
+
+Superseded 2026-11-17: `BroadcastDial/BDialFirmware/` detects a Tag 2 Click on Port A and
+runs the emulator itself (`nfc_detect.py`, `tag_emulator.py`).

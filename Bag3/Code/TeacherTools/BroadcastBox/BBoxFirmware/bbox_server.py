@@ -5,10 +5,9 @@ One user-facing state: the tag menus. The invariant this file holds:
 
     at most one of {radio, NFC RF field} is energized at any instant.
 
-    WRITE  The menus. ESP-NOW serves the active game to wands
+    WRITE  A game on flash.  IDLE  None.  In both, ESP-NOW serves
            (code_link.py) whenever the reader field is off; the radio goes
-           down only while a card is being scanned or written.
-    IDLE   Neither.  No game on flash, so there is nothing to do.
+           down only while a card is being scanned or written (W_SCAN).
 
 There is deliberately no RECEIVING mode: the app pushes code over the raw
 REPL, which interrupts this program and soft-resets the board
@@ -78,10 +77,9 @@ UTILITY_GROUP = "Utility Tags"
 # menu.
 READ_ENTRY = "Read Card"
 
-# WRITE serves over ESP-NOW whenever the reader field is off; the radio
-# goes down only while scanning a card.
-SHARE_IN_MENUS = True
-SHARE_RETRY_MS = 2000        # wait after a failed menu-share arm()
+# The radio serves whenever the reader field is off (_serve), in WRITE and
+# IDLE; it goes down only while scanning or writing a card.
+SHARE_RETRY_MS = 2000        # wait after a failed CodeLink.radio_on()
 # Radio TX power. Full power resets the Box on USB mid-transfer (PWRON);
 # wands are held next to it.
 TX_POWER_DBM = 8
@@ -201,6 +199,7 @@ class BboxServer:
         self._index = {}  # slug -> {name, added}
         self._active = None
 
+        self.fleet = None       # fleet.Fleet, built on the first fleet.* cmd
         self._buttons = Buttons()
         self._b1_was_down = False  # for deriving a press edge
 
@@ -208,9 +207,13 @@ class BboxServer:
             "identify": self.do_identify,
             "info": self.do_info,
             "mode": self.do_mode,
+            "repl": self.do_repl,
             "arm": self.do_arm,
             "disarm": self.do_disarm,
-            "repl": self.do_repl,
+            "fleet.scan": self.do_fleet_scan,
+            "fleet.find": self.do_fleet_find,
+            "fleet.distribute": self.do_fleet_distribute,
+            "fleet.cancel": self.do_fleet_cancel,
             "reboot": self.do_reboot,
             "games.list": self.do_games_list,
             "games.select": self.do_games_select,
@@ -255,18 +258,15 @@ class BboxServer:
     # ─────────────────────────────────────────────
 
     def _set_mode(self, new_mode, announce=True):
-        """IDLE <-> WRITE. Leaving WRITE drops the field and the radio;
-        entering it starts sharing (_menu_share)."""
+        """IDLE <-> WRITE. Leaving WRITE drops the field; the radio is
+        left to _serve(), which runs in both modes."""
         if new_mode == self._mode:
             return
         old = self._mode
         if old == MODE_WRITE:
             self._nfc_field(False)
             self._clear_reader()
-            self.code.disarm()
         self._mode = new_mode
-        if new_mode == MODE_WRITE:
-            self._menu_share()
         reset_log.note_mode(new_mode)
         self._buttons.clear()
         self._b1_was_down = self._buttons.b1_down()
@@ -338,7 +338,7 @@ class BboxServer:
 
         Every field here is fixed for the life of a boot: device kind,
         firmware version, screen size, and whether the reader initialized.
-        Live status (memory, mode, armed, counters) belongs to `info` and
+        Live status (memory, mode, radio, counters) belongs to `info` and
         `mode`; do not add changing values here.
 
         The host must never treat this as the signal that a link is up --
@@ -355,6 +355,9 @@ class BboxServer:
             "w": 240, "h": 135, "nfc": self._nfc_ok,
             # Fixed for the life of the boot (see code_link.HOST_ID).
             "host_id": HOST_ID,
+            # fleet.scan/find/distribute/cancel (S12); the app shows
+            # Distribute for a Box only when this is present.
+            "fleet": 1,
         }
 
     def _send_identity(self, rid=None):
@@ -375,26 +378,10 @@ class BboxServer:
         self.link.send({
             "type": "info", "id": rid,
             "version": VERSION, "mem": gc.mem_free(),
-            "armed": self.code.armed, "linked": self.linked,
+            "radio": self.code.is_on, "linked": self.linked,
             "payload_ready": self._payload_ready(),
             "written": sum(self._written.values()), "up": time.ticks_ms(),
         })
-
-    def do_arm(self, cmd, rid):
-        """Sharing follows the menus (_menu_share); this only reports it.
-        Kept for hosts that still send it."""
-        if not self._payload_ready():
-            self.link.send({"type": "error", "id": rid, "code": "no_payload",
-                             "msg": "no game on device"})
-            return
-        self._menu_share()
-        self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": None,
-                        "armed": self.code.armed})
-
-    def do_disarm(self, cmd, rid):
-        """No-op kept for hosts that still send it: sharing is not
-        user-controlled."""
-        self.link.send({"type": "ok", "id": rid, "cmd": "disarm"})
 
     def do_repl(self, cmd, rid):
         self.link.send({"type": "bye", "id": rid, "reboot": "soft"})
@@ -756,8 +743,10 @@ class BboxServer:
         I2C writes on every loop iteration."""
         if self.nfc is None or on == self._nfc_field_on:
             return
-        if on and self.code.armed:
-            self.code.disarm()
+        # Power rule: the radio is off before the field comes on.
+        if on and self.code.is_on:
+            self._fleet_cancel("radio_off")
+            self.code.radio_off()
         self._nfc_field_on = on
         try:
             if on:
@@ -772,29 +761,118 @@ class BboxServer:
         except Exception as e:
             print("# NFC antenna %s FAILED: %s" % ("on" if on else "off", str(e)))
 
-    def _menu_share(self):
-        """WRITE with the field off: serve over ESP-NOW if there is a game."""
-        if (not SHARE_IN_MENUS or self._mode != MODE_WRITE
-                or self._nfc_field_on or self.code.armed
+    def _serve(self):
+        """Radio up whenever the reader field is off, game or not (with no
+        game, wands that ask are told so). Called every loop, both modes."""
+        if self.code.is_on:
+            self.code.poll(on_event=self._on_menu_share_event,
+                           on_msg=self._on_fleet_msg)
+            ref = self.code.sender.last_refused
+            if ref is not None:
+                self.code.sender.last_refused = None
+                if self.fleet is not None:
+                    self.fleet.on_refused(*ref)
+            if self.fleet is not None:
+                self.fleet.step()
+            return
+        # Power rule: never bring the radio up while the field is on or a
+        # scan is in progress.
+        if (self._nfc_field_on or self._write_state == W_SCAN
                 or time.ticks_diff(self._share_retry_at, time.ticks_ms()) > 0):
             return
         if self._active:
             self.code.set_game(self._active)
-        elif self.code.resolve() is None:
-            return
-        if not self.code.arm():
-            print("# menu share: CodeLink.arm() failed")
+        if not self.code.radio_on():
+            print("# share: CodeLink.radio_on() failed")
             self._share_retry_at = time.ticks_add(time.ticks_ms(), SHARE_RETRY_MS)
 
     def _on_menu_share_event(self, event):
         if event in ('ok', 'fail'):
             self._emit_pull()
         r = self.code.last_result
+        if event in ('ok', 'fail') and r is not None and self.fleet is not None:
+            self.fleet.on_pull(r)
         if event == 'ok' and r is not None and r.get("hub", "wand") == "wand":
             slug = r.get("slug")
             self._pulls[slug] = self._pulls.get(slug, 0) + 1
             if self._write_state == W_MENU and slug == self._active:
                 self._repaint()
+
+    # ─────────────────────────────────────────────
+    # FLEET (status scan, find, distribute) -- fleet.py, as on the Dial.
+    # The Box only relays; ChatBroadcast holds the device list and picker.
+    # ─────────────────────────────────────────────
+
+    def _on_fleet_msg(self, data, mac):
+        if self.fleet is not None:
+            self.fleet.on_msg(data, mac)
+
+    def _fleet_cancel(self, why):
+        if self.fleet is not None:
+            self.fleet.cancel(why)
+
+    def _fleet_ready(self, rid):
+        """The Fleet when the radio is up, else an error reply and None."""
+        if not self.code.is_on:
+            self.link.send({"type": "error", "id": rid, "code": "not_serving",
+                            "msg": "radio is off: the Box is reading or writing a card"})
+            return None
+        if self.fleet is None:
+            from fleet import Fleet
+            self.fleet = Fleet(self.link, self.ui)
+        return self.fleet
+
+    def do_fleet_scan(self, cmd, rid):
+        fl = self._fleet_ready(rid)
+        if fl is None:
+            return
+        fl.scan(self.code.mgr)
+        self.link.send({"type": "ok", "id": rid, "cmd": "fleet.scan"})
+
+    def do_fleet_find(self, cmd, rid):
+        mac = cmd.get("mac")
+        if not mac:
+            self.link.send({"type": "error", "id": rid, "code": "no_mac"})
+            return
+        fl = self._fleet_ready(rid)
+        if fl is None:
+            return
+        fl.find(self.code.mgr, mac)
+        self.link.send({"type": "ok", "id": rid, "cmd": "fleet.find", "mac": mac})
+
+    def do_fleet_distribute(self, cmd, rid):
+        slug = cmd.get("slug")
+        macs = cmd.get("macs")
+        if not slug or slug not in self._index:
+            self.link.send({"type": "error", "id": rid, "code": "unknown_slug"})
+            return
+        if not isinstance(macs, list) or not macs:
+            self.link.send({"type": "error", "id": rid, "code": "no_macs"})
+            return
+        fl = self._fleet_ready(rid)
+        if fl is None:
+            return
+        if fl.busy:
+            self.link.send({"type": "error", "id": rid, "code": "busy"})
+            return
+        replace = cmd.get("replace")
+        fl.distribute(self.code.mgr, slug, macs,
+                      replace if isinstance(replace, str) and replace else None)
+        self.link.send({"type": "ok", "id": rid, "cmd": "fleet.distribute",
+                        "slug": slug, "total": len(macs)})
+
+    def do_arm(self, cmd, rid):
+        """No-op kept for older hosts: the radio serves by default."""
+        self.link.send({"type": "ok", "id": rid, "cmd": "arm", "ssid": None,
+                        "armed": self.code.is_on})
+
+    def do_disarm(self, cmd, rid):
+        """No-op kept for older hosts: sharing is not user-controlled."""
+        self.link.send({"type": "ok", "id": rid, "cmd": "disarm"})
+
+    def do_fleet_cancel(self, cmd, rid):
+        self._fleet_cancel("cancelled")
+        self.link.send({"type": "ok", "id": rid, "cmd": "fleet.cancel"})
 
     def _emit_pull(self):
         r = self.code.last_result
@@ -854,10 +932,6 @@ class BboxServer:
 
     def _poll_write(self):
         """WRITE mode. BtnA acts, BtnB scrolls/backs out. No holds."""
-        if self.code.armed:
-            self.code.poll(on_event=self._on_menu_share_event)
-        elif self._write_state != W_SCAN:
-            self._menu_share()
         b1 = self._b1_press_edge()
         b2 = self._buttons.b2_pressed()
         if b1 or b2:
@@ -1070,9 +1144,8 @@ class BboxServer:
                 self.link.pump(idle_ms=20, drain_ms=40)
                 self._buttons.update()
                 if self._mode == MODE_WRITE:
-                    # IDLE deliberately polls nothing: no game on flash means
-                    # there is neither a tag to write nor code to serve.
                     self._poll_write()
+                self._serve()
                 now = time.ticks_ms()
                 if time.ticks_diff(now, last_hb) > HEARTBEAT_MS:
                     self.link.send({"type": "heartbeat", "up": now, "mem": gc.mem_free()})
@@ -1093,11 +1166,12 @@ class BboxServer:
         the AP coming down.
         """
         try:
-            if self.code.armed:
-                self.code.disarm()
-                _log("shutdown: AP down")
+            if self.code.is_on:
+                self._fleet_cancel("shutdown")
+                self.code.radio_off()
+                _log("shutdown: radio down")
         except Exception as e:
-            print("# shutdown: AP disarm FAILED: %s" % str(e))
+            print("# shutdown: radio off FAILED: %s" % str(e))
         try:
             self._nfc_field(False)
         except Exception as e:

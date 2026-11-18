@@ -32,18 +32,27 @@ python3 -m mpremote connect $PORT reset
 To list the files: `git diff --name-only <deployed-commit>..HEAD -- <firmware dir>`. Copy right
 after the reset; copying into the running program takes 80 s or more per call.
 
-**Wand: use `Bag3/Code/tools/deploy.py --type wand`, not a hand copy.** The wand must not get
-the source `main.py`. deploy.py compiles it on the computer to `/wand_main.mpy` and writes a
-one-line `/main.py` that imports it (compiling on the wand fragments the radio's memory). It also
-clears `/boot_ok`, makes `/lib`, and copies only the files in `manifest.js` `WAND_FILES`.
-`--dry-run` prints the commands and touches no port:
+**Wand: routine updates use the reset-then-one-copy steps above, not `tools/deploy.py`.**
+`HARDWARE_PROTOCOL.md` reserves `deploy.py` for a very stale device or a board freshly flashed
+with blank firmware ONLY: it is slow (over 4 min unfinished on the Dial; it stalled on Windows too)
+and it stops at a `Go? [y/N]` prompt that a background run cannot answer.
 
-```bash
-cd Bag3/Code && python3 tools/deploy.py /dev/cu.usbmodemXXXX --type wand --since <deployed-commit> --dry-run
-```
+The wand must not get the source `main.py`. Compile it on the computer, copy the `.mpy`, and
+leave the one-line `/main.py` that imports `wand_main` in place:
 
-Drop `--dry-run` once the user confirms the ports. Other flags: `--skip-lib`, `--no-reset`.
-Needs `mpy-cross==1.28.0.post2`.
+    python -m mpy_cross -o wand_main.mpy main.py          # mpy-cross==1.28.0.post2
+    python -m mpremote connect $PORT reset
+    python -m mpremote connect $PORT resume fs cp wand_main.mpy :/wand_main.mpy + fs cp lib/x.py :/lib/x.py
+    python -m mpremote connect $PORT reset
+
+On Windows: `python`, not `python3` (the `python3` there is the Store placeholder); ports are
+`COMn`; there is no `lsof`, so ask the user what else has the port open.
+
+**Time-limit every port command.** Give each `mpremote` call a timeout sized to the
+operation, and check background runs regularly instead of waiting on them. When a
+call runs out, find out why before acting: check what holds the port, whether the
+board is still on USB, and what state it is in. Tell the user what you found, and ask
+before any physical step. Don't retry the same command blind.
 
 ## Non-negotiables
 
@@ -59,7 +68,7 @@ Needs `mpy-cross==1.28.0.post2`.
 ## Watching a running board
 
 ```bash
-python3 Bag3/Code/BroadcastCode/tools/serial_monitor.py /dev/cu.usbmodemXXXX 900 > run.log
+python3 Bag3/Code/tools/serial_monitor.py /dev/cu.usbmodemXXXX 900 > run.log
 grep -vE "^\[ *[0-9.]+s\] (0000|GC:|stack:|MEM|MEMFRAG| No\. of)" run.log
 ```
 
@@ -69,7 +78,7 @@ calling it a reset: your own capture still holding the port looks the same.
 ## Gotchas
 
 - The protocol doc says `tools/serial_monitor.py`. The real path is
-  `Bag3/Code/BroadcastCode/tools/serial_monitor.py`.
+  `Bag3/Code/tools/serial_monitor.py`.
 - `mpremote` is `python3 -m mpremote` (no binary on PATH).
 - Bash array idioms can fail silently in zsh. Print a constructed command before firing it.
 - Device-specific commands are in the device READMEs listed at the end of `HARDWARE_PROTOCOL.md`.

@@ -91,6 +91,23 @@ class Scan(unittest.TestCase):
 
 
 class Distribute(unittest.TestCase):
+    def test_replace_per_device(self):
+        fl, link, ui, mgr = make()
+        fl.distribute(mgr, "g", [A, B, C], {A: "x", "aa0000000002": "y"})
+        for _ in range(3):
+            fl.step()
+            NOW[0] += fleet.STAGGER_MS
+        msgs = {s[0]: s[1] for s in mgr.sent if s[0] != "bc"}
+        self.assertEqual(msgs[A]["replace"], "x")
+        self.assertEqual(msgs[B]["replace"], "y")        # matched case/colon-free
+        self.assertNotIn("replace", msgs[C])
+
+    def test_replace_string_for_all(self):
+        fl, link, ui, mgr = make()
+        fl.distribute(mgr, "g", [A], "x")
+        fl.step()
+        self.assertEqual([s for s in mgr.sent if s[0] != "bc"][0][1]["replace"], "x")
+
     def test_staggered_and_capped(self):
         fl, link, ui, mgr = make()
         fl.distribute(mgr, "g", [A, B, C, D])
@@ -131,6 +148,20 @@ class Distribute(unittest.TestCase):
         NOW[0] += fleet.PROGRESS_HOLD_MS
         fl.step()
         self.assertEqual(ui.progress[-1], (0, 0))
+
+    def test_refused_no_file_fails_at_once(self):
+        fl, link, ui, mgr = make()
+        fl.distribute(mgr, "g", [A, B])
+        for _ in range(2):
+            fl.step()
+            NOW[0] += fleet.STAGGER_MS
+        fl.on_refused(B, "other")                 # another game: ignored
+        fl.on_refused("FF:00:00:00:00:00", "g")   # not ours
+        fl.on_refused(A.lower(), "g")
+        final = [p for p in link.of("dist_progress") if p["ok"] is not None]
+        self.assertEqual([(p["mac"], p["ok"], p["why"]) for p in final],
+                         [(A, False, "no_file")])
+        self.assertTrue(fl.busy)                  # B still in flight
 
     def test_cancel(self):
         fl, link, ui, mgr = make()

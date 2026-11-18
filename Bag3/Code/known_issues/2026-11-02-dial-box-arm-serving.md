@@ -1,7 +1,7 @@
 ---
 title: Broadcast Dial and Box still gate code serving behind arm/disarm
 date: 2026-11-02
-status: open (from code reading, untested on hardware)
+status: Dial fixed 2026-11-14, Box fixed 2026-11-15, confirmed on hardware 2026-11-16 (radio true with no arm; arm/disarm accepted as no-ops)
 devices: [BroadcastDial, BroadcastBox]
 components: [BDialFirmware/bdial_server.py, BDialFirmware/code_link.py, BBoxFirmware/bbox_server.py, BBoxFirmware/code_link.py, BBoxFirmware/bbox_ui.py]
 code:
@@ -18,10 +18,29 @@ open:
 keywords: [arm, disarm, armed, serve, serving, radio, code_link, no_payload, nohost, SHARE_IN_MENUS, _serve, _menu_share]
 related:
   - Bag3/Code/Experiments/CrowPanel5_Display/code_link.py (panel copy with radio_on/radio_off, commit 784d79f)
-  - Bag3/Code/BroadcastCode/docs_and_design/2026-10-20-espnow-serving/RESULTS.md
+  - Bag3/Code/docs_and_design/2026-10-20-espnow-serving/RESULTS.md
 ---
 
 # Broadcast Dial and Box: arm/disarm serving, 2026-11-02
+
+## Update 2026-11-15 (stress-test prep S12, Box)
+**Box fixed in code, not yet on hardware.** `BBoxFirmware/code_link.py` is now the Dial's copy
+(`is_on`, `radio_on()`, `radio_off()`, `poll(on_msg=)`). `bbox_server._serve()` runs every loop in
+WRITE and IDLE and brings the radio up whenever the field is off and the Box is not in `W_SCAN`,
+with or without a game (user's decision: on and answering). `_nfc_field(True)` calls
+`radio_off()` first. Unlike the Dial, `arm`/`disarm` are **removed** (user, 2026-11-15) and `info`
+reports `"radio"` instead of `"armed"`; ChatBroadcast reads neither. `SHARE_IN_MENUS` is gone.
+`bbox_ui.paint_armed` is renamed `paint_hold`. Off-device check:
+`BBoxFirmware/tools/test_box_serve.py`.
+
+## Update 2026-11-14 (stress-test prep S4)
+**Dial fixed in code, not yet on hardware.** `BDialFirmware/code_link.py` has `is_on`,
+`radio_on()` and `radio_off()` in place of `armed`/`arm()`/`disarm()`, as in the CrowPanel copy.
+`bdial_server._serve()` brings the radio up whenever the reader field is off, in WRITE and IDLE,
+with or without a game, and on the keyboard and result screens. `arm`/`disarm` remain as accepted
+no-ops, and `info`/`arm` still report `"armed"` (the radio state) for older apps.
+`tools/test_dial_station.py` covers it (16 pass). **The Box is unchanged**; the items below still
+apply to it.
 
 **Intended behaviour:** the ESP-NOW radio and the code server are on by default. They pause only
 while an NFC card is being read or written, then resume. Serving is not a mode, and nothing arms or

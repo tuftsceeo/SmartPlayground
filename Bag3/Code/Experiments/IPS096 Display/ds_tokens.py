@@ -1,5 +1,5 @@
 # Smart Playground design-system tokens as RGB ints.
-# Source: Bag3/Code/BroadcastCode/docs_and_design/Smart Playground Design System/tokens/
+# Source: Bag3/Code/docs_and_design/Smart Playground Design System/tokens/
 # Constants only: safe to import before radio bring-up.
 
 # Brand

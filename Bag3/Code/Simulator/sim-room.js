@@ -33,7 +33,7 @@
  *   wand           the inner <wand-sim>
  *   capabilities   the last capabilities, or null
  *   autostart, profile   passed to the inner <wand-sim>
- *   settings       the game's simulator settings, or null: { wand_splats
+ *   settings       the game's simulator settings, or null: { splats
  *                  (Splats each wand starts with, 0..2, default 1), wands
  *                  (how many wands the game is for, 1..4, default 1),
  *                  splat_host (Splats on the game's Splat host, 0..4; a
@@ -126,7 +126,7 @@ class SimRoom extends HTMLElement {
 
   /** Splats each wand starts a newly loaded game with. */
   get gameSplats() {
-    const n = this._settings?.wand_splats;
+    const n = this._settings?.splats;
     if (Number.isInteger(n) && n >= 0 && n <= 2) return n;
     return this.hostSplats === null ? 1 : 0;
   }
@@ -414,7 +414,7 @@ function wandGroup(lobbyGame) {
 SimRoom.registerPanel("splats", {
   slot: "strip",
   title: "Splats on this wand",
-  wants: (caps) => !!caps.lobby_game,
+  wants: (caps) => !!caps.lobby_game || !!caps.splats_local,
   create(room, box) {
     const overlay = document.createElement("div");
     overlay.className = "splat-shelf";

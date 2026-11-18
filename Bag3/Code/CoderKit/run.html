@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Playground Coder runner</title>
+<style>
+  html, body { margin: 0; height: 100%; font: 14px system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  .bar { display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
+  .bar .grow { flex: 1; }
+  #design { flex: 1; border: 0; width: 100%; }
+  #unlock { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; }
+  #unlock form { background: #fff; padding: 20px; border-radius: 8px; display: flex; flex-direction: column; gap: 8px; width: min(320px, 90vw); }
+  .hidden { display: none !important; }
+  #err { color: #b00; }
+  dialog textarea { width: min(700px, 85vw); height: 50vh; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <strong>Runner</strong>
+    <span id="link">Not connected</span>
+    <button id="btn-connect" title="Use this if the design's own Connect button does nothing">Connect controller</button>
+    <span class="grow"></span>
+    <button id="btn-blank">Blank</button>
+    <button id="btn-full">Full</button>
+    <button id="btn-paste">Paste design…</button>
+    <label><input id="file" type="file" accept=".html,text/html" hidden><button type="button" onclick="file.click()">Open file…</button></label>
+    <button id="btn-link">Copy link</button>
+  </div>
+  <iframe id="design" title="Front end"></iframe>
+  <div id="sim-layer" style="position:fixed;display:none;z-index:5;overflow:hidden"></div>
+  <div id="unlock"><form>
+    <strong>Magic code</strong>
+    <span>Chat here uses the shared key. Keep chats short; design on claude.ai.</span>
+    <input id="pass" type="password" autocomplete="off">
+    <span id="err"></span>
+    <button>Unlock</button>
+  </form></div>
+  <dialog id="paste"><form method="dialog">
+    <p>Paste a front end's HTML:</p>
+    <textarea id="paste-text"></textarea><br>
+    <button value="ok">Load</button> <button value="cancel">Cancel</button>
+  </form></dialog>
+<script type="module">
+import { loadEncryptedKey, getApiKey } from '../ChatBroadcast/js/auth.js';
+import { createKit } from './coderkit.js';
+import { apiKeyBrain } from './brains.js';
+import { checkFrontEnd, warnFrontEnd } from './check.js';
+import { hostFrontEnd, packDesign, unpackDesign } from './bridge.js';
+import { simRoomSimulator } from './sim.js';
+
+const $ = id => document.getElementById(id);
+let apiKey = null;
+const kit = createKit({ brain: (req) => apiKeyBrain(apiKey)(req), simulator: simRoomSimulator });
+window.kit = kit; // for debugging
+const load = hostFrontEnd($('design'), kit, { simLayer: $('sim-layer') });
+let current = '';
+
+function show(html) {
+  const problems = checkFrontEnd(html);
+  if (problems.length) { alert('This design is missing required parts:\n\n' + problems.join('\n')); return; }
+  for (const w of warnFrontEnd(html)) kit.log(w, 'info');
+  current = html;
+  load(html);
+}
+const LINK = { idle: 'Not connected', opening: 'Connecting…', live: 'Connected', sending: 'Sending…' };
+kit.on('change', s => {
+  $('link').textContent = s.link === 'live' && s.deviceName ? 'Connected to ' + s.deviceName : LINK[s.link];
+  $('btn-connect').textContent = s.link === 'idle' ? 'Connect controller' : 'Disconnect';
+});
+$('btn-connect').onclick = () => kit.state.link === 'idle' ? kit.connect() : kit.disconnect();
+$('btn-blank').onclick = async () => show(await (await fetch('frontends/blank.html')).text());
+$('btn-full').onclick = async () => show(await (await fetch('frontends/full.html')).text());
+$('btn-paste').onclick = () => $('paste').showModal();
+$('paste').onclose = () => { if ($('paste').returnValue === 'ok') show($('paste-text').value); };
+$('file').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f) show(await f.text()); };
+$('btn-link').onclick = async () => {
+  const url = location.href.split('#')[0] + '#f=' + await packDesign(current);
+  try { await navigator.clipboard.writeText(url); $('btn-link').textContent = 'Copied'; setTimeout(() => $('btn-link').textContent = 'Copy link', 1500); }
+  catch (_) { prompt('Copy this link:', url); }
+};
+
+const keyReady = loadEncryptedKey();
+async function unlock(pass, quiet) {
+  await keyReady;
+  const k = getApiKey(pass);
+  if (!k) { if (!quiet) $('err').textContent = 'Wrong code.'; return; }
+  apiKey = k;
+  sessionStorage.setItem('coderkit.pass', pass);
+  $('unlock').classList.add('hidden');
+}
+$('unlock').querySelector('form').onsubmit = e => { e.preventDefault(); unlock($('pass').value.trim()); };
+const saved = sessionStorage.getItem('coderkit.pass');
+if (saved) unlock(saved, true);
+
+const m = location.hash.match(/#f=(.+)/);
+const src = new URLSearchParams(location.search).get('src');
+if (m) show(await unpackDesign(m[1]));
+else show(await (await fetch(src || 'frontends/blank.html')).text());
+</script>
+</body>
+</html>

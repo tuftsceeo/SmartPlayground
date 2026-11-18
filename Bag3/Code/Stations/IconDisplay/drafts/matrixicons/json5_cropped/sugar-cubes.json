@@ -1,0 +1,20 @@
+{
+ "rows": [
+  "..A..",
+  ".BCC.",
+  "AADAA",
+  "EFGGF",
+  ".H.I."
+ ],
+ "pal": {
+  "A": "#ffffff",
+  "B": "#dfe3e6",
+  "C": "#c0c5cb",
+  "D": "#c2c7cc",
+  "E": "#dfe2e5",
+  "F": "#c1c6cc",
+  "G": "#e0e1e5",
+  "H": "#c2c6cc",
+  "I": "#e0e2e5"
+ }
+}

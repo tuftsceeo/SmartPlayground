@@ -5,9 +5,9 @@ status: open
 devices: [BroadcastDial, BroadcastBox, wands]
 components: [ChatBroadcast, raw-REPL file writer, example gallery, model context]
 code:
-  - Bag3/Code/BroadcastCode/ChatBroadcast/js/device/replController.js
-  - Bag3/Code/BroadcastCode/ChatBroadcast/js/device/serialLog.js
-  - Bag3/Code/BroadcastCode/ChatBroadcast/knowledge/game_patterns.md
+  - Bag3/Code/ChatBroadcast/js/device/replController.js
+  - Bag3/Code/ChatBroadcast/js/device/serialLog.js
+  - Bag3/Code/ChatBroadcast/knowledge/game_patterns.md
 open:
   - One wand file per device type; no per-role code
   - Gallery examples too large to remix

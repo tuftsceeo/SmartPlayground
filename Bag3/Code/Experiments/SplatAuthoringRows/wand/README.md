@@ -1,0 +1,345 @@
+# Mock Wand — Bag3 wand copy for Broadcast Box/Dial tap-to-pull
+
+Copy of the earlier Bag3 wand (now `Bag3/Code/Experiments/Wand Module/`) plus `lib/espnow_code.py` for end-to-end
+testing of game pulls from the Box and Dial. Same C6 hardware and pin map as the fielded Bag3 wand.
+
+## lib/ copies
+
+`lib/opcodes.py` and `lib/game_tags.py` are **further uncoordinated copies** of
+the tag vocabulary (alongside each Bag's `lib/`, `hubCode2/game_tags.py`,
+`commands.json`, and `wand_icons.html`).
+
+**`getcode` must match** `BBoxFirmware/opcodes.py` byte-for-byte. After editing
+either file, `diff` the two copies.
+
+**PEER copies of the Splat libraries.** `lib/splat_hub.py`, `lib/splat_link.py`,
+`lib/splat_api.py` and `lib/ble_splat.py` are byte copies of
+`SplatCompanion/Companion/`'s (`ble_splat.py` also of `Bag3/Code/lib/`'s).
+`splat_api.py` stays the source of truth for Splat action names. Fixing one
+copy fixes only that copy; `tools/devtests/test_wand_copies.py` reports drift.
+
+## getcode flow
+
+1. The Box or Dial writes a `getcode:<slug>@<id>` card (`<id>` is the sender's
+   4-hex `HOST_ID`, shown on its SERVE screen).
+2. The wand taps the card in its idle loop.
+3. `lib/espnow_code.receive()` runs on the ESP-NOW link the wand already has
+   up: it broadcasts `code_req` (with `"host":<id>` when the card carries
+   one, so only that sender answers), then pulls the file in windows of
+   `WINDOW` (8) chunks, checks size, sha256 and `compile()`, and promotes it
+   atomically, keeping `.bak`. No WiFi join, no radio switch, no reset.
+4. The wand launches the new game.
+
+On failure the existing file on flash is untouched.
+
+`lib/espnow_code.py` has three hand-kept copies: this one,
+`EspnowModem/MockWandEUM/lib/espnow_code.py` and
+`IconDisplay/lib/espnow_code.py`. This wand does not pass `icon_dir`, so the
+icon leg of `receive()` is unused here. The sender side is
+`BroadcastBox/BBoxFirmware/code_sender.py` and the Dial's copy; the message
+set is in `BroadcastDial/README.md`, "Serving over ESP-NOW".
+
+## Boot grace
+
+`GRACE_S` seconds of countdown (0 by default) at the top of `main()` before
+NFC/ESP-NOW init. Ctrl-C during the window reaches the REPL.
+
+## Driving the pull path without a person
+
+`espnow_code.receive(enow, slug, hubtype="wand", host_id=None)` can be called
+from the REPL on a wand with ESP-NOW up while a Box or Dial is in SERVE.
+
+Tag-text parsing can be driven the same way: call
+`NfcReader._match_prefixed()` / `is_valid_slug()` on-device against
+synthetic strings. This does not exercise the NDEF decode path — a real
+card read is a separate check.
+
+## Wand tree invariants
+
+On-device layout: `/lib` for libraries, flash root for `main.py` and the
+built-in games, `/games/<slug>.py` for pulled games. `/games` is appended to
+`sys.path` by `main.py`. Pulled games must never land in the root — root
+precedes `/games` on the path and would shadow the new copy with a stale one.
+
+Load-bearing, must survive any future edit:
+
+- The pull runs on the one ESP-NOW link `ESPNowManager` brought up at boot;
+  it never changes radio mode and never resets.
+- `ESPNowManager.init()` sets `ESPNOW_RXBUF` (4096 B) so a window of 8 frames
+  fits the driver buffer.
+- **Nothing allocates ahead of the radio.** See below — this one is easy to
+  break by adding a print.
+
+## Radio memory order — do not add prints ahead of the radio
+
+`esp_wifi_init()`/`esp_wifi_start()` need one large **contiguous** block of
+internal IDF heap, and the radio has to take it early: MicroPython's GC heap
+is carved out of that same heap in splits that are never returned, so nothing
+later can un-fragment it enough to find the block again. `gc.mem_free()` does
+not measure this. The failure is **fragmentation, not exhaustion**, and it
+reads as a comfortable free-heap number sitting next to
+`OSError: WiFi Out of Memory`.
+
+`lib/memprobe.py` exists because of exactly this failure at `enow.init()`.
+Its `_idf_free()` returns total free **and largest free block** for that
+reason — the second number is the one that decides.
+
+`ESPNowManager.init()` claims the block. `main.py` imports roughly fifteen
+modules at module scope before `main()` runs, and every game module it pulls
+in costs heap before the radio gets its turn. A new built-in game is not
+free. `lib/espnow_code.py` is imported after bring-up.
+
+So: anything logged about the boot itself — `reset_cause()`, battery — prints
+after `enow.init()`, not before it.
+
+The same constraint bit the Dial and Box on 2026-09-23, from the server side:
+[`docs_and_design/2026-09-23-ap-memory-order.md`](../docs_and_design/2026-09-23-ap-memory-order.md)
+has the numbers and the rules for both ends.
+
+## Slugs are module names
+
+A slug is the filename on both devices and a MicroPython module name, since
+`_load_play()` does `__import__(slug)`. Must be a legal identifier:
+lowercase, leading letter, `[a-z0-9_]`, max 16 chars. Hyphens are invalid —
+any surviving hyphenated game must be renamed on flash along with its
+`index.json` key.
+
+Three places enforce this and must agree:
+
+- `ChatBroadcast/js/gameName.js` — `slugify()` / `isValidSlug()`, plus the
+  reserved list (Python keywords, module names, wand built-in game tags).
+- `MockWand/lib/nfc_reader.py` — `is_valid_slug()`, what a card may say.
+- `MockWand/lib/game_store.py` — what is allowed on flash.
+
+## Direct-USB push (no Box in the loop)
+
+ChatBroadcast's connect overlay also takes a wand plugged straight into USB
+— `ChatBroadcast/js/device/wandDeviceLink.js` and `wandGameInstaller.js`.
+The Box is transport only; the payload is wand source
+(`def play(nfc, leds, buz, accel, i2c, enow)`), so this path writes the
+identical bytes directly to `/games/<slug>.py` over the raw REPL instead of
+routing through `/flash/games/<slug>.py` and a getcode pull.
+
+```
+raw REPL: verify hubtype.txt == "wand", os.mkdir('/games') if needed,
+          write /games/<slug>.py, game_store.set_last_pulled('<slug>')
+exit raw REPL, Ctrl-D (soft reset)
+```
+
+`set_last_pulled()` reuses the auto-launch path a real ESP-NOW pull uses
+(`MockWand/lib/game_store.py`, `MockWand/main.py`'s "Auto-launch a
+just-pulled game") — the wand plays the game on the next boot, no card
+involved.
+
+The wand has no command listener. `MockWand/main.py` prints one JSON line
+per event (`_emit()`), never reads one. Shapes mirror the Box's
+`identity`/`heartbeat` so `bboxLink.js`'s NDJSON reader parses either device
+unchanged:
+
+```
+{"type":"identity","device":"wand","version":<str>,"hub":<HUB_TYPE>,"games":[<slug>,...]}   — once, after boot completes
+{"type":"heartbeat","up":<ticks_ms>}                                                        — every 5s, idle loop only
+{"type":"game_start","slug":<slug>}  /  {"type":"game_end","slug":<slug>}                   — around _launch_game()'s body
+{"type":"error","where":"game_load","slug":<slug>,"err":<str>}                              — from _game_load_failed()
+```
+
+`heartbeat` is idle-loop-only — a running game blocks the wand's main loop
+for its duration, same as Box `SERVE` mode. ChatBroadcast's
+`game_start`/`game_end` handlers raise and lower the silence watchdog the
+same way its Box `mode`/`armed` handlers do for `SERVE`.
+
+## Sleep, power LED and brightness
+
+After `NFC_SLEEP_MS` (30 s) idle, and only if the accelerometer came up, the wand sleeps: the PN532
+is powered down (`PN532.power_down()`), the matrix is off and the power LED blips every 4 s.
+Movement or the button wakes it; any sleep exit calls `_nfc_wake()`. The power LED is driven by
+`lib/power_led.py` (PWM, scaled from `brightness.MULTIPLIER`, patterns for ready, asleep, low and
+critical battery, game, pull and boot failure). The wand config's `"diffuser"` (`"black"` or
+`"white"`) sets the matrix brightness gain in `lib/brightness.py`. States, test evidence and
+remaining power work: `Bag3/Code/known_issues/2026-10-28-mockwand-idle-power.md`.
+
+## Splat pairing
+
+A wand can pair with one or two Splats, identified by BLE MAC, and drives them over its own BLE radio.
+Design: [`docs_and_design/2026-10-07-splat-pairing/SPEC.md`](../docs_and_design/2026-10-07-splat-pairing/SPEC.md).
+
+| Card text | Idle-loop effect |
+|---|---|
+| `splat-<12 hex>` (the Splat's BLE MAC, any case, no separators) | Not held: pair it. Held: unpair that Splat. |
+| `unpair` | Unpair every Splat. |
+
+Cards are acted on in the idle loop only; a running game ignores them.
+
+- **Pairing** a Splat the wand does not hold: refused (red X, reject tone) if the wand already holds 2. Otherwise the
+  wand broadcasts `{"type":"pw_who","m":<mac>}` and listens `splatpair.CLAIM_WAIT_MS` (300) for a unicast
+  `{"type":"pw_held"}` from a wand holding that MAC; an answer refuses the pairing. With no answer the MAC is
+  appended to `/pairing.json` and the wand resets, and the next boot connects. The first holder keeps the Splat.
+- **Unpairing** (a held Splat's card, the `unpair` card, or a broadcast `{"type":"pw_release_all"}`, which also ends a
+  running game on a paired wand) disconnects and clears the Splat without a reset. BLE stays active until the next
+  reboot.
+- **`/pairing.json`** is `{"splats": ["AB:42:00:00:7E:B6", ...]}` in tap order (local Splat 0, 1). It is session-scoped:
+  a power-on reset (`machine.reset_cause() == machine.PWRON_RESET`) deletes it; soft, hard, watchdog and crash resets keep
+  it. `lib/pairing.py` reads and writes it (atomic temp-file rename).
+- **A Splat that is not READY** `splatpair.PAIR_CONNECT_MS` (30000) after boot is dropped from the file with error
+  feedback. A Splat that drops later reconnects through `SplatLink` and stays paired.
+- **Idle display of a paired wand:** each wand has an identity color, `splatpair.PALETTE[last MAC byte % 6]`, a
+  `splat_api.COLOR_RGB` name (`turnred`, `turngreen`, `turnblue`, `turnpurple`, `turnyellow`, `turnwhite`). Each paired
+  Splat glows dim in it (`GLOW_SCALE`), the wand shows it in matrix pixel 4, and a Splat's first connect in a boot flashes
+  both and plays the success tone. The glow is restored after every game.
+- **Idle timing:** a paired wand detects NFC with a 100 ms timeout and sleeps 20 ms per idle iteration (unpaired: 250 /
+  200 ms), so it answers a `pw_who` inside the asker's 300 ms window.
+- Splat presses at idle are not wired into the NFC action-chain engine.
+- Limits: 2 Splats per wand. `unpair` is a control tag in this tree's `lib/game_tags.py` only; the other game-tag
+  consumers (see `AGENTS.md`) do not list it.
+
+### Boot order
+
+`main()`: `_boot_grace()`, `enow.init()`, **`_boot_pairing()`**, then Stage 1 and the later
+stages unchanged. `_boot_pairing()` reads `/pairing.json` inline (clearing it on a power-on reset). Only if a Splat is
+paired does it import `ubluetooth`, call `BLE().active(True)`, and import `splatpair` (which imports `splat_hub`,
+`splat_link`, `ble_splat`, `splat_api`) and build one `SplatHub` and `SplatGroup`. An unpaired wand never imports
+`ubluetooth` or the Splat modules. `pairing`, `lobby_game` and `pwire` are imported inside `main()` after the radio is up, never
+at module scope.
+
+If the pairing file, `BLE().active(True)`, the imports or the hub fail, the wand boots unpaired: the file is deleted,
+stage 0's data row shows amber in its third cell (ESP-NOW has the fourth), the traceback prints and
+`{"type":"error","where":"pairing"}` is emitted.
+
+Everything in `main.py` is compiled ahead of `enow.init()`, so the two boot functions and two module globals added for
+pairing are allocated before the radio's block; `memprobe` figures with them are in the UNVERIFIED list.
+
+## Splat games
+
+Three kinds of game use paired Splats. `main.py` reads the module-level declarations after `_load_play()` imports the
+module; an invalid declaration is a load failure.
+
+### Type 2: solo game (`SPLATS_LOCAL`)
+
+A game module with `SPLATS_LOCAL = 1` or `2` drives its own paired Splats. There is no lobby.
+
+```python
+def play(nfc, leds, buz, accel, i2c, enow, batt=None, splats=None):
+```
+
+| Member | Meaning |
+|---|---|
+| `splats.count` | Splats paired to this wand (1-2) |
+| `splats.unit(i)` | Splat `i` with `color(name)`, `note(name)`, `sound(name)`, `play([names])`, `off()` (names as in `splat_api`) |
+| `splats.poll()` | call every loop: `("press", i)`, `("release", i)` or `None` |
+
+The loop is the ordinary wand loop, including `enow.poll()`. The wand refuses to start a `SPLATS_LOCAL = n` game unless at
+least `n` Splats are connected (the same wand feedback as other load refusals), so inside `play()` `splats` is never `None`
+and `splats.count >= n`. The wand turns the Splats off after the game. `SPLATS_LOCAL` cannot be combined with `SPLATS_MIN`
+or `SPLAT_HOST`.
+
+### Type 9: Splat host group game (`SPLAT_HOST`)
+
+A game module with `SPLAT_HOST = True` is played by a wand in the Splat host role (`lib/splat_host.py`, which holds the
+Splats and always leads) and the player wands, which only join. It declares:
+
+| Name | Meaning |
+|---|---|
+| `SPLAT_HOST = True` | marks the game |
+| `SPLATS_MIN`, `SPLATS_MAX` | Splats the host must hold; `SPLATS_MAX` is at most 4 |
+| `PLAYERS_MIN` | player wands needed before the host can start (default 1) |
+| `GAME_ICON` | `(shape, color)` shown while loading |
+
+```python
+def play(nfc, leds, buz, accel, i2c, enow, batt=None, net=None):
+```
+
+`main.py` passes as many positional arguments as `play()` declares. Rules:
+
+- Call `net.poll()` first in every loop with a `time.sleep_ms(1)`; never call `enow.poll()` (`net` owns ESP-NOW).
+- Return on `("end",)` and `("leader_lost",)`.
+- Only the host wand (`net.is_host`) drives Splats with `net.splat(i)` (`color`, `sound`, `note`, `play([names])`, `off()`,
+  each True once done). Player wands show state on their matrix and send with `net.send(0, {...})`.
+- A player wand's identity name (`net.wands[i][1]`) is a Splat color name (`turnred`, `turngreen`, ...).
+- A game wand never leads a host game: it looks for the host's lobby for up to `HOST_FIND_TRIES` finds. The host never
+  yields its lobby.
+
+Joining: every wand taps the game's card. `lobby_game.enter()` broadcasts `pw_find` and listens `FIND_WAIT_MS` (500) for
+a `pw_lobby`; a player joins (`pw_join` / `pw_joined`) the host's lobby. The host's button starts the game once
+`PLAYERS_MIN` players have joined; reaching `SPLATS_MAX` starts it at once. A `stop` card on the host cancels the lobby for
+everyone, on a player it leaves.
+
+`net` members: `is_host`, `me`, `wands` (`[(mac, identity color name, splat count), ...]`, host first), `players` (wand
+indexes of the player wands), `splat(i)` (host only), `send(to, data)` (`to` an index, or `None` for every other wand;
+`data` a dict of at most 200 bytes of JSON; True if every addressed wand ACKed) and `poll()`.
+
+| Event | To | Meaning |
+|---|---|---|
+| `("press", i)`, `("release", i)` | host | Splat `i` button |
+| `("msg", from_idx, data)` | addressed wand | a `net.send()` payload |
+| `("splat_lost", i)`, `("splat_back", i)` | host | a Splat's BLE link dropped, returned |
+| `("wand_lost", idx)`, `("wand_back", idx)` | host | no heartbeat for `WAND_LOST_MS` (3000), or the wand left; heard again |
+| `("leader_lost",)` | players | host silent for `WAND_LOST_MS` |
+| `("end",)` | everyone | the host ended the game; also an ESP-NOW `stop` / `start_game`. Repeats once returned |
+
+Dropouts are reported, not handled: the game decides whether to pause, continue or return. Unicast frames are retried up to
+`pwire.SEND_TRIES` (3) times on a missing MAC ACK; the receiver drops a repeated per-sender sequence number `q`. Wire types
+are the `pw_` messages of SPEC section 8.
+
+Built-in host games, in `games/`: `host_splattag.py` (the host lights a random Splat in a player's color, the first press
+scores for that player; the template shape), `host_relaycolor.py` (a color passes from wand to wand) and
+`host_lobbytest.py` (a press lights the next Splat in the presser's identity color). They are in `GAME_MODULES` and
+`game_tags.py` like any built-in game; each must be on every participating wand, and its card reads its tag
+(`host_splattag`, `host_relaycolor`, `host_lobbytest`).
+
+### Type 7: plain wand lobby (`SPLATS_MIN` alone)
+
+A module with `SPLATS_MIN` and no `SPLAT_HOST` runs the lobby among ordinary wands with no Splats; `net.is_leader` picks
+the role (the first wand to tap leads, the lower MAC wins a tie). `SPLATS_MIN` and `SPLATS_MAX` count wands' Splats as the
+file declares; the lobby shows them against `SPLATS_MIN` on the leader's matrix. `play()` takes `net` and returns on
+`("end",)` and `("leader_lost",)`.
+
+### Splat station mode
+
+An idle Splat host (not in a game) obeys `{"type":"splat","s":i,"a":[names]}` from any wand: it plays the names on Splat
+`i`, or on every Splat if `s` is omitted. Every host in range obeys. On a Splat press the host broadcasts
+`{"type":"splat_press","s":i,"c":<host identity name>}`, rate limited to one per Splat per 250 ms. Splat messages are
+ignored while the host runs a type 9 game.
+
+## Tests (off-device)
+
+From `Bag3/Code/`: `tools/devtests/compile_check.sh`, then
+`python3 tools/devtests/<name>.py` for `test_wand_copies`, `test_wand_cards`, `test_wand_pairing_store`,
+`boot_wand_pairing`, `boot_wand_idle`, `boot_wand_lobby_game`, `test_lobby_game`, `test_lobby_games`. These target the Wand Module and `tools/devtests`. The experiment's own tests, from the experiment root, are `python3 -m unittest discover -s tests` and `node js/splat_game_check_test.mjs`. `wandsim.py` is the shared
+harness (virtual-time wand threads, fake ESP-NOW with loss / lost ACKs / duplicates, fake BLE Splats);
+`wandboot.py` boots the real `main.py` under the stubs. These do not exercise hardware.
+
+## UNVERIFIED on hardware
+
+None of the Splat-pairing and lobby game code has run on a board. Marked `UNVERIFIED on hardware` in the code where it lives,
+and listed per step in `docs_and_design/2026-10-07-splat-pairing/PROGRESS-PartA.md`:
+
+- `machine.reset_cause()` values on the C6 (power-on from USB or battery, `machine.reset()`, watchdog, crash).
+- `idf_largest` after `main.py`'s imports, after `enow.init()`, after `BLE().active(True)`, and with 2 Splats READY, now
+  that `main.py`, `nfc_reader.py` and `game_tags.py` are larger and the NFC reader, Stages 1-4 and the idle loop run.
+- Real NDEF reads of a `splat-` card and the `unpair` card; Splat address types learned by discovery with pinned MACs.
+- Claim-check latency against `CLAIM_WAIT_MS` with the paired idle loop (100 ms NFC timeout); the effect of the 100 ms
+  timeout on card reads.
+- How the identity colors, flash, tones and idle glow look and sound on the matrix and a Splat; palette distinctness.
+- Whether a Splat stays connected through a non-lobby game, which does not poll the Splat links.
+- ESP-NOW latency and the slow-send board: lobby timing (`FIND_WAIT_MS`, `JOIN_WAIT_MS`),
+  `WAND_LOST_MS` against real loss, peer table with many wands.
+- BLE and ESP-NOW coexistence on one C6 radio during a lobby game; Splat write pacing (50 ms) inside `net.poll()`.
+- Lobby stop-card reads (every 8 loops, 40 ms timeout) and the games' stop-card reads (every 25 loops, 30 ms).
+- `os.rename` over an existing file and `os.remove` on the C6's littlefs for `/pairing.json`.
+
+## Deploy
+
+`tools/deploy.py` is only for a very stale device or freshly re-flashed blank firmware; for routine updates reset, then copy the changed files in one `mpremote` call (HARDWARE_PROTOCOL.md, "Routine updates"). `python3 tools/deploy.py --type wand <port>` copies the files listed in `manifest.js` (`WAND_FILES`)
+to the wand's flash root, keeping `lib/`. Test and bench-only games (`games/`, `goalrace`,
+`splatecho`, `jumpin`, `import_bench`) are not listed and do not ship; add a new example game to
+`manifest.js` or it will not reach the wands. `main.py` is not copied as source: deploy compiles
+it with `mpy-cross` (`pip install --user mpy-cross==1.28.0.post2`, matching the wands'
+MicroPython) to `/wand_main.mpy` and writes a one-line `/main.py` that imports it. Compiling
+`main.py` on the wand at boot can fragment the IDF block the radio needs (see
+`docs_and_design/2026-10-07-splat-pairing/RESULTS-PartB.md`). Copying the source `main.py` by
+hand still runs, without that protection.
+
+`--changed` hashes every file on the wand in one call and copies only those that differ (including
+`/wand_main.mpy`); if the hash call fails it deploys everything.
+
+`--skip-lib` leaves `lib/` out (25 of the 54 files) when only top-level files changed.

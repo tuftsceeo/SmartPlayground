@@ -1,0 +1,24 @@
+{
+  "manifest_version": "0.3",
+  "name": "playground-serial",
+  "display_name": "Playground Serial",
+  "version": "0.1.2",
+  "description": "Lets Playground IDE artifacts in the Claude app talk to a Dial or Box controller plugged in with USB.",
+  "long_description": "Install this to use a real Smart Playground controller from the Playground IDE artifacts in the Claude desktop app. It only lists, opens, reads and writes USB serial ports on this computer. Without it, the IDE artifacts run in practice mode.",
+  "author": { "name": "Smart Playground team" },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": { "command": "node", "args": ["${__dirname}/server/index.js"] }
+  },
+  "tools": [
+    { "name": "status", "description": "Whether a controller port is open" },
+    { "name": "list_ports", "description": "List USB serial ports" },
+    { "name": "open", "description": "Open a serial port" },
+    { "name": "write", "description": "Send text to the controller" },
+    { "name": "read", "description": "Read lines from the controller" },
+    { "name": "close", "description": "Close the port" }
+  ],
+  "compatibility": { "platforms": ["darwin", "win32"], "runtimes": { "node": ">=18.0.0" } },
+  "license": "MIT"
+}

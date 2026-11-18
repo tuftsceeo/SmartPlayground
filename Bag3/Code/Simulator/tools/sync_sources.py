@@ -55,6 +55,7 @@ VERBATIM_LIBS = [
     "hubtype.py",
     "game_tags.py",
     "actions.py",
+    "signals.py",
     "battery.py",
     "espnow_manager.py",
     # Lobby games: pwire/lobby_game/splatpair run through the transform; pairing
@@ -63,6 +64,7 @@ VERBATIM_LIBS = [
     "pwire.py",
     "lobby_game.py",
     "splatpair.py",
+    "splat_host.py",
     "pairing.py",
     "splat_api.py",
 ]
@@ -84,7 +86,7 @@ DISPLAY_FILES = [
 # Icons each display game reads, from IconDisplay/icons/, vendored as
 # display/games/<game>_icons/<name>.py (the layout a pulled game has).
 DISPLAY_GAME_ICONS = {
-    "goalrace": ["ready", "tree", "whale"],
+    "goalrace": ["ready_green_check", "tree", "whale"],
 }
 
 # Game modules to bundle (from Bag3/Code/Wand Module).
@@ -106,9 +108,8 @@ GAMES = [
     "goalrace.py",
     "color_quest.py",
     "finddevice.py",
-    "lobbytest.py",
-    "splattag.py",
-    "relaycolor.py",
+    # Solo Splat game (SPLATS_LOCAL): a bench game, not shipped to wands.
+    "colorpads.py",
     # Splat host games (SPLAT_HOST = True): run on a wand in the host role.
     "host_lobbytest.py",
     "host_splattag.py",

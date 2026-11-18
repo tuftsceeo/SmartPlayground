@@ -101,7 +101,7 @@ function sniffTags(code) {
 
 /** True when the code is a lobby game: any number of wands can join. */
 export function isLobbyGame(code) {
-    return /SPLATS_MIN|lobby_game|lobbyGame/.test(code || "");
+    return /^SPLATS_MIN\s*=|^SPLAT_HOST\s*=|^PLAYERS_MIN\s*=|lobby_game|lobbyGame/m.test(code || "");
 }
 
 const DEVICE_ICONS = { wand: "wand", display: "iconDisplay", station: "station", splat: "splat", nfc: "nfcCard" };

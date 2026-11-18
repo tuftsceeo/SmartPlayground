@@ -9,8 +9,9 @@
 #   eol=lf/crlf   Force a specific line ending regardless of platform.
 #   diff=<driver> Use a specialized diff driver instead of raw text diff.
 #
-# Default: let Git auto-detect text vs. binary for anything not listed below.
-* text=auto
+# Default: let Git auto-detect text vs. binary for anything not listed below;
+# text files are LF in the working tree on every platform (Windows too).
+* text=auto eol=lf
 
 # ---------------------------------------------------------------------------
 # Python

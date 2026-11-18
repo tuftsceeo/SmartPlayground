@@ -20,6 +20,9 @@ GAME_TAGS = {
     "cooking", "melody",
     "shake", "shakerainbow", "rainbow", "jump", "sound", "nfcsound",
     "simpleicecream", "multiicecream", "gestures",
+    # Bag3 built-in examples (Bag3/Code/Wand Module/games/, IconDisplay/games/)
+    "echobeat", "simonstomp", "movemixer", "colorsays", "picturemoves",
+    "codebreakers", "host_patternstomp",
 }
 
 CONTROL_TAGS = {"start", "stop"}

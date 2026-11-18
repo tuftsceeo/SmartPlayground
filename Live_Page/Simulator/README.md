@@ -55,7 +55,7 @@ Developer mode footer, and `index.html` in a `<pre>` under the room.
   shows them; advanced mode takes them away; simple mode shows them only while
   the game uses them.
   Lit cells use the icon editor's LED color model (`ledSwatchHex` in
-  `Stations/Icon Display Station/webapp/js/pipeline/ledGamut.js`, copied
+  `IconEditor/webapp/js/pipeline/ledGamut.js`, copied
   into `js/panels/display.js`): the color the LED emits at full duty, not
   dimmed by the game's intensity. Off cells are dark gray on a black
   diffuser inside a charcoal case.
@@ -305,7 +305,7 @@ the Bag trees, not here, and has been left alone.
   still runs.
 - LED colors: incoming bytes are the wand's actual NeoPixel duty cycle
   (linear), converted through the same linear→sRGB curve
-  `Stations/Icon Display Station/webapp/js/pipeline/ledcolor.js` uses before
+  `IconEditor/webapp/js/pipeline/ledcolor.js` uses before
   being set as a CSS color, or the color renders far dimmer than the real
   LED looks.
 - The wand is built in CSS by `js/renderer.js`, which also owns the wand's
