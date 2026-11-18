@@ -25,9 +25,9 @@ t("signal thresholds", () => {
 t("scan upserts and selects new rows", () => {
   const s = new DistributeState();
   s.startScan();
-  s.upsertReport({ mac: A, kind: "wand", battery: 80, rssi: -50 });
-  s.upsertReport({ mac: A.toLowerCase(), kind: "wand", battery: 79, rssi: -52 });
-  s.upsertReport({ mac: B, kind: "icon_display", battery: null, rssi: -70 });
+  s.upsertReport({ mac: A, kind: "wand", g: [], battery: 80, rssi: -50 });
+  s.upsertReport({ mac: A.toLowerCase(), kind: "wand", g: [], battery: 79, rssi: -52 });
+  s.upsertReport({ mac: B, kind: "icon_display", g: [], battery: null, rssi: -70 });
   assert.equal(s.rows.length, 2);
   assert.equal(s.rows[0].battery, 79);
   assert.deepEqual(s.selectedMacs(), [A, B]);
@@ -37,7 +37,7 @@ t("scan upserts and selects new rows", () => {
 t("selection, distribute and progress", () => {
   const s = new DistributeState();
   s.startScan();
-  for (const m of [A, B, C]) s.upsertReport({ mac: m, kind: "wand" });
+  for (const m of [A, B, C]) s.upsertReport({ mac: m, kind: "wand", g: [] });
   s.toggle(B, false);
   const macs = s.startDistribute();
   assert.deepEqual(macs, [A, C]);
@@ -57,7 +57,7 @@ t("selection, distribute and progress", () => {
 t("abort fails unfinished rows only", () => {
   const s = new DistributeState();
   s.startScan();
-  for (const m of [A, B]) s.upsertReport({ mac: m, kind: "wand" });
+  for (const m of [A, B]) s.upsertReport({ mac: m, kind: "wand", g: [] });
   s.startDistribute();
   s.applyProgress({ mac: A, ok: true, done: 1, total: 2 });
   s.abort("not_serving");
@@ -67,10 +67,26 @@ t("abort fails unfinished rows only", () => {
 t("every reported device starts selected", () => {
   const s = new DistributeState();
   s.startScan();
-  s.upsertReport({ mac: A, kind: "wand", battery: 5 });
-  s.upsertReport({ mac: B, kind: "wand", battery: 80 });
-  s.upsertReport({ mac: C, kind: "icon_display", battery: null });
+  s.upsertReport({ mac: A, kind: "wand", g: [], battery: 5 });
+  s.upsertReport({ mac: B, kind: "wand", g: [], battery: 80 });
+  s.upsertReport({ mac: C, kind: "icon_display", g: [], battery: null });
   assert.deepEqual(s.selectedMacs(), [A, B, C]);
+});
+t("old firmware (no g): unselected, refused, and its ok counts as failed", () => {
+  const s = new DistributeState();
+  s.startScan();
+  s.upsertReport({ mac: A, kind: "wand", g: [] });
+  s.upsertReport({ mac: B, kind: "wand" });              // no g: before game slots
+  s.upsertReport({ mac: C, kind: "icon_display" });      // no g
+  assert.deepEqual(s.selectedMacs(), [A]);
+  s.toggle(B, true);
+  assert.equal(s.rows[1].selected, false);
+  s.toggle(B, true, true);                               // advanced override
+  s.startDistribute();
+  s.applyProgress({ mac: A, ok: true, done: 1, total: 2 });
+  s.applyProgress({ mac: B, ok: true, done: 2, total: 2 });
+  assert.deepEqual(s.rows.slice(0, 2).map((r) => [r.status, r.why]),
+    [["done", null], ["failed", "needs_update"]]);
 });
 t("deviceNoun: wands, stations, else devices", () => {
   assert.equal(deviceNoun([]), "devices");
@@ -82,7 +98,7 @@ t("deviceNoun: wands, stations, else devices", () => {
 t("allFinished once every sent row is done or failed", () => {
   const s = new DistributeState();
   s.startScan();
-  for (const m of [A, B]) s.upsertReport({ mac: m, kind: "wand", battery: 80 });
+  for (const m of [A, B]) s.upsertReport({ mac: m, kind: "wand", g: [], battery: 80 });
   assert.equal(s.allFinished(), false);
   s.startDistribute();
   s.applyProgress({ mac: A, ok: true, done: 1, total: 2 });
@@ -105,18 +121,38 @@ t("slots: replace needed only for full selected devices lacking the game", () =>
   s.upsertReport({ mac: B, kind: "wand", g: [["b", "s"], ["d", "o"], ["e", "o"]] });
   s.upsertReport({ mac: C, kind: "wand", g: [["new", "o"], ["b", "s"], ["c", "h"]] });
   assert.deepEqual(s.fullRows("new").map((r) => r.mac), [A, B]);
-  const opts = s.replaceOptions("new");
-  assert.equal(opts[0].slug, "b");            // held by both full devices
-  assert.equal(opts[0].n, 2);
-  assert.deepEqual(opts.map((o) => o.slug), ["b", "a", "c", "d", "e"]);
+  const opts = s.slotOptions("new");
+  assert.deepEqual(opts.map((o) => o.index), [0, 1, 2]);
+  assert.deepEqual(opts[0].games.map((g) => [g.slug, g.macs]), [["a", [A]], ["b", [B]]]);
+  assert.deepEqual(opts[1].games.map((g) => g.slug), ["b", "d"]);
+  assert.deepEqual(s.replaceFor("new", 0), { [A]: "a", [B]: "b" });
+  assert.deepEqual(s.replaceFor("new", 2), { [A]: "c", [B]: "e" });
   s.toggle(A, false); s.toggle(B, false);
-  assert.deepEqual(s.replaceOptions("new"), []);
+  assert.deepEqual(s.slotOptions("new"), []);
 });
 t("slots: no g (old firmware) or not full never asks", () => {
   const s = new DistributeState();
   s.upsertReport({ mac: A, kind: "wand" });
   s.upsertReport({ mac: B, kind: "icon_display", g: [["a", "o"]] });
-  assert.deepEqual(s.replaceOptions("new"), []);
+  assert.deepEqual(s.slotOptions("new"), []);
+});
+t("kinds: devices the game has no code for start unselected", () => {
+  const s = new DistributeState(["wand"]);
+  s.upsertReport({ mac: A, kind: "wand", g: [] });
+  s.upsertReport({ mac: B, kind: "icon_display", g: [] });
+  s.upsertReport({ mac: C, kind: null });
+  assert.deepEqual(s.selectedMacs(), [A]);
+  s.toggle(B, true);                        // simple mode: refused
+  assert.deepEqual(s.selectedMacs(), [A]);
+  s.toggle(B, true, true);                  // advanced override
+  assert.deepEqual(s.selectedMacs(), [A, B]);
+  s.toggle(A, false);                       // deselecting always works
+  assert.deepEqual(s.selectedMacs(), [B]);
+});
+t("kinds: unknown (null) means no filter", () => {
+  const s = new DistributeState(null);
+  s.upsertReport({ mac: B, kind: "icon_display", g: [] });
+  assert.deepEqual(s.selectedMacs(), [B]);
 });
 t("slots: card text", () => {
   assert.equal(slotsText(null, "x"), "");

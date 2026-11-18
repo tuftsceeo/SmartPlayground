@@ -130,6 +130,10 @@
                         <span class="brand-title">Wand &amp; Station Coder</span>
                     </button>
                     <div class="header-actions">
+                        <button type="button" class="open-saved-pill" id="btn-open-saved-pill" title="Open a saved game">
+                            <span data-icon="folder-open" data-icon-size="14"></span>
+                            <span>Open Saved</span>
+                        </button>
                         <button type="button" class="mode-pill muted" data-mode-pill title="Games, health &amp; battery on the Box" disabled>
                             <span class="mode-pill-icon" data-icon="box"></span>
                             <span class="mode-pill-label">Box</span>
@@ -221,9 +225,9 @@
                             <div class="icons-editor-col">
                                 <div class="icons-toolbar">
                                     <span class="icons-editing" id="icons-editing">No icon open</span>
-                                    <button class="btn-quiet" id="btn-icon-import" type="button" title="Import a different photo for this icon">
+                                    <button class="btn-quiet" id="btn-icon-import" type="button" title="Open an icon from the sample library, or upload a photo">
                                         <span data-icon="folder-open" data-icon-size="14"></span>
-                                        Load new image
+                                        Open
                                     </button>
                                     <input type="file" id="icon-file-input" class="hidden"
                                            accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" />
@@ -249,12 +253,6 @@
                                                 <span class="more-item-label">
                                                     <span data-icon="download" data-icon-size="15"></span>
                                                     Export icon file
-                                                </span>
-                                            </button>
-                                            <button class="more-item" id="btn-icon-samples" type="button">
-                                                <span class="more-item-label">
-                                                    <span data-icon="sparkles" data-icon-size="15"></span>
-                                                    New from sample library
                                                 </span>
                                             </button>
                                         </div>
@@ -332,8 +330,13 @@
                 <button type="button" class="overlay-close-x" id="icon-samples-close-x" title="Close">
                     <span data-icon="close" data-icon-size="18"></span>
                 </button>
-                <h2>Sample library</h2>
-                <p>Pick an icon to start from.</p>
+                <h2>Open an icon</h2>
+                <p class="samples-intro">Pick an icon to start from, or
+                    <button type="button" class="btn-quiet" id="btn-icon-upload-photo">
+                        <span data-icon="folder-open" data-icon-size="14"></span>
+                        Upload a photo
+                    </button>
+                </p>
                 <div class="samples-grid" id="icon-samples-grid"></div>
             </div>
         </div>

@@ -51,6 +51,7 @@ import {
     setGameIcons, getGameIcons, onIconsChange,
 } from './ledicons/iconLibrary.js';
 import { gameIconEntries, startingIcon, drawIcon } from './ledicons/iconView.js';
+import { groupIcons } from './ledicons/iconCategories.js';
 import { gameIconThumb, gameTint } from './ledicons/thumb5.js';
 import { GAME_ICONS } from './ledicons/shapes5.js';
 
@@ -552,7 +553,12 @@ class App {
         const run = async (fn) => { try { await fn(); } catch (e) { fail(e); } };
 
         const fileInput = document.getElementById('icon-file-input');
-        document.getElementById('btn-icon-import')?.addEventListener('click', () => fileInput?.click());
+        // Open = the categorised sample library; a photo upload is offered inside it.
+        document.getElementById('btn-icon-import')?.addEventListener('click', () => this.openIconSamples());
+        document.getElementById('btn-icon-upload-photo')?.addEventListener('click', () => {
+            hideOverlay('icon-samples-overlay');
+            fileInput?.click();
+        });
         fileInput?.addEventListener('change', (e) => {
             const file = e.target.files?.[0];
             e.target.value = '';
@@ -584,11 +590,21 @@ class App {
             api()?.exportFile.icon();
             this.closeIconMenu();
         }));
-        document.getElementById('btn-icon-samples')?.addEventListener('click', () => {
-            const grid = document.getElementById('icon-samples-grid');
-            if (!grid) return;
-            if (!grid.dataset.filled) {
-                for (const name of api()?.source.listSamples() || []) {
+        document.getElementById('icon-samples-close-x')?.addEventListener('click', () => hideOverlay('icon-samples-overlay'));
+    }
+
+    /** Sample library overlay: device icons grouped by category (iconCategories.js). */
+    openIconSamples() {
+        const api = () => this.iconApi();
+        const grid = document.getElementById('icon-samples-grid');
+        if (!grid) return;
+        if (!grid.dataset.filled) {
+            for (const group of groupIcons(api()?.source.listSamples() || [])) {
+                const head = document.createElement('h3');
+                head.className = 'samples-cat';
+                head.textContent = group.title;
+                grid.appendChild(head);
+                for (const name of group.names) {
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.className = 'samples-item';
@@ -597,22 +613,23 @@ class App {
                     canvas.width = 64;
                     canvas.height = 64;
                     const label = document.createElement('span');
-                    label.textContent = name;
+                    label.textContent = name.replace(/_/g, ' ');
                     btn.append(canvas, label);
-                    btn.addEventListener('click', () => run(async () => {
-                        await api()?.source.loadSample(name);
-                        hideOverlay('icon-samples-overlay');
-                    }));
+                    btn.addEventListener('click', async () => {
+                        try {
+                            await api()?.source.loadSample(name);
+                            hideOverlay('icon-samples-overlay');
+                        } catch (e) { toast(String(e?.message || e), true); }
+                    });
                     // Only names with a saved icon: a stale Maker build can still
                     // list photo-only samples, which would draw blank.
                     if (drawIcon(canvas, name, 0.3).ok) grid.appendChild(btn);
                 }
-                grid.dataset.filled = '1';
             }
-            this.closeIconMenu();
-            showOverlay('icon-samples-overlay');
-        });
-        document.getElementById('icon-samples-close-x')?.addEventListener('click', () => hideOverlay('icon-samples-overlay'));
+            grid.dataset.filled = '1';
+        }
+        this.closeIconMenu();
+        showOverlay('icon-samples-overlay');
     }
 
     closeIconMenu() {
@@ -1433,6 +1450,7 @@ class App {
         });
         document.getElementById('btn-save-game').addEventListener('click', () => this.onSaveGame());
         document.getElementById('btn-open-game').addEventListener('click', () => this.openSavedFromWorkspace());
+        document.getElementById('btn-open-saved-pill').addEventListener('click', () => this.openSavedFromWorkspace());
 
         // The brand replaced the Home tab on every screen that had one, so it
         // routes through onNavTab: that keeps the unsaved-work guard on the
@@ -3052,6 +3070,9 @@ class App {
     /** "Distribute code" on the Dial send-success screen: close it as Done
      * does, then open the distribute overlay for the game just sent. */
     openDistribute(slug = this._lastSentSlug, pretty = this.gameName) {
+        // Device kinds the game has code for; known only for the game just
+        // sent (the controller's game list does not say), else no filter.
+        const kinds = slug && slug === this._lastSentSlug ? this._lastSentKinds : null;
         if (document.getElementById('send-confirm-overlay')?.classList.contains('hidden') === false) {
             this.finishSend();
         }
@@ -3059,7 +3080,7 @@ class App {
         if (!this._distribute) {
             this._distribute = new DistributeOverlay({ app: this, showOverlay, hideOverlay, toast });
         }
-        this._distribute.open(slug, pretty);
+        this._distribute.open(slug, pretty, kinds);
     }
 
     /** Close the send-confirm overlay after a successful send (Done, its
@@ -3251,6 +3272,8 @@ class App {
         // something different because it auto-launches what it was just sent
         // (see wandGameInstaller.js) rather than waiting for a card.
         this._lastSentSlug = slug;
+        // status_report kinds are the roles' hubtypes (roles.js).
+        this._lastSentKinds = ROLE_TABLE.filter((r) => getCode(r.key).trim()).map((r) => r.hubtype);
         this.showSendSuccess(check.pretty);
         if (isWand) toast('Sent! The wand is starting the game now.');
 

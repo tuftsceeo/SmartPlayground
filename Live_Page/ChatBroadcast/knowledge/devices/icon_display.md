@@ -60,7 +60,7 @@ GAME_ICON = (shapes.SHAPE_STAR, (30, 190, 50))   # SHAPE_STAR, MINT
 _EXIT_TAGS = exit_tags_excluding("your_game")
 COMMANDS = _EXIT_TAGS
 
-IDLE_ICON = "ready"
+IDLE_ICON = "ready_green_check"
 IDLE_INTENSITY = 0.12
 ACTIVE_INTENSITY = 0.30
 NFC_EVERY = 12
@@ -101,7 +101,7 @@ def play(nfc, panel, enow):
 ```
 
 Set `GAME_ICON` to the same shape and color as the wand file's, writing the color as its RGB
-from the wand's `leds` palette (for example `ORANGE` is `(120, 40, 0)`). Replace `"your_game"` with the game's slug, and `"ready"` / `"whale"` with icon names from the list
+from the wand's `leds` palette (for example `ORANGE` is `(120, 40, 0)`). Replace `"your_game"` with the game's slug, and `"ready_green_check"` / `"whale"` with icon names from the list
 sent with the request.
 
 ## API

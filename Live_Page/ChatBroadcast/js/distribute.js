@@ -9,9 +9,9 @@
  *
  * Wands and icon displays hold at most three custom games (lib/game_slots.py)
  * and report them as status_report `g`: [[slug, mode], ...], with `role`.
- * If a selected device is full and lacks this game, the teacher picks one
- * game to replace; fleet.distribute carries it as `replace`. Devices that do
- * not hold that game drop their oldest.
+ * If a selected device is full and lacks this game, the teacher picks a slot
+ * (1 = oldest, as `g` is ordered); fleet.distribute carries `replace` as
+ * {mac: slug in that slot} so each full device drops its own game there.
  *
  * DistributeState holds the rows and is DOM-free (tools/distribute_test.mjs);
  * DistributeOverlay paints it into #distribute-overlay.
@@ -102,7 +102,13 @@ export function deviceNoun(rows) {
 }
 
 export class DistributeState {
-  constructor() {
+  /**
+   * kinds: status_report kinds (roles.js hubtype) the game has code for, or
+   * null when unknown (a game picked from the controller's list). A device
+   * of another kind starts unselected; only an override may select it.
+   */
+  constructor(kinds = null) {
+    this.kinds = kinds ? new Set(kinds) : null;
     this.rows = []; // {mac, kind, battery, rssi, selected, status, why}
     this.scanning = false;
     this.running = false;
@@ -112,6 +118,20 @@ export class DistributeState {
 
   _row(mac) {
     return this.rows.find((r) => norm(r.mac) === norm(mac));
+  }
+
+  /**
+   * True for a wand or icon display whose status_report has no `g`: firmware
+   * from before game slots. Its pull reports ok when the file lands, but the
+   * game then fails to start on it (red X), so it needs reflashing first.
+   */
+  needsUpdate(row) {
+    return (row?.kind === "wand" || row?.kind === "icon_display") && !Array.isArray(row.games);
+  }
+
+  /** True when the game has code for this row's kind (or kinds are unknown). */
+  fits(row) {
+    return !this.kinds || this.kinds.has(row?.kind);
   }
 
   startScan() {
@@ -132,11 +152,13 @@ export class DistributeState {
       });
       return;
     }
+    const kind = obj.kind ?? null;
+    const games = Array.isArray(obj.g) ? obj.g : null;
     this.rows.push({
-      mac: obj.mac, kind: obj.kind ?? null, battery: obj.battery ?? null,
-      rssi: obj.rssi ?? null, role: obj.role ?? null,
-      games: Array.isArray(obj.g) ? obj.g : null,
-      selected: true, status: "", why: null,
+      mac: obj.mac, kind, battery: obj.battery ?? null,
+      rssi: obj.rssi ?? null, role: obj.role ?? null, games,
+      selected: this.fits({ kind }) && !this.needsUpdate({ kind, games }),
+      status: "", why: null,
     });
   }
 
@@ -147,28 +169,47 @@ export class DistributeState {
   }
 
   /**
-   * Games the teacher can choose to replace: every game on the full rows,
-   * the most widely held first. Empty when no selected device is full.
+   * The slots the teacher can clear: one entry per slot index held by any
+   * full row, each with the games in it ({slug, mode, macs}, most widely
+   * held first). Empty when no selected device is full.
    */
-  replaceOptions(slug) {
-    const count = new Map();
-    for (const r of this.fullRows(slug)) {
-      for (const [g, mode] of r.games) {
-        const c = count.get(g) || { slug: g, mode, n: 0 };
-        c.n += 1;
-        count.set(g, c);
+  slotOptions(slug) {
+    const rows = this.fullRows(slug);
+    const out = [];
+    for (let i = 0; i < SLOT_MAX; i++) {
+      const by = new Map();
+      for (const r of rows) {
+        const e = r.games[i];
+        if (!e) continue;
+        const g = by.get(e[0]) || { slug: e[0], mode: e[1], macs: [] };
+        g.macs.push(r.mac);
+        by.set(e[0], g);
+      }
+      if (by.size) {
+        out.push({ index: i, games: [...by.values()]
+          .sort((a, b) => b.macs.length - a.macs.length || a.slug.localeCompare(b.slug)) });
       }
     }
-    return [...count.values()].sort((a, b) => b.n - a.n || a.slug.localeCompare(b.slug));
+    return out;
+  }
+
+  /** fleet.distribute `replace` for slot i: {mac: slug} over the full rows. */
+  replaceFor(slug, i) {
+    const map = {};
+    for (const r of this.fullRows(slug)) if (r.games[i]) map[r.mac] = r.games[i][0];
+    return map;
   }
 
   endScan() {
     this.scanning = false;
   }
 
-  toggle(mac, on) {
+  /** override: allow selecting a device the game has no code for. */
+  toggle(mac, on, override = false) {
     const row = this._row(mac);
-    if (row && !this.running) row.selected = on;
+    if (!row || this.running) return;
+    if (on && !override && (!this.fits(row) || this.needsUpdate(row))) return;
+    row.selected = on;
   }
 
   selectedMacs() {
@@ -188,12 +229,17 @@ export class DistributeState {
     return macs;
   }
 
-  /** dist_progress: ok null = pushed, true = updated, false = failed. */
+  /**
+   * dist_progress: ok null = pushed, true = updated, false = failed.
+   * ok from a device that needs updating only means the file landed, so it
+   * counts as failed ("needs_update").
+   */
   applyProgress(obj) {
     const row = this._row(obj?.mac);
     if (row) {
-      row.status = obj.ok == null ? "pulling" : obj.ok ? "done" : "failed";
-      row.why = obj.ok === false ? obj.why || null : null;
+      const old = obj.ok === true && this.needsUpdate(row);
+      row.status = obj.ok == null ? "pulling" : obj.ok && !old ? "done" : "failed";
+      row.why = old ? "needs_update" : obj.ok === false ? obj.why || null : null;
     }
     if (typeof obj?.done === "number") this.done = obj.done;
     if (typeof obj?.total === "number") this.total = obj.total;
@@ -239,10 +285,15 @@ export function slotsText(games, slug) {
   return `Games ${games.length} of ${SLOT_MAX}${names.length ? ": " + names.join(", ") : ""}`;
 }
 
-function slotsLine(r, slug) {
-  const t = slotsText(r.games, slug);
-  return t ? `<span class="dist-slots${r.games.length >= SLOT_MAX ? " full" : ""}">${esc(t)}</span>` : "";
+/** Why a device is greyed out: the game has no code for its kind. */
+export function unfitText(kind, simple) {
+  const what = kind ? `${kindName(kind).toLowerCase()} code` : "code for this device";
+  return simple ? `This game has no ${what}.`
+    : `This game has no ${what}; sending will fail.`;
 }
+
+/** Why a device is greyed out: firmware from before game slots. */
+export const NEEDS_UPDATE_TEXT = "Needs a firmware update before it can get new games.";
 
 /** Card icon for a status_report kind. */
 function kindIcon(kind) {
@@ -279,7 +330,7 @@ export class DistributeOverlay {
       const b = e.target.closest("button");
       if (!b) return;
       this.picking = false;
-      if (b.dataset.slug) this.distribute(b.dataset.slug);
+      if (b.dataset.slot) this.distribute(Number(b.dataset.slot));
       else this.render();
     });
   }
@@ -289,10 +340,11 @@ export class DistributeOverlay {
   }
 
   /** Open for `slug`; waits for the teacher hub to be back from its reboot, then scans. */
-  async open(slug, prettyName) {
+  /** kinds: device kinds the game has code for (null: unknown, no filter). */
+  async open(slug, prettyName, kinds = null) {
     this.slug = slug;
     this.pretty = prettyName || "";
-    this.state = new DistributeState();
+    this.state = new DistributeState(kinds);
     this.picking = false;
     // _boxGames is the list fetched before this send; count the new game too.
     const held = (this.app._boxGames || []).map((g) => g.slug);
@@ -352,7 +404,7 @@ export class DistributeOverlay {
       d.on("dist_done", (o) => {
         this.state.finish(o);
         this._setStatus(isSimple() ? ""
-          : `${o?.ok ?? 0} of ${o?.total ?? this.state.total} ${deviceNoun(this._sentRows())} updated.`);
+          : `${this._sentRows().filter((r) => r.status === "done").length} of ${o?.total ?? this.state.total} ${deviceNoun(this._sentRows())} updated.`);
         this.render();
       }),
     ];
@@ -378,19 +430,20 @@ export class DistributeOverlay {
     }
   }
 
-  /** replace: the game full devices drop; undefined asks first if one is needed. */
-  async distribute(replace) {
-    if (replace === undefined && this.state.replaceOptions(this.slug).length) {
+  /** slot: the slot index full devices clear; undefined asks first if one is needed. */
+  async distribute(slot) {
+    if (slot === undefined && this.state.slotOptions(this.slug).length) {
       this.picking = true;
       this.render();
       return;
     }
+    const replace = slot === undefined ? null : this.state.replaceFor(this.slug, slot);
     const macs = this.state.startDistribute();
     if (!macs.length) return;
     this._setStatus(isSimple() ? "" : "Sending code…");
     this.render();
     const cmd = { cmd: "fleet.distribute", slug: this.slug, macs };
-    if (replace) cmd.replace = replace;
+    if (replace && Object.keys(replace).length) cmd.replace = replace;
     try {
       await this.device.sendCmd(cmd);
     } catch (e) {
@@ -413,7 +466,7 @@ export class DistributeOverlay {
     const mac = card?.dataset.mac;
     if (!mac) return;
     if (t.matches("input.dist-check")) {
-      this.state.toggle(mac, t.checked);
+      this.state.toggle(mac, t.checked, !isSimple());
       this.render();
     } else if (t.closest(".dist-find")) {
       this.device.sendCmd({ cmd: "fleet.find", mac })
@@ -422,7 +475,7 @@ export class DistributeOverlay {
       this._editName(card, mac);
     } else if (!t.closest("button, input")) {
       const row = this.state._row(mac);
-      this.state.toggle(mac, !row?.selected);
+      this.state.toggle(mac, !row?.selected, !isSimple());
       this.render();
     }
   }
@@ -472,15 +525,22 @@ export class DistributeOverlay {
       const nick = getNickname(r.mac);
       const name = nick || label;
       const sub = nick ? `${label} · ${kindName(r.kind)}` : kindName(r.kind);
+      const unfit = !s.fits(r);
+      const old = s.needsUpdate(r);
+      // Simple mode cannot pick a device the game has no code for, or one
+      // whose firmware predates game slots.
+      const locked = (unfit || old) && isSimple() && !r.selected;
       const card = document.createElement("div");
-      card.className = `dcard${r.selected && !r.status ? " sel" : ""}${r.status ? ` dist-${r.status}` : ""}`;
+      card.className = `dcard${r.selected && !r.status ? " sel" : ""}${r.status ? ` dist-${r.status}` : ""}`
+        + `${(unfit || old) && !r.status ? " dist-unfit" : ""}`;
       card.dataset.mac = r.mac;
       const color = r.status === "failed" ? "#b0281c" : r.status === "done" ? "#1c9a82"
         : r.status ? "#6c4cd1" : r.selected ? "#231f2e" : "#c9c4dc";
       let tail;
       if (r.status) {
         tail = `<span class="dstatus dstatus-${r.status}" title="${esc(r.why || "")}">`
-          + `${iconSvg(STATUS_GLYPH[r.status], { size: 22, strokeWidth: 2.5 })}${STATUS_TEXT[r.status]}</span>`;
+          + `${iconSvg(STATUS_GLYPH[r.status], { size: 22, strokeWidth: 2.5 })}`
+          + `${r.why === "needs_update" ? "Needs update" : STATUS_TEXT[r.status]}</span>`;
       } else {
         const batt = r.battery == null ? ""
           : `<span class="dbatt">${iconSvg("battery", { size: 20, strokeWidth: 2 })}${r.battery}%</span>`;
@@ -490,9 +550,10 @@ export class DistributeOverlay {
       const detail = r.status
         ? `<div class="dbar"><div class="dbar-fill dbar-${r.status}"></div></div>`
         : `<span>${esc(sub)}${r.role === "splat_host" ? " · Splat host" : ""} <span class="dist-sig dist-sig-${signalLevel(r.rssi)}" title="${r.rssi ?? "?"} dBm"><i></i><i></i><i></i></span></span>`
-          + slotsLine(r, this.slug);
+          + (unfit ? `<span class="dist-unfit-note">${esc(unfitText(r.kind, isSimple()))}</span>`
+            : old ? `<span class="dist-unfit-note">${esc(NEEDS_UPDATE_TEXT)}</span>` : "");
       card.innerHTML =
-        `<input type="checkbox" class="dist-check" ${r.selected ? "checked" : ""} ${r.status ? "hidden" : ""} aria-label="Send to ${esc(name)}">`
+        `<input type="checkbox" class="dist-check" ${r.selected ? "checked" : ""} ${r.status ? "hidden" : ""} ${locked ? "disabled" : ""} aria-label="Send to ${esc(name)}">`
         + `<span class="dicon" style="color:${color}">${iconSvg(kindIcon(r.kind), { size: 36, strokeWidth: 2 })}</span>`
         + `<div class="dname"><div class="dname-row"><b title="${esc(r.mac)}">${esc(name)}</b>`
         + (r.status ? "" : `<button type="button" class="dist-rename" title="Rename (saved in this browser)" aria-label="Rename ${esc(name)}">✎</button>`)
@@ -506,15 +567,29 @@ export class DistributeOverlay {
     const box = this.el("dist-replace");
     box.classList.toggle("hidden", !this.picking);
     if (!this.picking) return;
-    const full = this.state.fullRows(this.slug).length;
-    const opts = this.state.replaceOptions(this.slug);
-    box.innerHTML = `<p>${full} ${full === 1 ? "device is" : "devices are"} full (${SLOT_MAX} games). `
-      + `Which game should ${this.pretty ? esc(this.pretty) : "the new game"} replace?</p>`
-      + opts.map((o) => `<button type="button" class="btn-secondary" data-slug="${esc(o.slug)}">`
-        + `${esc(o.slug)}${MODE_LABEL[o.mode] ? ` (${MODE_LABEL[o.mode]})` : ""}`
-        + `${full > 1 ? ` · on ${o.n}` : ""}</button>`).join("")
-      + `<button type="button" class="btn-text">Cancel</button>`
-      + (full > 1 ? `<p class="dist-replace-hint">Devices without that game drop their oldest one.</p>` : "");
+    const rows = this.state.fullRows(this.slug);
+    const full = rows.length;
+    const noun = deviceNoun(rows);
+    const one = noun.replace(/s$/, "");
+    const what = this.pretty ? esc(this.pretty) : "the new game";
+    const opts = this.state.slotOptions(this.slug);
+    const name = (r) => getNickname(r.mac) || deviceLabel(r.mac, r.kind);
+    const rowsByMac = new Map(rows.map((r) => [r.mac, r]));
+    const nice = (g) => esc(String(g).replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()));
+    box.innerHTML = `<div class="dist-replace-head">`
+      + `<h3>${full === 1 ? `This ${one} is full` : `${full} ${noun} are full`}</h3>`
+      + `<p>Each ${one} holds ${SLOT_MAX} games. Pick a slot to clear for ${what}.</p></div>`
+      + `<div class="dist-replace-list">`
+      + opts.map((o) => `<button type="button" class="dist-replace-opt${o.games.some((g) => g.mode === "x") ? " broken" : ""}" data-slot="${o.index}">`
+        + `<span class="dist-replace-slot">Slot ${o.index + 1}${o.index === 0 ? " · oldest" : ""}</span>`
+        + `<span class="dist-replace-label">Removes:</span>`
+        + o.games.map((g) => `<span class="dist-replace-game"><span class="dist-replace-name">${nice(g.slug)}</span>`
+          + `<span class="dist-replace-count">${full > 1 && g.macs.length === full ? `on all ${full}`
+            : `on ${esc(g.macs.map((m) => name(rowsByMac.get(m))).join(", "))}`}</span></span>`).join("")
+        + (o.games.some((g) => g.mode === "x") ? `<span class="dist-replace-tag">Has a broken game</span>` : "")
+        + `</button>`).join("")
+      + `</div>`
+      + `<div class="dist-replace-foot"><button type="button" class="btn-secondary btn-compact">Cancel</button></div>`;
   }
 
   render() {
