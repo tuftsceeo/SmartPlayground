@@ -313,7 +313,21 @@ await test('mcp: adapter opens the controller and feeds lines to the reader', as
 
 await test('mcp: no controller plugged in gives a plain message', async () => {
     const a = new McpSerialAdapter(fakeMcp({ ports: [] }), { idleMs: 5 });
-    await assert.rejects(a.connect(), /No controller found/);
+    await assert.rejects(a.connect(), /No USB ports found/);
+});
+
+await test('mcp: Connect asks which port, and Cancel opens nothing', async () => {
+    const mcp = fakeMcp();
+    let offered;
+    const a = new McpSerialAdapter(mcp, { idleMs: 5, choosePort: async (ports, suggested) => { offered = { ports, suggested }; return '/dev/cu.debug'; } });
+    await a.connect();
+    assert.equal(offered.ports.length, 2);
+    assert.equal(offered.suggested, '/dev/cu.usbmodem1101');
+    assert.equal(a.path, '/dev/cu.debug');
+    await a.disconnect();
+    const b = new McpSerialAdapter(fakeMcp(), { idleMs: 5, choosePort: async () => null });
+    await assert.rejects(b.connect(), /No port selected/);
+    assert.equal(b.isConnected(), false);
 });
 
 await test('mcp: kit goes real when the extension answers, and talks to the Dial', async () => {

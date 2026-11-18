@@ -45,10 +45,70 @@ export function pickPort(ports) {
     return m5 || ports.find(p => ESPRESSIF.test(p.vendorId || '')) || null;
 }
 
+const PORT_KEY = 'coderkit.serialPort';
+function rememberedPort(ports) {
+    try { const p = localStorage.getItem(PORT_KEY); return ports.some(x => x.path === p) ? p : null; } catch { return null; }
+}
+function rememberPort(path) { try { localStorage.setItem(PORT_KEY, path); } catch { /* no storage */ } }
+
+/**
+ * The port chooser Connect shows (like Chrome's serial picker): every port,
+ * the likely controller preselected, the last choice remembered. Without a
+ * page (tests, Node) it takes the suggestion.
+ */
+export function defaultChoosePort(ports, suggested) {
+    if (typeof document === 'undefined') return Promise.resolve(suggested);
+    return new Promise((resolve) => {
+        const wrap = document.createElement('div');
+        wrap.setAttribute('role', 'dialog');
+        wrap.setAttribute('aria-label', 'Choose the controller port');
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);font:14px/1.4 system-ui,sans-serif';
+        const box = document.createElement('div');
+        box.style.cssText = 'background:#fff;color:#111;border-radius:12px;padding:16px;width:min(420px,calc(100vw - 32px));box-shadow:0 10px 30px rgba(0,0,0,.3)';
+        const h = document.createElement('div');
+        h.textContent = 'Choose the controller\'s USB port';
+        h.style.cssText = 'font-weight:700;font-size:16px;margin-bottom:8px';
+        const list = document.createElement('div');
+        list.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto';
+        let chosen = suggested;
+        for (const p of ports) {
+            const row = document.createElement('label');
+            row.style.cssText = 'display:flex;gap:8px;align-items:flex-start;padding:8px;border:1px solid #ddd;border-radius:8px;cursor:pointer';
+            const r = document.createElement('input');
+            r.type = 'radio'; r.name = 'coderkit-port'; r.value = p.path; r.checked = p.path === suggested;
+            r.onchange = () => { chosen = p.path; };
+            const t = document.createElement('span');
+            const extra = [p.manufacturer, p.vendorId && `USB ${p.vendorId}:${p.productId || '?'}`].filter(Boolean).join(' · ');
+            t.textContent = p.path + (extra ? '\n' + extra : '') + (p.path === suggested ? '\n(looks like a controller)' : '');
+            t.style.whiteSpace = 'pre-line';
+            row.append(r, t);
+            row.ondblclick = () => done(p.path);
+            list.appendChild(row);
+        }
+        const btns = document.createElement('div');
+        btns.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:12px';
+        const mk = (label, primary) => { const b = document.createElement('button'); b.textContent = label; b.style.cssText = `padding:8px 14px;border-radius:8px;border:1px solid ${primary ? '#d13a7c' : '#bbb'};background:${primary ? '#d13a7c' : '#fff'};color:${primary ? '#fff' : '#111'};font-weight:600;cursor:pointer`; return b; };
+        const cancel = mk('Cancel'), ok = mk('Connect', true);
+        const done = (v) => { wrap.remove(); document.removeEventListener('keydown', key); resolve(v); };
+        const key = (e) => { if (e.key === 'Escape') done(null); };
+        cancel.onclick = () => done(null);
+        ok.onclick = () => done(chosen || null);
+        wrap.onclick = (e) => { if (e.target === wrap) done(null); };
+        document.addEventListener('keydown', key);
+        btns.append(cancel, ok);
+        box.append(h, list, btns);
+        wrap.appendChild(box);
+        document.body.appendChild(wrap);
+        ok.focus();
+    });
+}
+
 export class McpSerialAdapter extends SerialAdapter {
     /** @param mcp the `mcp` namespace (or any object with callTool(server, tool, input, opts)) */
-    constructor(mcp, { server = MCP_SERVER, idleMs = 600 } = {}) {
+    /** choosePort(ports, suggested) resolves a path, or null when cancelled. */
+    constructor(mcp, { server = MCP_SERVER, idleMs = 600, choosePort = defaultChoosePort } = {}) {
         super();
+        this.choosePort = choosePort;
         this.mcp = mcp;
         this.server = server;
         this.idleMs = idleMs;
@@ -73,9 +133,11 @@ export class McpSerialAdapter extends SerialAdapter {
         const st = await this._call('status');
         this.longPoll = versionAtLeast(st?.version, '0.1.1');
         const { ports = [] } = await this._call('list_ports');
-        const p = pickPort(ports);
-        if (!p) throw new Error('No controller found. Plug the Dial or Box in with USB, then click Connect again.');
-        await this._open(p.path, opts.baudRate ?? 115200);
+        if (!ports.length) throw new Error('No USB ports found. Plug the Dial or Box in with USB, then click Connect again.');
+        const path = opts.path || await this.choosePort(ports, rememberedPort(ports) || pickPort(ports)?.path || ports[0].path);
+        if (!path) throw new Error('No port selected.');
+        await this._open(path, opts.baudRate ?? 115200);
+        rememberPort(path);
     }
 
     async _open(path, baud) {

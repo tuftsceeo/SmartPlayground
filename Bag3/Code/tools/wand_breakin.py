@@ -1,4 +1,6 @@
 """
+OLD STALE DO NOT USE --- break in should NOT BE NEEDED for a wand with the latest firmware. Use mpremote instead.
+
 wand_breakin.py -- get into a running Bag3 wand and copy files, in ONE port session.
 
 Host-side tool. Not firmware; never upload this to a device.
