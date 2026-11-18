@@ -177,11 +177,25 @@
   }
 
   // ---- workspace ----
+  function busyDots() {
+    // Three bouncing dots while Claude is replying.
+    const s = document.createElement('span');
+    s.className = 'inline-flex gap-1 align-middle ml-1';
+    s.setAttribute('aria-label', 'Claude is replying');
+    for (const delay of ['0ms', '150ms', '300ms']) {
+      const b = document.createElement('span');
+      b.className = 'w-2 h-2 rounded-full bg-gray-400 animate-bounce';
+      b.style.animationDelay = delay;
+      s.appendChild(b);
+    }
+    return s;
+  }
   function renderChat(s) {
     const log = q('[data-kit=chat-log]'); log.textContent = '';
     for (const m of s.messages) {
-      const d = el('div', 'whitespace-pre-wrap ' + (m.role === 'user' ? 'text-right' : m.role === 'system' ? 'text-gray-500 text-sm' : ''), m.text || (m.streaming ? '…' : ''));
+      const d = el('div', 'whitespace-pre-wrap ' + (m.role === 'user' ? 'text-right' : m.role === 'system' ? 'text-gray-500 text-sm' : ''), m.text || '');
       if (m.code) d.textContent += '\n\n[Game code ready: ' + Object.keys(m.code).join(', ') + ']';
+      if (m.streaming) d.appendChild(busyDots());
       log.appendChild(d);
       if (m.brief && s.brief === m.brief) {
         const make = el('button', 'border px-2 mt-1', 'Make this game');

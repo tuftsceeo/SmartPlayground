@@ -1,0 +1,446 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Vaporwave Playground IDE</title>
+<style>html,body{height:100%;margin:0;background:#fff;color:#111}</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap">
+<style id="vaporwave-theme">
+  /* Vaporwave theme: overrides default Tailwind classes used by the layout. */
+  :root{--vw-pink:#ff71ce;--vw-cyan:#01cdfe;--vw-mint:#05ffa1;--vw-purple:#b967ff;--vw-yellow:#fffb96;--vw-deep:#1a0933;--vw-panel:rgba(36,12,66,.82)}
+  html,body{background:var(--vw-deep)!important;color:#f4e9ff!important;font-family:'VT323',monospace!important;font-size:18px}
+  body::before{content:'';position:fixed;inset:0;z-index:-2;background:linear-gradient(180deg,#2b0b4f 0%,#7a1f86 45%,#ff71ce 62%,#1a0933 62.2%,#0d0420 100%)}
+  body::after{content:'';position:fixed;left:-50%;right:-50%;bottom:0;height:38%;z-index:-1;background-image:linear-gradient(var(--vw-cyan) 2px,transparent 2px),linear-gradient(90deg,var(--vw-cyan) 2px,transparent 2px);background-size:60px 40px;transform:perspective(300px) rotateX(60deg);transform-origin:bottom;opacity:.35;animation:vw-grid 3s linear infinite}
+  @keyframes vw-grid{to{background-position:0 40px}}
+  .bg-white,.dark\:bg-gray-900{background:transparent!important;color:#f4e9ff!important}
+  .bg-gray-100{background:rgba(185,103,255,.25)!important}
+  .text-gray-900,.text-gray-600{color:#f4e9ff!important}
+  .text-gray-500{color:var(--vw-cyan)!important}
+  .text-red-600,.text-red-700{color:#ff4f7b!important}
+  .text-green-700{color:var(--vw-mint)!important}
+  .border,.border-b,.border-t,.border-r{border-color:var(--vw-pink)!important}
+  header{background:linear-gradient(90deg,#ff71ce,#b967ff 50%,#01cdfe);border-bottom:3px solid var(--vw-yellow)!important;box-shadow:0 4px 20px rgba(255,113,206,.6)}
+  header #status{color:#1a0933!important;font-weight:bold}
+  #go-home{font-family:'Press Start 2P',monospace!important;font-size:13px;color:#fff!important;text-shadow:2px 2px 0 #b967ff;letter-spacing:1px;padding:6px 10px;background:#1a0933;text-transform:none}
+  #go-home::after{content:' ヴェイパー';font-family:sans-serif;font-size:11px;text-shadow:none;color:var(--vw-yellow)}
+  button{font-family:'VT323',monospace!important;font-size:18px;background:linear-gradient(180deg,#3a1466,#1a0933);color:var(--vw-mint)!important;border:2px solid var(--vw-cyan)!important;box-shadow:3px 3px 0 var(--vw-pink);transition:transform .08s,box-shadow .08s;text-transform:uppercase}
+  button:hover{color:var(--vw-yellow)!important;box-shadow:0 0 12px var(--vw-cyan),3px 3px 0 var(--vw-pink)}
+  button:active{transform:translate(3px,3px);box-shadow:none}
+  button:disabled{opacity:.4}
+  header button{background:#1a0933}
+  input,textarea,select{background:rgba(13,4,32,.85)!important;color:var(--vw-mint)!important;border:2px solid var(--vw-purple)!important;font-family:'VT323',monospace!important;font-size:18px;caret-color:var(--vw-pink)}
+  input::placeholder,textarea::placeholder{color:#b967ff}
+  input:focus,textarea:focus,select:focus{outline:none;box-shadow:0 0 10px var(--vw-pink)}
+  #code{font-size:15px!important;line-height:1.35}
+  h2{font-family:'Press Start 2P',monospace;font-size:13px!important;color:var(--vw-yellow);text-shadow:2px 2px 0 var(--vw-pink)}
+  #home{background:transparent}
+  #example-list li,#saved-list li{background:var(--vw-panel);border:2px solid var(--vw-cyan)!important;box-shadow:5px 5px 0 var(--vw-purple)}
+  #example-list li .font-bold{color:var(--vw-pink);font-size:20px}
+  #work>div,[data-pane],#dist,#log-panel{background:var(--vw-panel)}
+  [data-kit=chat-log]>div{padding:4px 8px;border-left:3px solid var(--vw-cyan)}
+  [data-kit=chat-log]>div.text-right{border-left:none;border-right:3px solid var(--vw-pink);color:var(--vw-yellow)}
+  nav [data-tab].font-bold{background:var(--vw-pink);color:#1a0933!important}
+  #log{color:var(--vw-mint);text-shadow:0 0 4px var(--vw-mint)}
+  #toasts>div{background:#1a0933!important;border:2px solid var(--vw-pink)!important}
+  ::selection{background:var(--vw-pink);color:#1a0933}
+
+  /* ---- Extras: CRT scanlines, retro sun, palm trees, Win95 window frames ---- */
+  #vw-scanlines{position:fixed;inset:0;pointer-events:none;z-index:60;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px);mix-blend-mode:multiply;animation:vw-flicker 6s steps(60) infinite}
+  #vw-scanlines::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 60%,rgba(10,0,30,.55) 100%)}
+  @keyframes vw-flicker{0%,100%{opacity:.85}50%{opacity:.7}}
+  #vw-sun{position:fixed;left:50%;bottom:30%;width:340px;height:340px;margin-left:-170px;z-index:-1;border-radius:50%;pointer-events:none;
+    background:linear-gradient(180deg,#fffb96 0%,#ff9a8b 45%,#ff71ce 75%);
+    -webkit-mask:linear-gradient(180deg,#000 0 52%,transparent 52% 56%,#000 56% 64%,transparent 64% 69%,#000 69% 76%,transparent 76% 82%,#000 82% 87%,transparent 87% 94%,#000 94%);
+            mask:linear-gradient(180deg,#000 0 52%,transparent 52% 56%,#000 56% 64%,transparent 64% 69%,#000 69% 76%,transparent 76% 82%,#000 82% 87%,transparent 87% 94%,#000 94%);
+    filter:drop-shadow(0 0 30px #ff71ce)}
+  .vw-palm{position:fixed;bottom:0;z-index:-1;width:220px;height:360px;pointer-events:none;opacity:.9}
+  .vw-palm.l{left:-20px}.vw-palm.r{right:-20px;transform:scaleX(-1)}
+  /* Win95 frames */
+  #home [data-kit=examples],#home [data-kit=saved-games],#work>div,#dist,#log-panel{position:relative;border:3px solid!important;border-color:#fff #4a1a6e #4a1a6e #fff!important;box-shadow:inset -2px -2px 0 #7a3fa0,inset 2px 2px 0 #e7c6ff}
+  #home [data-kit=examples],#home [data-kit=saved-games]{background:var(--vw-panel);padding:34px 12px 12px}
+  #home [data-kit=examples]::before,#home [data-kit=saved-games]::before,#work>div::before,#dist::before,#log-panel::before{
+    content:attr(data-vw-title);position:absolute;top:0;left:0;right:0;height:24px;padding:0 8px;display:flex;align-items:center;
+    font:12px 'Press Start 2P',monospace;color:#fff;background:linear-gradient(90deg,#000080,#b967ff 60%,#ff71ce);z-index:2}
+  #home [data-kit=examples]::after,#home [data-kit=saved-games]::after,#work>div::after,#dist::after,#log-panel::after{
+    content:'_ \25A1 \2715';position:absolute;top:3px;right:6px;font:12px monospace;letter-spacing:4px;color:#1a0933;background:#c0c0c0;padding:0 4px;border:2px outset #fff;z-index:3}
+  #work>div,#dist,#log-panel{padding-top:24px}
+  #home:not(.hidden){display:flex;flex-direction:column;gap:20px}
+  ::-webkit-scrollbar{width:10px}::-webkit-scrollbar-thumb{background:linear-gradient(var(--vw-pink),var(--vw-cyan))}::-webkit-scrollbar-track{background:#1a0933}
+</style>
+<meta name="coderkit-simulator">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+  /* Vaporwave theme for the simulator's shadow DOM (<wand-sim>, <sim-room>):
+     adds one stylesheet to every open shadow root created after this point. */
+  (function () {
+    const VW_SHADOW_CSS = `
+      :host{--wand-bg:rgba(26,9,51,.92);--wand-fg:#f4e9ff;--wand-font:'VT323',monospace;--wand-radius:0;--wand-shadow:0 0 24px #ff71ce,inset 0 0 0 2px #01cdfe}
+      *{font-family:'VT323',monospace!important}
+      .wand-case{background:linear-gradient(105deg,#ff71ce 0%,#b967ff 50%,#01cdfe 100%)!important;box-shadow:0 0 28px rgba(255,113,206,.8),0 0 60px rgba(1,205,254,.4),inset 0 2px 0 rgba(255,255,255,.6)!important}
+      .wand-back{background:linear-gradient(105deg,#b967ff,#ff71ce 60%,#fffb96)!important}
+      .wand-face{background:linear-gradient(180deg,#1a0933 0%,#3a1466 100%)!important;background-image:linear-gradient(rgba(1,205,254,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(1,205,254,.18) 1px,transparent 1px),linear-gradient(180deg,#1a0933,#3a1466)!important;background-size:12px 12px,12px 12px,auto!important}
+      .pad{background:radial-gradient(circle at 50% 40%,#3a1466,#1a0933 70%)!important;border-color:#01cdfe!important}
+      .pad-ring{border-color:#ff71ce!important;box-shadow:0 0 16px #ff71ce}
+      .box{background:rgba(26,9,51,.9)!important;border:2px solid #01cdfe!important;border-radius:0!important;box-shadow:4px 4px 0 #ff71ce}
+      .ov-card{background:#1a0933!important;border:3px solid #01cdfe!important;border-radius:0!important;box-shadow:6px 6px 0 #ff71ce,0 0 30px #b967ff!important}
+      .ov-title{color:#ff71ce!important;text-shadow:2px 2px 0 #01cdfe;font-size:28px!important}
+      .ov-sub,.zero-state,.uses-row{color:#01cdfe!important}
+      .ov-tint{border-radius:0!important;background:#b967ff!important;color:#fffb96!important}
+      .ov-btn,.btn-stack,.icon-btn,.btn-pink,.btn-purple,.drawer-toggle{border-radius:0!important;background:#1a0933!important;color:#05ffa1!important;border:2px solid #01cdfe!important;box-shadow:3px 3px 0 #ff71ce!important;text-transform:uppercase;font-size:16px!important}
+      .ov-btn.pink,.btn-pink{background:linear-gradient(90deg,#ff71ce,#b967ff)!important;color:#fff!important}
+      .ov-btn:hover,.btn-stack:hover,.icon-btn:hover{color:#fffb96!important;box-shadow:0 0 12px #01cdfe,3px 3px 0 #ff71ce!important}
+      .btn-stack.is-active,.icon-btn.is-active{background:#ff71ce!important;color:#1a0933!important}
+      .field{background:#0d0420!important;color:#05ffa1!important;border:2px solid #b967ff!important;border-radius:0!important}
+      .status,.axis-val,.shake-val,.dial-row label,.shake-strength>span:first-child,.axis-name{color:#f4e9ff!important}
+      .axis-track{background:#3a1466!important;border-radius:0!important}
+      .axis-fill{background:linear-gradient(90deg,#01cdfe,#ff71ce)!important;border-radius:0!important}
+      .status-dot{background:#05ffa1!important;box-shadow:0 0 6px #05ffa1}
+      input[type=range]{accent-color:#ff71ce}
+    `;
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(VW_SHADOW_CSS);
+    const attach = Element.prototype.attachShadow;
+    Element.prototype.attachShadow = function (init) {
+      const root = attach.call(this, init);
+      if (/^(WAND-SIM|SIM-ROOM)$/.test(this.tagName)) root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
+      return root;
+    };
+  })();
+</script>
+<script src="coderkit.js"></script>
+<div id="vw-sun" aria-hidden="true"></div>
+<svg class="vw-palm l" viewBox="0 0 220 360" aria-hidden="true"><g fill="#1a0933" stroke="#ff71ce" stroke-width="2"><path d="M110 360 C104 280 96 200 112 120 L120 122 C106 200 116 280 124 360Z"/><path d="M114 120 C80 90 40 96 4 130 C44 108 80 110 114 124Z"/><path d="M114 120 C150 86 190 92 216 126 C180 106 146 110 116 126Z"/><path d="M114 118 C100 76 70 50 30 46 C70 66 92 92 112 124Z"/><path d="M116 118 C130 74 160 50 200 50 C160 70 136 94 118 124Z"/><path d="M114 118 C112 80 118 40 136 10 C126 46 122 84 118 122Z"/></g></svg>
+<svg class="vw-palm r" viewBox="0 0 220 360" aria-hidden="true"><g fill="#1a0933" stroke="#01cdfe" stroke-width="2"><path d="M110 360 C104 280 96 200 112 120 L120 122 C106 200 116 280 124 360Z"/><path d="M114 120 C80 90 40 96 4 130 C44 108 80 110 114 124Z"/><path d="M114 120 C150 86 190 92 216 126 C180 106 146 110 116 126Z"/><path d="M114 118 C100 76 70 50 30 46 C70 66 92 92 112 124Z"/><path d="M116 118 C130 74 160 50 200 50 C160 70 136 94 118 124Z"/></g></svg>
+<div id="vw-scanlines" aria-hidden="true"></div>
+<div class="h-full flex flex-col bg-white text-gray-900">
+  <!--
+    A full Playground Coder front end: every kit part in plain default
+    Tailwind. Start here and remove, rearrange or restyle. The host page
+    provides window.kit; parts carry data-kit attributes.
+  -->
+  <header class="flex flex-wrap items-center gap-2 p-2 border-b">
+    <button id="go-home" class="font-bold">Playground Coder</button>
+    <input data-kit="game-name" class="border px-1 w-40" placeholder="Game name">
+    <span class="flex-1"></span>
+    <span id="status" class="text-sm text-gray-500">Not connected</span>
+    <button data-kit="connect" class="border px-2 py-1">Connect</button>
+    <button data-kit="send-to-device" class="border px-2 py-1">Send to controller</button>
+    <button id="open-distribute" class="border px-2 py-1">Distribute</button>
+    <button id="save" class="border px-2 py-1">Save</button>
+    <button id="log-toggle" class="border px-2 py-1">Log</button>
+  </header>
+
+  <!-- Home: new game, interview, examples, saved -->
+  <section data-kit="home" id="home" class="flex-1 overflow-auto p-4 space-y-6">
+    <div class="flex flex-wrap gap-2">
+      <button id="home-new" class="border px-3 py-2">New game</button>
+      <button id="home-interview" class="border px-3 py-2">Plan a game with questions</button>
+    </div>
+    <div data-kit="examples" data-vw-title="EXAMPLES.EXE">
+      <h2 class="font-bold mb-2">Examples</h2>
+      <div id="example-cats" class="flex gap-2 mb-2 flex-wrap"></div>
+      <ul id="example-list" class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"></ul>
+    </div>
+    <div data-kit="saved-games" data-vw-title="MY_GAMES.DAT">
+      <h2 class="font-bold mb-2">Saved games</h2>
+      <ul id="saved-list" class="space-y-1"></ul>
+    </div>
+  </section>
+
+  <!-- Workspace: chat on the left, simulator / code / controller on the right -->
+  <section id="work" class="hidden flex-1 flex min-h-0">
+    <div class="w-full md:w-1/2 flex flex-col border-r min-w-0" data-vw-title="CHAT.EXE">
+      <div data-kit="interview" id="interview-bar" class="hidden px-2 py-1 text-sm bg-gray-100 flex gap-2 items-center">
+        <span id="interview-count" class="flex-1"></span>
+        <button id="interview-done" class="border px-2">Make my game now</button>
+        <button id="interview-cancel" class="border px-2">Stop</button>
+      </div>
+      <main data-kit="chat-log" class="flex-1 overflow-auto p-2 space-y-2"></main>
+      <p id="error" class="text-red-600 px-2 text-sm"></p>
+      <div data-kit="choices" id="choices" class="flex gap-2 px-2 flex-wrap"></div>
+      <form class="flex gap-2 p-2 border-t">
+        <textarea data-kit="chat-input" rows="2" class="flex-1 border p-1" placeholder="Describe a game…"></textarea>
+        <button data-kit="chat-send" class="border px-3">Send</button>
+      </form>
+    </div>
+    <div class="hidden md:flex w-1/2 flex-col min-w-0" data-vw-title="SIMULATOR.EXE">
+      <nav class="flex border-b text-sm">
+        <button data-tab="sim" class="px-3 py-1 border-r">Simulator</button>
+        <button data-tab="code" class="px-3 py-1 border-r">Code</button>
+        <button data-tab="device" class="px-3 py-1 border-r">Controller</button>
+      </nav>
+      <div data-pane="sim" class="flex-1 min-h-0 flex flex-col">
+        <div data-kit="simulator" id="sim" class="flex-1 min-h-0 flex items-center justify-center text-gray-500 text-sm p-4"></div>
+        <button id="sim-fix" class="hidden border m-2 px-2 py-1 text-sm">Ask Claude to fix the simulator error</button>
+      </div>
+      <div data-pane="code" data-kit="code-view" class="hidden flex-1 min-h-0 flex flex-col">
+        <div class="flex items-center gap-2 p-1 text-sm">
+          <select id="code-role" class="border"></select>
+          <button id="v-prev" class="border px-2">‹</button>
+          <span id="v-label" class="text-gray-500"></span>
+          <button id="v-next" class="border px-2">›</button>
+        </div>
+        <textarea id="code" class="flex-1 font-mono text-xs border-t p-2" spellcheck="false"></textarea>
+      </div>
+      <div data-pane="device" data-kit="device-panel" class="hidden flex-1 overflow-auto p-2 text-sm space-y-2">
+        <p id="device-summary" class="text-gray-500"></p>
+        <button id="device-refresh" class="border px-2">Refresh</button>
+        <ul id="device-games" class="space-y-1"></ul>
+        <div id="tag-writes"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Distribute drawer -->
+  <section data-kit="distribute" id="dist" data-vw-title="DISTRIBUTE.EXE" class="hidden border-t p-2 text-sm space-y-2 max-h-72 overflow-auto">
+    <div class="flex items-center gap-2">
+      <strong class="flex-1" id="dist-title">Distribute</strong>
+      <button id="dist-scan" class="border px-2">Scan again</button>
+      <button id="dist-send" class="border px-2">Send to selected</button>
+      <button id="dist-close" class="border px-2">Close</button>
+    </div>
+    <p id="dist-status" class="text-gray-500"></p>
+    <div id="dist-slots" class="flex gap-2 flex-wrap"></div>
+    <ul id="dist-rows" class="space-y-1"></ul>
+  </section>
+
+  <!-- Log drawer -->
+  <section data-kit="log" id="log-panel" data-vw-title="ACTIVITY.LOG" class="hidden border-t h-48 flex flex-col">
+    <div class="flex items-center gap-2 px-2 py-1 text-sm text-gray-500">
+      <span class="flex-1">Activity</span>
+      <label><input id="log-device" type="checkbox"> controller and simulator messages</label>
+      <button id="log-clear" class="border px-2">Clear</button>
+    </div>
+    <pre id="log" class="flex-1 overflow-auto px-2 text-xs font-mono"></pre>
+  </section>
+  <div id="toasts" class="fixed bottom-20 right-4 flex flex-col gap-2 items-end pointer-events-none"></div>
+
+<script>
+  const q = s => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const LINK = { idle: 'Not connected', opening: 'Connecting…', live: 'Connected', sending: 'Sending…' };
+  let view = 'home', tab = 'sim', role = 'wand', category = 'all', simMounted = false;
+
+  function show(v) {
+    view = v;
+    q('#home').classList.toggle('hidden', v !== 'home');
+    q('#work').classList.toggle('hidden', v !== 'work');
+    if (v === 'work' && !simMounted) { simMounted = true; kit.mountSimulator(q('#sim')); }
+    render(kit.state);
+  }
+  function showTab(t) {
+    tab = t;
+    document.querySelectorAll('[data-pane]').forEach(p => p.classList.toggle('hidden', p.dataset.pane !== t));
+    document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('font-bold', b.dataset.tab === t));
+  }
+
+  // ---- toasts and log ----
+  let seen = kit.state.log.length ? kit.state.log[kit.state.log.length - 1].id : 0;
+  function toast(line) {
+    const d = el('div', 'border rounded px-3 py-2 bg-white shadow text-sm ' + (line.level === 'error' ? 'text-red-700 border-red-300' : 'text-green-700 border-green-300'), line.text);
+    q('#toasts').appendChild(d);
+    setTimeout(() => d.remove(), line.level === 'error' ? 6000 : 3000);
+  }
+  function renderLog(s) {
+    for (const l of s.log) if (l.id > seen && (l.level === 'ok' || l.level === 'error')) toast(l);
+    if (s.log.length) seen = s.log[s.log.length - 1].id;
+    const box = q('#log'), atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 4;
+    box.textContent = s.log.filter(l => q('#log-device').checked || l.level !== 'device')
+      .map(l => new Date(l.t).toLocaleTimeString() + '  ' + (l.level === 'error' ? '✗ ' : l.level === 'ok' ? '✓ ' : '  ') + l.text).join('\n');
+    if (atEnd) box.scrollTop = box.scrollHeight;
+    q('#sim-fix').classList.toggle('hidden', !s.log.some(l => l.level === 'error' && l.text.startsWith('Simulator:') && l.id > (window.fixedAt || 0)));
+  }
+
+  // ---- home ----
+  function renderHome() {
+    const { categories, list } = kit.examples();
+    const cats = q('#example-cats'); cats.textContent = '';
+    for (const c of categories) {
+      const b = el('button', 'border rounded px-2 text-sm' + (c.id === category ? ' font-bold' : ''), c.label);
+      b.onclick = () => { category = c.id; renderHome(); };
+      cats.appendChild(b);
+    }
+    const ul = q('#example-list'); ul.textContent = '';
+    for (const ex of list.filter(e => category === 'all' || e.category === category)) {
+      const li = el('li', 'border p-2 space-y-1');
+      li.append(el('div', 'font-bold', ex.name), el('div', 'text-sm text-gray-600', ex.description), el('div', 'text-xs text-gray-500', ex.tagNote || ''));
+      const open = el('button', 'border px-2 text-sm mr-1', 'Open');
+      open.onclick = async () => { await kit.openExample(ex.id); show('work'); };
+      const remix = el('button', 'border px-2 text-sm', 'Remix');
+      remix.onclick = async () => { await kit.remixExample(ex.id); show('work'); };
+      li.append(open, remix);
+      ul.appendChild(li);
+    }
+    const saved = q('#saved-list'); saved.textContent = '';
+    const games = kit.saved();
+    if (!games.length) saved.appendChild(el('li', 'text-gray-500 text-sm', 'Nothing saved yet.'));
+    for (const g of games) {
+      const li = el('li', 'flex gap-2 items-center');
+      const open = el('button', 'underline flex-1 text-left', g.name);
+      open.onclick = async () => { await kit.openSaved(g.id); show('work'); };
+      const del = el('button', 'border px-2 text-sm', 'Delete');
+      del.onclick = () => { if (del.textContent === 'Delete') { del.textContent = 'Really delete?'; return; } kit.deleteSaved(g.id); };
+      li.append(open, el('span', 'text-xs text-gray-500', new Date(g.updatedAt).toLocaleDateString()), del);
+      saved.appendChild(li);
+    }
+  }
+
+  // ---- workspace ----
+  function busyDots() {
+    // Three bouncing dots while Claude is replying.
+    const s = document.createElement('span');
+    s.className = 'inline-flex gap-1 align-middle ml-1';
+    s.setAttribute('aria-label', 'Claude is replying');
+    for (const delay of ['0ms', '150ms', '300ms']) {
+      const b = document.createElement('span');
+      b.className = 'w-2 h-2 rounded-full bg-gray-400 animate-bounce';
+      b.style.animationDelay = delay;
+      s.appendChild(b);
+    }
+    return s;
+  }
+  function renderChat(s) {
+    const log = q('[data-kit=chat-log]'); log.textContent = '';
+    for (const m of s.messages) {
+      const d = el('div', 'whitespace-pre-wrap ' + (m.role === 'user' ? 'text-right' : m.role === 'system' ? 'text-gray-500 text-sm' : ''), m.text || '');
+      if (m.code) d.textContent += '\n\n[Game code ready: ' + Object.keys(m.code).join(', ') + ']';
+      if (m.streaming) d.appendChild(busyDots());
+      log.appendChild(d);
+      if (m.brief && s.brief === m.brief) {
+        const make = el('button', 'border px-2 mt-1', 'Make this game');
+        make.onclick = () => kit.makeFromBrief();
+        log.appendChild(make);
+      }
+    }
+    log.scrollTop = log.scrollHeight;
+    const c = q('#choices'); c.textContent = '';
+    for (const choice of s.choices) {
+      const b = el('button', 'border rounded px-2 text-sm', choice);
+      b.onclick = () => kit.chat(choice);
+      c.appendChild(b);
+    }
+    q('#interview-bar').classList.toggle('hidden', !s.interview);
+    if (s.interview) q('#interview-count').textContent = `Question ${s.interview.asked} of ${s.interview.max}`;
+    q('[data-kit=chat-send]').disabled = s.busy;
+    q('#error').textContent = s.error || '';
+  }
+
+  function renderCode(s) {
+    const sel = q('#code-role');
+    if (!sel.options.length) for (const r of kit.roles) sel.appendChild(new Option(r.label, r.key));
+    sel.value = role;
+    const v = s.versions[role] || { list: [], index: -1 };
+    q('#v-label').textContent = v.index >= 0 ? `v${v.index + 1} of ${v.list.length}: ${v.list[v.index].label}` : 'No code yet';
+    const ta = q('#code');
+    if (document.activeElement !== ta) ta.value = s.code[role] || '';
+  }
+
+  function renderDevice(s) {
+    const d = s.device;
+    q('#device-summary').textContent = s.link === 'live'
+      ? `${s.deviceName || 'Controller'}${d.mode ? ', ' + d.mode + ' mode' : ''}. ${d.games.length} game(s) on it.`
+      : 'Connect the controller to see its games.';
+    const ul = q('#device-games'); ul.textContent = '';
+    for (const g of d.games) {
+      const li = el('li', 'flex gap-2 items-center');
+      li.append(el('span', 'flex-1' + (g.slug === d.active ? ' font-bold' : ''), (g.name || g.slug) + (g.slug === d.active ? ' (playing)' : '')));
+      const sel = el('button', 'border px-2', 'Play this');
+      sel.onclick = () => kit.selectGame(g.slug);
+      const del = el('button', 'border px-2', 'Delete');
+      del.onclick = () => { if (del.textContent === 'Delete') { del.textContent = 'Really delete?'; return; } kit.deleteGame(g.slug); };
+      li.append(sel, del);
+      ul.appendChild(li);
+    }
+    const tags = Object.entries(s.tagWrites);
+    q('#tag-writes').textContent = tags.length ? 'Cards written: ' + tags.map(([k, n]) => `${k} ×${n}`).join(', ') : '';
+  }
+
+  function renderDistribute(s) {
+    const d = s.distribute;
+    q('#dist').classList.toggle('hidden', !d);
+    if (!d) return;
+    q('#dist-title').textContent = `Distribute "${d.pretty}"`;
+    q('#dist-status').textContent = d.status + (d.running ? ` ${d.done} of ${d.total}` : '');
+    const slots = q('#dist-slots'); slots.textContent = '';
+    if (d.needsSlot) for (const o of d.slots) {
+      const b = el('button', 'border px-2', `Replace slot ${o.index + 1} (${o.games.map(g => g.slug).join(', ')})`);
+      b.onclick = () => kit.distribute.send(o.index);
+      slots.appendChild(b);
+    }
+    const ul = q('#dist-rows'); ul.textContent = '';
+    for (const r of d.rows) {
+      const li = el('li', 'flex gap-2 items-center');
+      const cb = el('input'); cb.type = 'checkbox'; cb.checked = r.selected; cb.disabled = d.running;
+      cb.onchange = () => kit.distribute.toggle(r.mac, cb.checked, true);
+      const find = el('button', 'border px-2', 'Find');
+      find.onclick = () => kit.distribute.find(r.mac);
+      li.append(cb, el('span', 'flex-1', `${r.kind || 'device'} ${r.mac}` + (r.battery != null ? ` · ${r.battery}%` : '') + (r.needsUpdate ? ' · needs update' : '') + (!r.fits ? ' · no code for this device' : '')),
+        el('span', r.status === 'failed' ? 'text-red-600' : 'text-gray-500', r.status + (r.why ? ` (${r.why})` : '')), find);
+      ul.appendChild(li);
+    }
+  }
+
+  function render(s) {
+    renderLog(s);
+    q('#status').textContent = (s.link === 'live' && s.deviceName ? 'Connected to ' + s.deviceName : LINK[s.link])
+      + (s.progress != null ? ' ' + Math.round(s.progress * 100) + '%' : '') + (s.can.realDevice ? '' : ' (simulated)');
+    q('[data-kit=connect]').textContent = s.link === 'idle' ? 'Connect' : 'Disconnect';
+    const name = q('[data-kit=game-name]');
+    if (document.activeElement !== name) name.value = s.gameName || '';
+    if (view === 'home') renderHome();
+    else { renderChat(s); renderCode(s); renderDevice(s); }
+    renderDistribute(s);
+  }
+
+  kit.on('change', render);
+  showTab('sim');
+  show('home');
+
+  q('#go-home').onclick = () => show('home');
+  q('#home-new').onclick = () => { kit.newGame(); show('work'); };
+  q('#home-interview').onclick = () => { kit.newGame(); kit.startInterview(); show('work'); };
+  q('form').onsubmit = e => { e.preventDefault(); const t = q('[data-kit=chat-input]').value; q('[data-kit=chat-input]').value = ''; kit.chat(t); };
+  q('[data-kit=chat-input]').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); q('form').requestSubmit(); } };
+  q('[data-kit=connect]').onclick = () => kit.state.link === 'idle' ? kit.connect() : kit.disconnect();
+  q('[data-kit=send-to-device]').onclick = () => kit.send();
+  q('[data-kit=game-name]').onchange = e => kit.setGameName(e.target.value);
+  q('#open-distribute').onclick = () => kit.distribute.open();
+  q('#save').onclick = () => kit.saveGame();
+  q('#interview-done').onclick = () => kit.finishInterview();
+  q('#interview-cancel').onclick = () => kit.cancelInterview();
+  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+  q('#code-role').onchange = e => { role = e.target.value; renderCode(kit.state); };
+  q('#v-prev').onclick = () => kit.prevVersion(role);
+  q('#v-next').onclick = () => kit.nextVersion(role);
+  q('#code').onchange = e => kit.setCode(role, e.target.value);
+  q('#device-refresh').onclick = () => kit.refreshGames();
+  q('#sim-fix').onclick = () => { window.fixedAt = kit.state.log.length ? kit.state.log[kit.state.log.length - 1].id : 0; kit.fixSimError(); };
+  q('#dist-scan').onclick = () => kit.distribute.scan();
+  q('#dist-send').onclick = () => kit.distribute.send();
+  q('#dist-close').onclick = () => kit.distribute.close();
+  q('#log-toggle').onclick = () => q('#log-panel').classList.toggle('hidden');
+  q('#log-clear').onclick = () => kit.clearLog();
+  q('#log-device').onchange = () => renderLog(kit.state);
+</script>
+  <!-- Chat callout: points at claude.ai's Chat button (top right, outside
+       this page). Shows only on claude.ai; Close is remembered. Delete this
+       block in your own version. -->
+  <div id="chat-callout" hidden class="fixed top-9 right-2 z-50 w-72 rounded-lg border border-blue-400 bg-white text-gray-900 shadow-lg p-3 text-sm dark:bg-gray-900 dark:text-gray-100">
+    <svg class="absolute -top-7 left-1/2 -translate-x-1/2 w-6 h-7 text-blue-500" viewBox="0 0 24 28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 26 V3"/><path d="M4 11 L12 3 L20 11"/>
+    </svg>
+    <button id="chat-callout-close" class="absolute top-1 left-2 text-gray-500 text-lg leading-none" aria-label="Close">&times;</button>
+    <p class="mt-3"><strong>Want your own version?</strong> Click the <strong>Chat</strong> button to change this with Claude.</p>
+  </div>
+  <script>
+    (function () {
+      var KEY = 'coderkit.chatCalloutClosed', box = document.getElementById('chat-callout');
+      var closed = false;
+      try { closed = localStorage.getItem(KEY) === '1'; } catch (e) {}
+      if (window.claude && !closed) box.hidden = false;
+      document.getElementById('chat-callout-close').onclick = function () {
+        box.hidden = true;
+        try { localStorage.setItem(KEY, '1'); } catch (e) {}
+      };
+    })();
+  </script>
+</div>
+
+</body></html>

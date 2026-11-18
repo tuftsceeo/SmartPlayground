@@ -25,6 +25,14 @@
  "Simulator/assets/wand/WandGestures/wiggle_pitch_y.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/wiggle_pitch_y.svg",
  "Simulator/assets/wand/WandGestures/wiggle_roll_z.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/wiggle_roll_z.svg",
  "Simulator/assets/wand/WandGestures/wiggle_yaw_x.svg": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/CoderKit/build/sim-svg/assets/wand/WandGestures/wiggle_yaw_x.svg",
+ "Simulator/assets/wand/gradients/ButtonDown.png": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/assets/wand/gradients/ButtonDown.png",
+ "Simulator/assets/wand/gradients/ButtonUp.png": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/assets/wand/gradients/ButtonUp.png",
+ "Simulator/assets/wand/gradients/CaseSide.png": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/assets/wand/gradients/CaseSide.png",
+ "Simulator/assets/wand/gradients/Led_Frame.png": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/assets/wand/gradients/Led_Frame.png",
+ "Simulator/assets/wand/gradients/Over_Button.png": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/assets/wand/gradients/Over_Button.png",
+ "Simulator/assets/wand/gradients/inner_speaker.png": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/assets/wand/gradients/inner_speaker.png",
+ "Simulator/assets/wand/gradients/outer_speaker.png": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/assets/wand/gradients/outer_speaker.png",
+ "Simulator/assets/wand/gradients/screw_top.png": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/assets/wand/gradients/screw_top.png",
  "Simulator/js/audio.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/audio.js",
  "Simulator/js/bus.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/bus.js",
  "Simulator/js/clock.js": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/js/clock.js",
@@ -239,6 +247,10 @@
  },
  "Simulator/vendor/games/target.py": {
   "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/games/target.py",
+  "contentType": "text/plain"
+ },
+ "Simulator/vendor/hubtype.txt": {
+  "from": "/Users/jcross04/Documents/GitHub/SmartPlayground/Bag3/Code/Simulator/vendor/hubtype.txt",
   "contentType": "text/plain"
  },
  "Simulator/vendor/lib/actions.py": {

@@ -38,14 +38,20 @@ execFileSync(join(root, 'node_modules/.bin/esbuild'), [
 // Templates, and the artifact versions of the same pages (no doctype or
 // head; a <title> and an explicit background), so the two never drift.
 mkdirSync(join(root, 'artifact'), { recursive: true });
-for (const [name, title, sim] of [['blank', 'Blank Playground IDE', false], ['full', 'Full Playground IDE', true]]) {
+// Expand frontends/src/*.html: <style data-inline="path"> gets that file's CSS.
+for (const f of existsSync(join(root, 'frontends/src')) ? readdirSync(join(root, 'frontends/src')) : []) {
+    const src = readFileSync(join(root, 'frontends/src', f), 'utf8');
+    writeFileSync(join(root, 'frontends', f), src.replace(/<style data-inline="([^"]+)"><\/style>/g, (_, p) =>
+        '<style>/* ' + p + ' */\n' + readFileSync(join(root, 'frontends', p), 'utf8') + '\n</style>'));
+}
+for (const [name, title, sim] of [['blank', 'Blank Playground IDE', false], ['full', 'Full Playground IDE', true], ['chatbroadcast', 'ChatBroadcast-style Playground IDE', true]]) {
     const html = readFileSync(join(root, `frontends/${name}.html`), 'utf8');
     copyFileSync(join(root, `frontends/${name}.html`), join(out, `templates/${name}.html`));
     const scripts = [...html.matchAll(/<script src="[^"]+"><\/script>/g)].map(m => m[0]).join('\n');
-    const body = html.match(/<body class="([^"]*)">([\s\S]*)<\/body>/);
-    const cls = body[1].replace(/\bh-screen\b/, 'h-full');
+    const body = html.match(/<body([^>]*)>([\s\S]*)<\/body>/);
+    const attrs = body[1].replace(/\bh-screen\b/, 'h-full');
     writeFileSync(join(root, `artifact/${name}-ide.html`),
-        `<title>${title}</title>\n<style>html,body{height:100%;margin:0;background:#fff;color:#111}</style>\n${sim ? '<meta name="coderkit-simulator">\n' : ''}${scripts}\n<div class="${cls}">${body[2]}</div>\n`);
+        `<title>${title}</title>\n<style>html,body{height:100%;margin:0;background:#fff;color:#111}</style>\n${sim ? '<meta name="coderkit-simulator">\n' : ''}${scripts}\n<div${attrs}>${body[2]}</div>\n`);
 }
 copyFileSync(join(out, 'kit/coderkit.js'), join(root, 'artifact/coderkit.js'));
 copyFileSync(join(root, 'check.js'), join(out, 'kit/check.js'));
@@ -73,7 +79,7 @@ const simFiles = {};
             writeFileSync(dest, readFileSync(join(sim, rel), 'utf8').replace(/<\?xpacket[^>]*\?>/g, '').replace(/(?!^)<\?(?!xml\s)[^>]*\?>/g, ''));
             simFiles[`Simulator/${rel}`] = dest;
         }
-        else if (/\.(js|json|py)$/.test(f)) simFiles[`Simulator/${rel}`] = f.endsWith('.py') ? { from: join(sim, rel), contentType: 'text/plain' } : join(sim, rel);
+        else if (/\.(js|json|py|txt|png)$/.test(f)) simFiles[`Simulator/${rel}`] = /\.(py|txt)$/.test(f) ? { from: join(sim, rel), contentType: 'text/plain' } : join(sim, rel);
     }
 })('');
 const PY = ['pyodide.js', 'pyodide.asm.js', 'pyodide.asm.wasm', 'pyodide-lock.json', 'python_stdlib.txt'];

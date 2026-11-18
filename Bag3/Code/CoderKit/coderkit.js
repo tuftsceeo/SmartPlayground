@@ -16,7 +16,11 @@ import { extractCodeBlocks, parseGameName, parseChoices, parseNextDevice, stripA
 import { ROLES, roleInfo } from '../ChatBroadcast/js/roles.js';
 import { validateGameSignature, validateGameCode, uploadPayload } from '../ChatBroadcast/js/upload.js';
 import { slugify } from '../ChatBroadcast/js/gameName.js';
-import { buildHardwareReqs } from '../ChatBroadcast/js/hardware.js';
+import { buildHardwareReqs, baselineTags, deviceNeeds, deviceLine } from '../ChatBroadcast/js/hardware.js';
+import { GAME_ICONS } from '../ChatBroadcast/js/ledicons/shapes5.js';
+import { gameTint, gameIconThumb } from '../ChatBroadcast/js/ledicons/thumb5.js';
+import { iconSvg } from '../ChatBroadcast/js/icons.js';
+import { drawStarterIdeas } from '../ChatBroadcast/js/starterIdeas.js';
 import { listSplatActions } from '../ChatBroadcast/js/splat/splatActionCheck.js';
 import { listIcons, iconNamesIn, missingIconsIn, iconFileText } from '../ChatBroadcast/js/ledicons/iconLibrary.js';
 import { createDeviceLink, deviceShortName } from '../ChatBroadcast/js/device/bboxDeviceLink.js';
@@ -611,9 +615,26 @@ export function createKit({ brain, device, knowledgeBase, files, exampleCode = l
         prevVersion: (role) => { versions.prev(role); syncCode(); emit(); },
         nextVersion: (role) => { versions.next(role); syncCode(); emit(); },
         startInterview, answer, finishInterview, makeFromBrief, cancelInterview,
-        examples: () => ({ categories: CATEGORIES.map(c => ({ ...c })), list: EXAMPLES.map(e => ({ id: e.id, name: e.name, icon: e.icon, category: e.category, description: e.description, tagNote: e.tagNote })) }),
+        // Each example and saved game carries ready-made pictures, as the web
+        // app draws them: `thumb` (HTML for the 5x5 LED start picture),
+        // `tint` (a pale CSS background in the game's color), `devices`
+        // ("Wand · 8 NFC tags") and, for categories, `iconSvg`.
+        examples: () => ({
+            categories: CATEGORIES.map(c => ({ ...c, iconSvg: c.icon ? iconSvg(c.icon, { size: 16 }) : '' })),
+            list: EXAMPLES.map(e => {
+                const gi = GAME_ICONS[e.id] || null;
+                return { id: e.id, name: e.name, icon: e.icon, iconSvg: iconSvg(e.icon, { size: 16 }), category: e.category, description: e.description, tagNote: e.tagNote,
+                    devices: deviceLine(deviceNeeds({ nfcTags: (e.tags || []).filter(x => !baselineTags(e.id).includes(x)).length })),
+                    gameIcon: gi, thumb: gameIconThumb(gi), tint: gameTint(gi) };
+            }),
+        }),
+        /** Three starter ideas, as the web app's New game screen draws them: [{text, icon, iconSvg}]. */
+        starterIdeas: () => safe(() => drawStarterIdeas().map(s => ({ text: s.text, icon: s.icon, iconSvg: iconSvg(s.icon, { size: 26, strokeWidth: 2 }) })), []),
+        /** SVG markup for one of the web app's icons by name (e.g. 'music', 'plus'), or ''. */
+        icon: (name, size = 16) => safe(() => iconSvg(name, { size }), ''),
         openExample, remixExample: (id) => openExample(id, { remix: true }),
-        saved: () => safe(() => loadSavedGames().map(g => ({ id: g.id, name: g.name, desc: g.desc, updatedAt: g.updatedAt })), []),
+        saved: () => safe(() => loadSavedGames().map(g => ({ id: g.id, name: g.name, desc: g.desc, updatedAt: g.updatedAt,
+            gameIcon: g.gameIcon || null, thumb: gameIconThumb(g.gameIcon || null), tint: gameTint(g.gameIcon || null) })), []),
         saveGame: saveCurrent, openSaved,
         renameSaved: (id, n) => { const r = safe(() => renameSavedGame(id, n), null); emit(); return r; },
         deleteSaved: (id) => { safe(() => deleteSavedGame(id), null); emit(); log('Deleted the saved game.'); },

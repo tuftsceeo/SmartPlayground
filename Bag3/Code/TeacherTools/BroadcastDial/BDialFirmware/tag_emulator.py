@@ -1,14 +1,12 @@
 """tag_emulator.py -- keeps the NT3H2111 (nt3h2111.py, MIKROE NFC Tag 2
 Click on Port A) holding the card a wand should read off the Dial.
 
-  held    station.py's Click-mode SCAN: the card that would have been
-          written. Written at once; station shows "Tap Wand" once it is.
   GAMES   getcode:<slug>@<HOST_ID> of the highlighted game
-  TAGS    getcode:<slug>@<HOST_ID> of the open game
+  TAGS    the highlighted tag (no press needed)
+  held    text from the keyboard or a Read copy (station.py SCAN):
+          written at once; the Click keeps it until the knob moves off
+          the menu position the Dial returns to
   else    left as it is
-
-After a held card is closed the Click keeps it: menu-following resumes
-only once the knob moves off the menu position the SCAN returned to.
 
 A menu text is written once it has been wanted for SETTLE_MS, so turning
 the knob through the game list does not rewrite the EEPROM per detent; an
@@ -43,6 +41,7 @@ class TagEmulator:
         """Emulate `text` until release(); the Click keeps it after."""
         self.held = text
         self._pinned = True
+        self._want = None
         self._pin_key = None
         self._retry_at = 0
 
@@ -65,6 +64,10 @@ class TagEmulator:
             if key == self._pin_key:
                 return None
             self._pinned = False
+        if st.mode == "tags":
+            rows = st.tag_options()
+            t = rows[st.tag_sel % len(rows)][1]
+            return None if t is None else self.card_text(t)
         for _, t in st.groups[st.game_sel % len(st.groups)][1]:
             if t.startswith("getcode:"):
                 return self.card_text(t)

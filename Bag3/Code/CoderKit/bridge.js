@@ -46,6 +46,8 @@ export const SHIM = `<script>(function(){
       return {};
     },
     get roles(){ return state.rolesList || []; },
+    starterIdeas: function(){ return state.ideasList || []; },
+    icon: function(n){ return (state.iconsMap || {})[n] || ''; },
     examples: function(){ return state.examplesList || {categories:[],list:[]}; },
     saved: function(){ return state.savedList || []; },
     distribute: { open: function(s){ return call('distribute.open',[s]); }, scan: function(){ return call('distribute.scan'); },
@@ -61,6 +63,8 @@ const METHODS = new Set(['chat', 'connect', 'reconnect', 'disconnect', 'send', '
     'deleteGame', 'fixSimError', 'distribute.open', 'distribute.scan', 'distribute.toggle', 'distribute.send',
     'distribute.find', 'distribute.close']);
 
+const ICON_NAMES = ['wifi',  'box',  'plug',  'floppy',  'wand',  'nfcCard',  'close',  'plus',  'more',  'refresh',  'trash',  'pencil',  'radio',  'radioOn',  'check',  'warning',  'modeServe',  'shakePhone',  'spinner',  'splat',  'iconDisplay',  'battery',  'locate',  'download',  'laptop',  'teacherHub',  'station',  'code',  'wrench',  'message-circle',  'library',  'folder-open',  'shuffle',  'send',  'cable',  'unplug',  'gamepad',  'square-arrow-out-up-right',  'vibrate',  'circle',  'chevronDown',  'music',  'palette',  'tag',  'snowflake',  'rainbow',  'arrow-up',  'chef-hat',  'circle-check',  'undo',  'sparkles',  'save',  'home',  'brain-circuit'];
+
 /** Put the shim first in the head so the design's scripts find window.kit. */
 export function withShim(html) {
     // The design's own kit script is for artifacts; here the shim is the kit.
@@ -74,7 +78,10 @@ export function hostFrontEnd(frame, kit, { simLayer = null } = {}) {
     frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals');
     const post = (msg) => frame.contentWindow?.postMessage(msg, '*');
     // Lists the design reads synchronously ride along with the state.
-    const plain = () => JSON.parse(JSON.stringify({ ...kit.state, examplesList: kit.examples(), rolesList: kit.roles, savedList: kit.saved() }));
+    // kit.icon is synchronous, so the frame gets the common icons up front.
+    const ideasList = kit.starterIdeas?.() || [];
+    const iconsMap = Object.fromEntries(ICON_NAMES.map(n => [n, kit.icon?.(n) || '']));
+    const plain = () => JSON.parse(JSON.stringify({ ...kit.state, examplesList: kit.examples(), rolesList: kit.roles, savedList: kit.saved(), iconsMap, ideasList }));
     let simMounted = false;
     const placeSim = (rect) => {
         if (!simLayer) return;
