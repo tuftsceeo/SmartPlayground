@@ -2,7 +2,7 @@
 
 Early mockup of the Waveshare ESP32-S3-Touch-LCD-1.9 as a larger Broadcast Box
 (170x320 portrait, touch, LVGL). Software only: **nothing here has run on the board.**
-Plan: `Bag3/STRESS_TEST_PREP_PLAN.md`, S13. Not part of the stress-test firmware.
+Plan: `Bag3/Code/docs_and_design/2026-11-14-stress-test-prep-plan.md`, S13. Not part of the stress-test firmware.
 
 ## Files
 - `mockup.html`, `screenshots/`: the 170x320 HTML mockup and its PNGs.

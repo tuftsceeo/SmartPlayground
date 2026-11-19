@@ -15,7 +15,7 @@ open:
 keywords: [keyboard, distribute, schedule queue full, code_req, ENX offer, timeout, send_fail, soft reset, TypeError, LVGL, S11]
 related:
   - Bag3/STRESS_TEST_FINDINGS_2026-11-14.md (D2, D3, S11 step 1)
-  - Bag3/STRESS_TEST_PREP_PLAN.md (S11)
+  - Bag3/Code/docs_and_design/2026-11-14-stress-test-prep-plan.md (S11)
 ---
 
 # Dial: distribute fails just after the keyboard is built, 2026-11-14

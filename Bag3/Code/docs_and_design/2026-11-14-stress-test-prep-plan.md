@@ -1,21 +1,54 @@
-# Bag3 stress-test prep plan (written 2026-11-14; closed 2026-11-19)
+---
+title: Bag3 stress-test prep plan
+date: 2026-11-14
+status: archived 2026-11-19 (stress test completed 2026-11-18)
+moved_from: Bag3/STRESS_TEST_PREP_PLAN.md
+---
 
-**Closed.** The stress test ran on 2026-11-18. This file is now a record: the outcome below,
-then the plan as it stood. Open work moves to the debrief
-(`Code/docs_and_design/2026-11-18-stress-test-debrief.md`) and to `Code/known_issues/`.
+# Bag3 stress-test prep plan (archived)
+
+**Archived 2026-11-19. The stress test was completed on 2026-11-18.** Every step is complete,
+will not be completed, or moved to later work; see "Disposition" below. Nothing here is live:
+later work starts from the debrief (`2026-11-18-stress-test-debrief.md`, this folder) and
+`Bag3/Code/known_issues/`. The plan text after the outcome is kept as history; paths in it are
+relative to `Bag3/`.
+
+## Disposition
+
+| Step | Disposition | Note |
+|---|---|---|
+| S0 Bundle and baseline | Complete | |
+| S1 Players wait for the host | Moved to later work | In code; the hardware check was never run |
+| S2 Three slots | Complete | Passed on hardware |
+| S3 Slot picker | Complete | Replace passed from the Dial |
+| S4 Dial serves without arming | Complete | |
+| S5 Dial reconnect | Will not complete | Bug never reproduced; reopen if seen again |
+| S5 step 4 Upload without restart | Complete | Passed on hardware |
+| S6, S7 Simulator, small fixes | Complete | |
+| S8 Test-day kit | Will not complete | Dropped 2026-11-14 |
+| S9 Promote to `Live_Page` | Complete | Deployed 2026-11-18 |
+| S10 Generated-game fixes | Complete | In code and deployed; no person-checked result |
+| S11 Dial keyboard stall | Moved to later work | `known_issues/2026-11-14-dial-keyboard-send-stall.md` |
+| S12 Box level with the Dial | Complete; remainder moved | Range, battery, card tap during a distribute, the 11-18 USB drop and reader detection: `known_issues/2026-11-15-box-fleet-port.md` |
+| S13 Waveshare mockup | Complete | Running it on the board is later work |
+| Sitting blocks 1-6, H1-H7 | Will not complete (stale) | Replaced by the unattended runs and the test itself |
+| Palette (12 to 18 colors) | Moved to later work | User's decision; no result recorded |
+| Checker test cases (13 + 1 + 3) | Moved to later work | `STRESS_TEST_UNATTENDED_2026-11-17.md`, Part 0 |
+| Hold-to-start clarity (U2) | Moved to later work | `known_issues/2026-11-14-hold-interactions-ux.md` |
+| Test findings (device list, Find Me, room view, roster, form mode) | Moved to later work | Debrief and `known_issues/2026-11-18-stress-test-find-and-scan.md` |
 
 ## Outcome (recorded 2026-11-19 from the repo)
 
-Sources: the two unattended bench reports (`STRESS_TEST_UNATTENDED_2026-11-16.md`,
-`STRESS_TEST_UNATTENDED_2026-11-17.md`), the test-day debrief and bench results
-(`Code/docs_and_design/2026-11-18-stress-test-debrief.md` and
+Sources: the two unattended bench reports (`Bag3/STRESS_TEST_UNATTENDED_2026-11-16.md`,
+`Bag3/STRESS_TEST_UNATTENDED_2026-11-17.md`), the test-day debrief and bench results
+(`2026-11-18-stress-test-debrief.md` (this folder) and
 `2026-11-18-multi-controller-bench/`), the known-issue notes and the commits. "On hardware"
 means a serial log in those reports, almost all read by an agent; nothing here was re-run.
 
 The hosted app was promoted on 2026-11-18 (`640a9c2b`) and reached `September_2026`, the
 deploy branch, through PR #191 before the test. It included the S10 fixes.
 
-### Steps
+### Steps (results; dispositions are above)
 
 | Step | What | Result |
 |---|---|---|
@@ -234,7 +267,7 @@ Ask the user which branch to commit to before your first commit. Do not push or 
 unless asked.
 
 Read first: AGENTS.md, Bag3/Code/known_issues/README.md, and the plan at
-Bag3/STRESS_TEST_PREP_PLAN.md.
+Bag3/Code/docs_and_design/2026-11-14-stress-test-prep-plan.md.
 Do not re-test issues recorded in known_issues/. Keep the diff small; no refactors. Device code
 is MicroPython: no type annotations, `python -m py_compile` is the only static check, nothing
 may allocate before the radio comes up, and shared libraries are per-tree copies (say which tree
