@@ -1,0 +1,26 @@
+distinct devices seen in whole run: 17
+last-byte %4 values: [0]  slots used: [0, 4, 8, 12]
+errors: [] 0
+raw lines: 0 []
+
+== storms: replies DURING polling vs AFTER the last poll
+-- F_storm2500_r0 (6 polls): during 16 devices, after 13 devices
+   slot: devices / answered during / answered after: {0: (3, 3, 0), 4: (5, 5, 4), 8: (4, 4, 4), 12: (5, 4, 5)}
+-- F_storm1500_r0 (10 polls): during 9 devices, after 13 devices
+   slot: devices / answered during / answered after: {0: (3, 3, 0), 4: (5, 5, 5), 8: (4, 1, 3), 12: (5, 0, 5)}
+-- F_storm2500_r1 (6 polls): during 17 devices, after 14 devices
+   slot: devices / answered during / answered after: {0: (3, 3, 0), 4: (5, 5, 5), 8: (4, 4, 4), 12: (5, 5, 5)}
+-- F_storm1500_r1 (10 polls): during 9 devices, after 13 devices
+   slot: devices / answered during / answered after: {0: (3, 3, 0), 4: (5, 5, 5), 8: (4, 1, 3), 12: (5, 0, 5)}
+
+== finds sent
+
+== G_pois2500: 88 polls, mean gap 2.07 s
+   devices listed per 6 s window: min 9  median 16  max 17
+   distribution: {9: 8, 10: 3, 12: 2, 13: 13, 14: 2, 15: 4, 16: 17, 17: 39}
+   per-slot listed rate: {0: '100%', 4: '100%', 8: '87%', 12: '70%'}
+
+== H_pois1250: 136 polls, mean gap 1.33 s
+   devices listed per 6 s window: min 3  median 12  max 17
+   distribution: {3: 3, 4: 2, 5: 1, 6: 3, 7: 3, 8: 18, 9: 14, 10: 1, 11: 7, 12: 17, 13: 9, 14: 11, 15: 4, 16: 17, 17: 26}
+   per-slot listed rate: {0: '100%', 4: '90%', 8: '65%', 12: '43%'}

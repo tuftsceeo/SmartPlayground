@@ -1,0 +1,56 @@
+15:20:32 q: dialA distributes follow_the_leade to 4 wands, quiet
+15:20:33 dialA {"mac": "A0:F2:62:85:CB:FC", "total": 4, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:20:35 dialA {"mac": "A0:F2:62:85:D6:14", "total": 4, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:20:39 dialA {"mac": "A0:F2:62:87:92:CC", "total": 4, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:21:03 dialA {"mac": "A0:F2:62:85:CB:FC", "total": 4, "ok": false, "done": 1, "why": "timeout", "type": "dist_progress"}
+15:21:03 dialA {"mac": "A0:F2:62:87:B4:30", "total": 4, "ok": null, "done": 1, "why": "pushed", "type": "dist_progress"}
+15:21:05 dialA {"mac": "A0:F2:62:85:D6:14", "total": 4, "ok": false, "done": 2, "why": "timeout", "type": "dist_progress"}
+15:21:06 dialA {"mac": "A0:F2:62:87:B4:30", "total": 4, "ok": true, "done": 3, "why": null, "type": "dist_progress"}
+15:21:09 dialA {"mac": "A0:F2:62:87:92:CC", "total": 4, "ok": false, "done": 4, "why": "timeout", "type": "dist_progress"}
+15:21:09 dialA {"ok": 1, "type": "dist_done", "done": 4, "total": 4}
+15:21:09 q done=True
+15:21:24 c: dialA distributes while box,dialB scan (mean 8 s)
+15:21:28 dialA {"mac": "A0:F2:62:85:CB:FC", "total": 4, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:21:30 dialA {"mac": "A0:F2:62:85:D6:14", "total": 4, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:21:31 dialA {"mac": "A0:F2:62:85:CB:FC", "total": 4, "ok": true, "done": 1, "why": null, "type": "dist_progress"}
+15:21:33 dialA {"mac": "A0:F2:62:87:92:CC", "total": 4, "ok": null, "done": 1, "why": "pushed", "type": "dist_progress"}
+15:21:33 dialA {"mac": "A0:F2:62:85:D6:14", "total": 4, "ok": true, "done": 2, "why": null, "type": "dist_progress"}
+15:21:35 dialA {"mac": "A0:F2:62:87:B4:30", "total": 4, "ok": null, "done": 2, "why": "pushed", "type": "dist_progress"}
+15:21:36 dialA {"mac": "A0:F2:62:87:92:CC", "total": 4, "ok": true, "done": 3, "why": null, "type": "dist_progress"}
+15:21:39 dialA {"mac": "A0:F2:62:87:B4:30", "total": 4, "ok": true, "done": 4, "why": null, "type": "dist_progress"}
+15:21:39 dialA {"ok": 4, "type": "dist_done", "done": 4, "total": 4}
+15:21:39 c done=True
+15:22:04 x: dialA and box distribute at once, dialB scans
+15:22:07 dialA {"mac": "A0:F2:62:85:CB:FC", "total": 4, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:22:07 box {"mac": "A0:F2:62:86:2E:A8", "total": 2, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:22:09 dialA {"mac": "A0:F2:62:85:D6:14", "total": 4, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:22:09 box {"mac": "A0:F2:62:86:DF:E4", "total": 2, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:22:10 dialA {"mac": "A0:F2:62:85:CB:FC", "total": 4, "ok": true, "done": 1, "why": null, "type": "dist_progress"}
+15:22:10 box {"mac": "A0:F2:62:86:2E:A8", "total": 2, "ok": true, "done": 1, "why": null, "type": "dist_progress"}
+15:22:12 dialA {"mac": "A0:F2:62:87:92:CC", "total": 4, "ok": null, "done": 1, "why": "pushed", "type": "dist_progress"}
+15:22:12 dialA {"mac": "A0:F2:62:85:D6:14", "total": 4, "ok": true, "done": 2, "why": null, "type": "dist_progress"}
+15:22:13 box {"mac": "A0:F2:62:86:DF:E4", "total": 2, "ok": true, "done": 2, "why": null, "type": "dist_progress"}
+15:22:13 box {"ok": 2, "type": "dist_done", "done": 2, "total": 2}
+15:22:14 dialA {"mac": "A0:F2:62:87:B4:30", "total": 4, "ok": null, "done": 2, "why": "pushed", "type": "dist_progress"}
+15:22:14 dialA {"mac": "A0:F2:62:87:92:CC", "total": 4, "ok": true, "done": 3, "why": null, "type": "dist_progress"}
+15:22:17 dialA {"mac": "A0:F2:62:87:B4:30", "total": 4, "ok": true, "done": 4, "why": null, "type": "dist_progress"}
+15:22:17 dialA {"ok": 4, "type": "dist_done", "done": 4, "total": 4}
+15:22:17 x done=True
+15:22:42 f_finds_scans: finds (mean 6 s per controller) + scans (mean 8 s), sends=False
+15:24:57 z_everything: finds (mean 6 s per controller) + scans (mean 8 s), sends=True
+15:25:00 box {"mac": "A0:F2:62:86:2E:A8", "total": 2, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:25:01 dialA {"mac": "A0:F2:62:85:CB:FC", "total": 4, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:25:03 dialA {"mac": "A0:F2:62:85:D6:14", "total": 4, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:25:03 box {"mac": "A0:F2:62:86:DF:E4", "total": 2, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:25:05 dialA {"mac": "A0:F2:62:87:92:CC", "total": 4, "ok": null, "done": 0, "why": "pushed", "type": "dist_progress"}
+15:25:06 dialA {"mac": "A0:F2:62:85:D6:14", "total": 4, "ok": true, "done": 1, "why": null, "type": "dist_progress"}
+15:25:08 dialA {"mac": "A0:F2:62:87:B4:30", "total": 4, "ok": null, "done": 1, "why": "pushed", "type": "dist_progress"}
+15:25:09 dialA {"mac": "A0:F2:62:87:92:CC", "total": 4, "ok": true, "done": 2, "why": null, "type": "dist_progress"}
+15:25:09 box {"mac": "A0:F2:62:86:2E:A8", "total": 2, "ok": true, "done": 1, "why": null, "type": "dist_progress"}
+15:25:09 dialA {"mac": "A0:F2:62:85:CB:FC", "total": 4, "ok": true, "done": 3, "why": null, "type": "dist_progress"}
+15:25:12 box {"mac": "A0:F2:62:86:DF:E4", "total": 2, "ok": true, "done": 2, "why": null, "type": "dist_progress"}
+15:25:12 box {"ok": 2, "type": "dist_done", "done": 2, "total": 2}
+15:25:17 dialA {"mac": "A0:F2:62:87:B4:30", "total": 4, "ok": true, "done": 4, "why": null, "type": "dist_progress"}
+15:25:17 dialA {"ok": 4, "type": "dist_done", "done": 4, "total": 4}
+15:27:57 z_everything sends done=True
+15:28:14 done

@@ -1,0 +1,48 @@
+devices seen overall: 17
+  box init {"version": "0.1.0", "device": "broadcast_box", "w": 240, "h": 135, "nfc": true, "fleet": 1, "host_id": "cd64", "id": 2003, "type": "identity"}
+  dialB init {"nfc": true, "h": 240, "host_id": "004c", "device": "broadcast_dial", "nfc_kind": "click", "upload": 1, "id": 2002, "version": "0.1.0", "w": 240, "type": "iden
+  dialA init {"nfc": true, "h": 240, "host_id": "5094", "device": "broadcast_dial", "nfc_kind": "pn532", "upload": 1, "id": 2001, "version": "0.1.0", "w": 240, "type": "iden
+
+== a_turns: 18 scans total
+  box     6 scans: min 17 median 17 max 17  [17, 17, 17, 17, 17, 17]
+         per-slot listed: {0: '100%', 4: '100%', 8: '100%', 12: '100%'}
+  dialA   6 scans: min 17 median 17 max 17  [17, 17, 17, 17, 17, 17]
+         per-slot listed: {0: '100%', 4: '100%', 8: '100%', 12: '100%'}
+  dialB   6 scans: min 17 median 17 max 17  [17, 17, 17, 17, 17, 17]
+         per-slot listed: {0: '100%', 4: '100%', 8: '100%', 12: '100%'}
+  box    reports outside its own windows (forwarded? should be 0): 0
+  dialA  reports outside its own windows (forwarded? should be 0): 0
+  dialB  reports outside its own windows (forwarded? should be 0): 0
+
+== b_calm20: 36 scans total
+  box    12 scans: min 17 median 17 max 17  [17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17]
+         per-slot listed: {0: '100%', 4: '100%', 8: '100%', 12: '100%'}
+  dialA  15 scans: min 12 median 17 max 17  [17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 12, 14, 17, 17, 17]
+         per-slot listed: {0: '100%', 4: '100%', 8: '100%', 12: '89%'}
+  dialB   9 scans: min 16 median 17 max 17  [17, 17, 17, 16, 17, 17, 17, 17, 16]
+         per-slot listed: {0: '100%', 4: '100%', 8: '100%', 12: '96%'}
+  box    reports outside its own windows (forwarded? should be 0): 0
+  dialA  reports outside its own windows (forwarded? should be 0): 3
+  dialB  reports outside its own windows (forwarded? should be 0): 1
+
+== c_busy8: 92 scans total
+  box    20 scans: min 12 median 17 max 17  [17, 17, 17, 17, 17, 17, 17, 17, 16, 17, 17, 12, 12, 17, 14, 17, 17, 16, 12, 17]
+         per-slot listed: {0: '100%', 4: '100%', 8: '96%', 12: '83%'}
+  dialA  35 scans: min  9 median 17 max 17  [17, 16, 17, 17, 17, 15, 12, 9, 17, 16, 17, 13, 17, 17, 12, 14, 17, 17, 17, 16, 16, 17, 13, 17, 14, 14, 17, 17, 17, 13, 17, 11, 14, 17, 17]
+         per-slot listed: {0: '100%', 4: '100%', 8: '94%', 12: '74%'}
+  dialB  37 scans: min  8 median 17 max 17  [17, 17, 17, 17, 17, 8, 8, 17, 17, 17, 17, 15, 17, 17, 17, 16, 17, 17, 13, 13, 13, 17, 17, 17, 14, 14, 17, 17, 16, 17, 11, 12, 12, 14, 17, 11, 12]
+         per-slot listed: {0: '100%', 4: '100%', 8: '89%', 12: '71%'}
+  box    reports outside its own windows (forwarded? should be 0): 0
+  dialA  reports outside its own windows (forwarded? should be 0): 3
+  dialB  reports outside its own windows (forwarded? should be 0): 6
+
+== d_sync: 30 scans total
+  box    10 scans: min 17 median 17 max 17  [17, 17, 17, 17, 17, 17, 17, 17, 17, 17]
+         per-slot listed: {0: '100%', 4: '100%', 8: '100%', 12: '100%'}
+  dialA  10 scans: min 17 median 17 max 17  [17, 17, 17, 17, 17, 17, 17, 17, 17, 17]
+         per-slot listed: {0: '100%', 4: '100%', 8: '100%', 12: '100%'}
+  dialB  10 scans: min 17 median 17 max 17  [17, 17, 17, 17, 17, 17, 17, 17, 17, 17]
+         per-slot listed: {0: '100%', 4: '100%', 8: '100%', 12: '100%'}
+  box    reports outside its own windows (forwarded? should be 0): 0
+  dialA  reports outside its own windows (forwarded? should be 0): 0
+  dialB  reports outside its own windows (forwarded? should be 0): 0
