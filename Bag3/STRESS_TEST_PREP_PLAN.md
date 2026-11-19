@@ -1,4 +1,85 @@
-# Bag3 stress-test prep plan (written 2026-11-14, test in about 3 business days)
+# Bag3 stress-test prep plan (written 2026-11-14; closed 2026-11-19)
+
+**Closed.** The stress test ran on 2026-11-18. This file is now a record: the outcome below,
+then the plan as it stood. Open work moves to the debrief
+(`Code/docs_and_design/2026-11-18-stress-test-debrief.md`) and to `Code/known_issues/`.
+
+## Outcome (recorded 2026-11-19 from the repo)
+
+Sources: the two unattended bench reports (`STRESS_TEST_UNATTENDED_2026-11-16.md`,
+`STRESS_TEST_UNATTENDED_2026-11-17.md`), the test-day debrief and bench results
+(`Code/docs_and_design/2026-11-18-stress-test-debrief.md` and
+`2026-11-18-multi-controller-bench/`), the known-issue notes and the commits. "On hardware"
+means a serial log in those reports, almost all read by an agent; nothing here was re-run.
+
+The hosted app was promoted on 2026-11-18 (`640a9c2b`) and reached `September_2026`, the
+deploy branch, through PR #191 before the test. It included the S10 fixes.
+
+### Steps
+
+| Step | What | Result |
+|---|---|---|
+| S0 | Bundle and baseline | Done. Bundle check up to date on 11-17 |
+| S1 | Player wands wait for the host | In code. Never run on hardware: the bench wand was a host (11-16) and the Dial cannot send `start_game` (11-17) |
+| S2 | Three slots on wands and displays | Passed on hardware 11-16 (eviction by age and by `replace`); display eviction passed 11-17 |
+| S3 | Slot picker in the app | In code; per-device replace added 11-17 (`eeba96ab`, `36035868`). Replace passed from the Dial 11-17 |
+| S4 | Dial serves without arming | Passed on hardware (11-14, 11-17) |
+| S5 | Dial reconnect; upload without restart | Reconnect bug never reproduced. Upload without restart passed: 10 games, no reset (11-17) |
+| S6, S7 | Simulator modes; small fixes | Done |
+| S8 | Test-day kit | Dropped |
+| S9 | Promote to `Live_Page` | Done 11-18 and deployed |
+| S10 | Generated-game fixes | In code 11-16 and deployed; no person-checked result recorded |
+| S11 | Dial keyboard stall (D2, D3) | Bench steps not run. The stall was not seen on 11-17. Still open |
+| S12 | Box: no arming, fleet | No arming and scan/distribute passed 11-16; 60-minute soak with no reset. Range, battery and a card tap during a distribute untested |
+| S13 | Waveshare mockup | Merged; no record of it running on the board |
+
+### Sitting blocks (2026-11-16 plan)
+
+The single sitting was replaced by unattended agent runs on 11-16/17 and the test itself.
+
+| Block | Result |
+|---|---|
+| 1 Host and Splats | Host wand booted with 4 Splats (log: `idfmax` 10240 after BLE) and ran a pulled host game. Fifth-Splat tap and the palette check not recorded |
+| 2 Dial | Upload without restart, distribute to 3 wands and replace passed (11-17, reported by another agent; logs not in the repo). The keyboard sequence was not run |
+| 3 Box | See S12 |
+| 4 Icon display and CrowPanel | Display free space 924 KB of 2048 KB (11-17, reported). CrowPanel scan and distribute passed (11-16). Display station mode (show, dance) not seen; the display's USB was silent on 11-17 |
+| 5 Dry run | Replaced by the test itself |
+| 6 Waveshare | Not recorded |
+
+### Fixed during the prep window
+
+- A Splat host dropped a push that arrived mid-game: fixed in code 11-17 (`3c897264`), not re-run.
+- The wand ignored Ctrl-C once stdin filled: fixed and passed on hardware 11-17.
+- The wand's boot countdown went from 30 s to 2 s (`cddfcd32`).
+- Controllers fail a push at once when they hold no file for the device's kind (`36035868`).
+- A host wand returns to player after two restarts with no Splat (`splat_host.py`, 11-17).
+
+### What the test found (2026-11-18, 8 controllers, 15+ devices)
+
+Details and ideas are in the debrief.
+
+- The device list varied (12, then 2, then 5). Bench runs the same afternoon traced this to
+  polls from several controllers pushing back each device's reply, with only 4 of 16 reply
+  slots in use. Card-tap pulls kept working throughout.
+- Find Me ends a running game, and a landed Find makes the device drop out of later lists.
+- Teachers could not tell which wand was which, wanted a map of devices and Splats, found the
+  Splat host confusing, and saw every USB port in the picker.
+- Some teachers liked the interview; others wanted a form.
+- The Box dropped off USB during a bench run and stayed silent (debrief, "Find control").
+
+### Still open
+
+| Item | Where |
+|---|---|
+| Device list, Find Me, room view, roster | `known_issues/2026-11-18-stress-test-find-and-scan.md`, debrief |
+| Dial keyboard stall (D2) and the lines after a soft reset (D3) | `known_issues/2026-11-14-dial-keyboard-send-stall.md` |
+| Player wait-for-host never run on hardware | S1 |
+| Wand panic when Ctrl-C lands during boot | `known_issues/2026-11-17-wand-ctrlc-boot-crash.md` |
+| Icon display: icons never pruned; USB silent while the radio works | `known_issues/2026-11-16-icon-store-full.md`, 11-17 report |
+| Box: range, battery, card tap during a distribute; the USB drop on 11-18; reader detection (WS1850S or PN532) | `known_issues/2026-11-15-box-fleet-port.md`, 11-16 report |
+| Splat palette size (12 to 18 colors) | your call; no result recorded |
+| 13 `splat_game_check_test` cases, 1 `check_tags` case, 3 `prompt_eval --self-test-sim` cases | 11-17 report, Part 0 |
+| Hold-to-start clarity (U2) | `known_issues/2026-11-14-hold-interactions-ux.md` |
 
 ## Context
 
@@ -42,7 +123,7 @@ and its former `tools/` and `docs_and_design/` are merged into `Bag3/Code/tools/
 with `Bag3/`. The review behind this plan is
 `Bag3/Code/docs_and_design/2026-11-14-advisor-review.md`.
 
-## Status on 2026-11-16 and the one-sitting test (read this first)
+## Status on 2026-11-16, before the test (superseded by the outcome above)
 
 Test day is Wednesday 2026-11-18. **One branch holds everything: `Chat_to_Tap_Doggle`.** Agents
 start from it and pull it before each commit. `ccr-eec157d8-pkam3d` is kept level with it.

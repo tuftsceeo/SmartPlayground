@@ -1,7 +1,7 @@
 ---
 title: A Splat host wand drops a code_push that arrives during a game
 date: 2026-11-17
-status: open (seen once on hardware, unattended run 2026-11-16/17)
+status: fixed in code 2026-11-17 (3c897264); not re-run on hardware
 devices: [Wand]
 components: [Wand Module/main.py, Wand Module/lib/splat_host.py]
 code:
@@ -37,3 +37,7 @@ A push to a splat_host wand that is *not* in a game pulls normally (five of five
 
 Fix direction (not done): have `splat_host._loop` take a queued push after `launch()` returns,
 e.g. via a getter passed in like `get_ctl`.
+
+## 2026-11-19: outcome
+
+`splat_host.py` now wraps launch and pull (`_then_push`) so a push queued in `main._pending_push` is pulled after the game ends (commit `3c897264`). Not re-run on hardware.

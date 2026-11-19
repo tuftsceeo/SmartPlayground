@@ -30,7 +30,7 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-11-02-dial-box-arm-serving.md](2026-11-02-dial-box-arm-serving.md) | Dial and Box serving still gated by arm/disarm, radio off outside NFC | Dial fixed 2026-11-14; Box fixed 2026-11-15, on hardware 2026-11-16 | — |
 | [2026-11-16-icon-store-full.md](2026-11-16-icon-store-full.md) | IconDisplay icon store never pruned; ENOSPC during a pull | open (pruning); ENOSPC fixed 2026-11-16, untested on hardware | — |
 | [2026-11-15-box-fleet-port.md](2026-11-15-box-fleet-port.md) | Box fleet scan, find, distribute ported from the Dial; power earmark | scan/distribute pass on hardware 2026-11-16, 1 h soak no reset; range untested | — |
-| [2026-11-17-splat-host-push-dropped.md](2026-11-17-splat-host-push-dropped.md) | Wand in the Splat host role ends a game on a mid-game `code_push` but never pulls | open (seen once on hardware 2026-11-16) | — |
+| [2026-11-17-splat-host-push-dropped.md](2026-11-17-splat-host-push-dropped.md) | Wand in the Splat host role ends a game on a mid-game `code_push` but never pulls | fixed in code 2026-11-17, not re-run on hardware | — |
 | [2026-11-17-wand-ctrlc-boot-crash.md](2026-11-17-wand-ctrlc-boot-crash.md) | Wand panics (Load access fault, rst:0xc) when Ctrl-C lands during boot; prewarm hypothesis | open (seen once on hardware 2026-11-17; mechanism unconfirmed) | — |
 | [2026-11-17-wand-ctrlc-stdin-full.md](2026-11-17-wand-ctrlc-stdin-full.md) | Wand ignores Ctrl-C once ~259 unread bytes fill stdin; survives a port-reopen reset | fixed (drain passed on hardware 2026-11-17; Splat host loop untested) | — |
 | [2026-11-18-stress-test-find-and-scan.md](2026-11-18-stress-test-find-and-scan.md) | Stress test: Find Me ends a running game; device list varies (12/2/5) with 8 controllers | open (Find Me confirmed from code; list push-back measured on one Dial 2026-11-18) | — |
@@ -41,12 +41,12 @@ filenames). Search front matter with `grep -l '<term>' Bag3/Code/known_issues/*.
 | [2026-11-13-game-ideas-backlog.md](2026-11-13-game-ideas-backlog.md) | Game ideas not chosen as built-ins, and the gap blocking each | open | — |
 | [2026-11-11-simple-mode-large-changes.md](2026-11-11-simple-mode-large-changes.md) | Simple mode design: device minimums, Simulator minimum/Splat host role (built, hardware untested)/zones (built, left/right unconfirmed)/art, game card, versions | open | — |
 | [2026-11-14-hold-interactions-ux.md](2026-11-14-hold-interactions-ux.md) | UX: hold-to-act (Splat host start/end) needs clear progress; game text says only "hold the button" | open (concern) | — |
-| [2026-11-14-splat-host-wand-count.md](2026-11-14-splat-host-wand-count.md) | ChatBroadcast device line and brief leave out the Splat host wand (shows 2 wands, needs 3) | open | — |
-| [2026-11-14-send-check-errors-ux.md](2026-11-14-send-check-errors-ux.md) | UX: send-time check errors (splat_lost) are technical toasts, run after the Simulator, no fix path; Simple mode should auto-send to chat | open (concern) | — |
-| [2026-11-14-games-must-repeat.md](2026-11-14-games-must-repeat.md) | Knowledge: generated games end after a win; all games must celebrate then start a new round, forever | open | — |
-| [2026-11-14-dial-keyboard-send-stall.md](2026-11-14-dial-keyboard-send-stall.md) | Dial: distribute fails just after the keyboard is built ("schedule queue full"); TypeError lines after a soft reset | open (draft, S11 pending) | — |
+| [2026-11-14-splat-host-wand-count.md](2026-11-14-splat-host-wand-count.md) | ChatBroadcast device line and brief leave out the Splat host wand (shows 2 wands, needs 3) | fixed in code 2026-11-16 (S10), deployed 2026-11-18 | — |
+| [2026-11-14-send-check-errors-ux.md](2026-11-14-send-check-errors-ux.md) | UX: send-time check errors (splat_lost) are technical toasts, run after the Simulator, no fix path; Simple mode should auto-send to chat | fixed in code 2026-11-16 (S10), deployed 2026-11-18 | — |
+| [2026-11-14-games-must-repeat.md](2026-11-14-games-must-repeat.md) | Knowledge: generated games end after a win; all games must celebrate then start a new round, forever | fixed in code 2026-11-16 (S10), deployed 2026-11-18 | — |
+| [2026-11-14-dial-keyboard-send-stall.md](2026-11-14-dial-keyboard-send-stall.md) | Dial: distribute fails just after the keyboard is built ("schedule queue full"); TypeError lines after a soft reset | open (not reproduced; bench steps never run) | — |
 | [2026-11-14-dial-upload-during-pull.md](2026-11-14-dial-upload-during-pull.md) | Dial JSON-link upload can replace a game file mid-pull | open (low; pre-classroom test) | — |
-| [2026-11-14-start-tag-in-tray.md](2026-11-14-start-tag-in-tray.md) | Simulator tray offers the game's own start tag; start tag should not be a play card | open | — |
+| [2026-11-14-start-tag-in-tray.md](2026-11-14-start-tag-in-tray.md) | Simulator tray offers the game's own start tag; start tag should not be a play card | fixed in code 2026-11-16 (S10), deployed 2026-11-18 | — |
 
 ## By topic
 

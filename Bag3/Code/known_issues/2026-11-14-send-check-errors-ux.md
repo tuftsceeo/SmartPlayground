@@ -1,7 +1,7 @@
 ---
 title: Send-time game check errors are technical, late, and have no fix path
 date: 2026-11-14
-status: open (UX concern, no change made)
+status: fixed in code 2026-11-16 (S10), deployed 2026-11-18; not checked by a person
 devices: [Splat host wand, Wand (Mock Wand)]
 components: [ChatBroadcast send checks, toasts, Simulator error panel, Simple mode]
 code:
@@ -42,3 +42,7 @@ device a toast said:
 - Treat a failure like "Can't simulate": offer a path that asks the chat to fix it.
 - **Simple mode: send the error to the chat automatically.** A Simple mode user can never resolve a
   simulation error or a check like `splat_lost` themselves, so they should not be asked to.
+
+## 2026-11-19: outcome
+
+Fixed in ChatBroadcast on 2026-11-16 (stress-test plan S10, commits `27d1f716` and `1077fd13`) and deployed with the hosted app on 2026-11-18. No person-checked result is recorded.

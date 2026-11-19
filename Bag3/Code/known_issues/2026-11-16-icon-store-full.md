@@ -1,7 +1,7 @@
 ---
 title: Icon display flash fills with icons; a full store breaks pulls
 date: 2026-11-16
-status: open (read from code, not tested on hardware)
+status: open (pruning); ENOSPC handled in code 2026-11-16; free space 924 KB of 2048 KB reported 2026-11-17
 devices: [IconDisplay (XIAO ESP32-C6)]
 components: [icon store, ESP-NOW code pull, icon editor link]
 code:
@@ -45,3 +45,7 @@ in `_boot()` after `enow.init()`).
 failure in the icon leg stops it, deletes the just-promoted game and restores
 its `.bak`; `receive()` returns False, so `main.py` shows the red X and does
 not record or launch the game. The wand's `espnow_code.py` is unchanged.
+
+## 2026-11-19: free space
+
+Another agent reported 924 KB free of 2048 KB on a display on 2026-11-17 (`Bag3/STRESS_TEST_UNATTENDED_2026-11-17.md`, "Earlier today"). The full-flash path has not been exercised on hardware.
