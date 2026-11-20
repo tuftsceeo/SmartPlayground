@@ -81,7 +81,10 @@ ChatBroadcast paths point to `Live_Page/ChatBroadcast/`, promoted today in `640a
 **Reported.** Refreshing the device list gave 12, 2 or 5 devices. The card-tap pull worked
 throughout.
 
-**From the code.** These are hypotheses; none was observed.
+**Bench test, same day.** Point 1 is now **measured**, and points 2 and 3 are mostly ruled out
+as main causes. See "Bench results" at the end of this note.
+
+**From the code.** These were the hypotheses before the bench test.
 
 1. **Polls from other controllers push replies back (likely the main cause).**
    - Each `status_poll` resets the device's single pending reply
@@ -258,6 +261,152 @@ The room asked for channels to make grouping easier. There are two kinds.
 Today no channel is set anywhere, so every device shares the default.
 
 ---
+
+## Bench results, 2026-11-18 afternoon (one Dial, 17 devices answering)
+
+**Setup.**
+- One Broadcast Dial (`host_id` 5094) on USB, driven with `fleet.scan` / `fleet.find` JSON
+  commands from a host script.
+- The other devices were 16 wands and 1 IconDisplay, left on around the room. You reported
+  18 devices present, but only 17 ever answered.
+- Two wands were also on USB with serial logs: `A0:F2:62:85:F0:6C` and
+  `A0:F2:62:86:DF:E4`.
+- Raw logs and scripts are in `2026-11-18-multi-controller-bench/`.
+- Everything below is what the log shows.
+
+**Results.**
+
+| Test | Result |
+|---|---|
+| One quiet controller, 60 scans (10 s and 6.5 s apart) | 17/17 in 57 scans, 16 in 3. Under 1% of reply copies lost. **One Dial alone does not cause roulette.** |
+| Poll every 3 s / 2.5 s / 2 s / 1.5 s / 1 s / 0.5 s, 15 s each, twice | Devices answering *while polling continued*: 17 / 16–17 / 14–16 / 9 / 3–4 / 2–3. All answered within seconds once polling stopped. |
+| Random scan times, mean gap 2.1 s (88 scans) | Devices listed per 6 s window: min 9, median 16, max 17 |
+| Random scan times, mean gap 1.3 s (136 scans) | Devices listed per 6 s window: **min 3, median 12, max 17**. This reproduces the room's 12 / 2 / 5. |
+| Find Me to the two USB wands, 3 times each | Reached the wand 6/6. Each Find **started `finddevice` three times**: the Dial sends 3 copies, and each copy interrupts the previous one after 0.2 s. The real 5 s identify started about 2 s after the press. |
+
+**What it shows.**
+- **Push-back.** A device answers only if its reply wait (0.4 s + slot × 0.18 s) is shorter
+  than the gap between polls. At a 1.5 s gap, the 2.56 s devices answered 0/5 and the 1.84 s
+  devices 1/4, while the 0.4 s and 1.12 s devices all answered.
+  - The cause is `_schedule_status_reply` resetting the pending reply on every poll
+    (`Wand Module/lib/espnow_manager.py:267-273`).
+  - Several controllers each scanning or pressing Rescan produce exactly these gaps.
+- **Only 4 slots in use.** All 17 MACs seen end in a byte that is a multiple of 4
+  (measured). The likely reason: Espressif assigns each chip a block of 4 MACs, so the base
+  MAC is a multiple of 4 (not checked). So `last byte % 16` gives only slots 0, 4, 8 and 12, with 3–5
+  devices in each.
+  - The late slots (8 and 12) are the ones that disappear.
+- **Feedback loop.** The app scans when Distribute opens after a Send (`distribute.js:364`)
+  and on Rescan (`distribute.js:323`). A short list invites Rescan, which shortens the next
+  list.
+- **Signal strength (RSSI).** On the bench it read -27 to -64 dBm, varying 10–20 dB per
+  device without anything moving. It is unlikely to work as a "near me" filter.
+- **USB identity (for issue 6).**
+
+  | Board | USB ID | Product string | Serial number |
+  |---|---|---|---|
+  | Dial | `303a:81dd` | "Dial(UiFlow2)" | — |
+  | XIAO C6 wand | `303a:1001` | "USB JTAG/serial debug unit" | the MAC (as read by pyserial) |
+
+  The port picker *can* separate Dials from wands by product ID. Not yet checked: what
+  Chrome's picker shows, and the Box's IDs.
+
+### T1: three real controllers, 2026-11-18 15:06–15:20
+
+**Setup.**
+- Dial A (`host_id` 5094), Dial B (004c) and the Box (cd64, an M5 StickS3, `303a:832b`
+  "StickS3(UiFlow2)").
+- All on USB to one host script, with 17 devices answering.
+
+| Pattern | Devices per list (each controller) |
+|---|---|
+| Take turns, 10 s apart (18 scans) | 17/17 every scan |
+| Random, each controller about every 20 s (16 scans) | 17 in all but one (16) |
+| **Random, each controller about every 8 s (92 scans)** | **8–17, median 17.** Dial B ran 17, 8, 8, 17, … Devices in slot 12 listed 71–83% of the time, slot 8 89–96%, slots 0/4 100%. |
+| All three scan within the same 0.5 s, 10 times | 17/17 every scan |
+
+**What it shows.**
+- **Spread-out polls do the damage, not simultaneous ones.** Replies are broadcast, so
+  overlapping scans share replies, and scans all at once are harmless.
+- **Each poll adds to the room's total.** Three controllers each about every 8 s add up to a
+  poll every ~2.7 s, which already causes dropouts. By arithmetic, not measured: eight
+  controllers at that rate reach a poll about every second. On the single Dial, that rate gave lists of 3–17.
+- **It matches the room.** Teachers opening Distribute after a Send and pressing Rescan
+  produce exactly this.
+
+### T2: sends, scans and Find Me at once, 2026-11-18 15:20–15:28
+
+**Setup.** Same three controllers.
+- **Dial A** sent `follow_the_leade` to 4 wands that already held it, so nothing was
+  evicted.
+- **The Box** sent `unicorn_detector` to 2 wands that already held it.
+- **Dial B** scanned.
+- In the Find phases, every controller also sent Find Me to a random device about every 6 s.
+  That is ~0.45 Finds/s room-wide, all 17 devices hit about 3 times each.
+
+| Phase | Sends | Lists (devices per scan) |
+|---|---|---|
+| Dial A sends, nothing else | **1 of 4 OK; 3 `timeout`.** The log shows all three *opened* a pull session with Dial A; each stalled and was dropped after 15 s idle (`pull` event, `why: "idle"`). Those were the three running at once. The 4th, pushed alone 30 s later, pulled in 1.6 s. The same 4 wands then succeeded every time. Cause not known; no wand log. | — |
+| Dial A sends while the others scan (each about every 8 s) | 4/4, finished in 11 s | 16–17 |
+| Dial A and the Box send at once, Dial B scans | 6/6, 7–11 s | 16 |
+| Finds + scans, no sends (2 min, 58 Finds) | — | **6–17, median ~12** |
+| Everything: two sends + Finds + scans (3 min, 82 Finds) | **6/6, 11–17 s** | **10–17, median ~12** |
+
+**What it shows.**
+- **Directed transfers survive the chaos.** Every push or pull to a named device worked
+  (12/12) while scans and Finds ran. This fits why card-tap pulls worked in the room.
+  - The first quiet send failing on 3 of 4 (stalled sessions) is the one exception.
+  - Worth a re-test with a wand on a USB log: if the first Send of a lesson stalls, a
+    classroom will notice.
+- **Lists were worse alongside Find traffic.** This is *not isolated*: the Find phases ran
+  later than T1-busy, and right after 6 wands had launched pulled games.
+  - At the same scan rate, with no Finds (T1 busy), the 0.4 s-wait devices were listed 100%
+    of the time. In the Find phases they were listed 68–91%. The slowest slot fell to
+    44–84%.
+  - Devices found recently were missing about as often as the rest (27–31% vs 25–27%).
+    Effects on the targeted wand alone, such as the 3× restart, therefore can't explain it.
+  - Whether the device never sent or the controller dropped the reply is **not
+    established**. No scan window was fully covered by another controller's, so there is no
+    fair comparison.
+  - A control run (scans only / Finds to a MAC nobody has / real Finds, back to back) is
+    below.
+
+### Find control, 2026-11-18 15:31–15:38
+
+**Setup.**
+- Three parts of 2 min each, back to back, in the same room state.
+- All three controllers scanned at random, each about every 8 s.
+- **The Box dropped off USB 51 s into part 3.** Its port came back, but it has been silent
+  since: no heartbeat, no reply to `identify`. Counts below use the two Dials only.
+
+| Part | Finds | Devices per list (Dials) | Listed rate, slots 0 / 4 / 8 / 12 |
+|---|---|---|---|
+| Scans only | 0 | median 17, mean 14.8 | 100 / 100 / 95 / 60% |
+| + Finds to a MAC no device has | 55 | median 17, mean 16.4 | 100 / 100 / 99 / 88% |
+| + real Finds to random devices | 58 | median 14, mean 14.3 | **86 / 83 / 90 / 80%** |
+
+**What it shows.**
+- **Find broadcasts are harmless; a Find *landing* on a device is not.**
+  - Finds to nobody changed nothing; it was slightly better than scans alone, within noise.
+  - Real Finds made devices drop out in *every* slot, including the ones that never drop
+    from push-back.
+- **The effect comes after the identify.**
+  - A device found 8–20 s before a scan was missing 31% of the time; other devices 11%.
+  - Found in the 8 s before the scan: 16% vs 15%.
+  - So the 5 s identify itself is not the gap. Something after it, back in the idle loop,
+    keeps the wand quiet. Cause not known.
+- **For design.**
+  - Changing Find so it doesn't launch a game (blink inside `poll()`, one identify per
+    press) should help the lists as well as stop ending games.
+  - De-duplicating or unicasting the broadcast alone would not.
+- **In the room** there were 8 controllers, people pressing Find on whatever looked like
+  theirs, and Rescan. That is this phase with more of everything.
+
+**Not yet tested.**
+- Pulls competing with scans.
+- Wands mid-game.
+
+The plan for these is `2026-11-18-multi-controller-test-plan.md`.
 
 ## Questions for the team
 

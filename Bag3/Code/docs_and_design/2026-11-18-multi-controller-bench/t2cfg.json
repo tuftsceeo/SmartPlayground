@@ -1,0 +1,42 @@
+{
+ "ports": {
+  "dialA": "/dev/cu.usbmodem3101",
+  "dialB": "/dev/cu.usbmodem101",
+  "box": "/dev/cu.usbmodem1101"
+ },
+ "A": "dialA",
+ "B": "box",
+ "S": "dialB",
+ "slugA": "follow_the_leade",
+ "slugB": "unicorn_detector",
+ "wandsA": [
+  "A0:F2:62:85:CB:FC",
+  "A0:F2:62:85:D6:14",
+  "A0:F2:62:87:92:CC",
+  "A0:F2:62:87:B4:30"
+ ],
+ "wandsB": [
+  "A0:F2:62:86:2E:A8",
+  "A0:F2:62:86:DF:E4"
+ ],
+ "all": [
+  "A0:F2:62:85:70:A0",
+  "A0:F2:62:85:81:D8",
+  "A0:F2:62:85:CB:FC",
+  "A0:F2:62:85:D1:14",
+  "A0:F2:62:85:D6:14",
+  "A0:F2:62:85:F0:6C",
+  "A0:F2:62:86:23:E4",
+  "A0:F2:62:86:28:FC",
+  "A0:F2:62:86:2E:A8",
+  "A0:F2:62:86:BE:74",
+  "A0:F2:62:86:DF:E4",
+  "A0:F2:62:86:E5:80",
+  "A0:F2:62:87:92:CC",
+  "A0:F2:62:87:96:B8",
+  "A0:F2:62:87:B4:30",
+  "B4:3A:45:86:1A:5C",
+  "B4:3A:45:8A:8F:D8"
+ ],
+ "phases": "q,c,x,f,z"
+}

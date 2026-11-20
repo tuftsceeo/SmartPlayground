@@ -40,7 +40,38 @@ full debrief and the ideas are in `docs_and_design/2026-11-18-stress-test-debrie
 **Reported.** Repeated refreshes listed very different numbers of devices. Card-tap pulls
 still worked.
 
-**From the code.** These are hypotheses, not observed.
+**Bench-measured, same afternoon (one Dial, 17 devices).**
+- **Push-back confirmed.** The first point below is the cause.
+  - A device answers only if its reply wait is shorter than the gap between polls.
+  - With scans at random times, mean gap 1.3 s, each 6 s list held 3–17 devices (median
+    12).
+  - One quiet controller got 17/17 in 57 of 60 scans.
+- **Only 4 slots in use.** MACs come in blocks of 4, so `last byte % 16` only yields slots
+  0, 4, 8 and 12.
+- **Find stutter.** A single Find starts `finddevice` 3 times, because each of the Dial's 3
+  copies interrupts the last.
+
+- **Three controllers (T1).**
+  - Scanning at random, each about every 8 s: lists of 8–17.
+  - Scanning within the same 0.5 s: always 17, because replies are broadcast and shared.
+- **Find traffic (T2).** With about 0.45 Finds/s room-wide, lists ran 6–17 and *every*
+  device was listed less often. This was not isolated from the room state; see the
+  debrief's control run.
+- **Find control.**
+  - Finds sent to a MAC nobody has did no harm.
+  - Real Finds took devices in every slot out of the list, worst 8–20 s *after* the Find
+    (31% missing vs 11%).
+  - So it is the wand's reaction to Find that does the damage, not the radio traffic.
+- **Box dropout.** The Box dropped off USB during the real-Finds part and stayed silent
+  afterwards. Cause not known.
+- **Directed sends held up (T2).** 12/12 succeeded under scans and Finds.
+  - Exception: the first quiet send. All 3 concurrent pull sessions stalled and were dropped
+    after 15 s idle.
+  - Cause not known.
+
+Details are in the debrief's "Bench results".
+
+**From the code** (the hypotheses before the bench test).
 - **Each poll pushes the reply back.**
   - Each `status_poll` resets the device's single pending reply
     (`_schedule_status_reply`, `espnow_manager.py:267-273`).
