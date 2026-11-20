@@ -1,7 +1,7 @@
 # Bag3 advisor review: stability, shared contracts and stress-test risks (2026-11-14)
 
 Reviewed on `ccr-eec157d8-pkam3d` (everything on `wand-splat-update` plus W6). The plan that
-follows from this review is `Bag3/STRESS_TEST_PREP_PLAN.md`.
+follows from this review is `Bag3/Code/docs_and_design/2026-11-14-stress-test-prep-plan.md`.
 
 Paths are relative to `Bag3/Code/` and use the layout after the 2026-11-14 move
 (`ChatBroadcast/`, `tools/`, `docs_and_design/`; `BroadcastCode/` is gone).

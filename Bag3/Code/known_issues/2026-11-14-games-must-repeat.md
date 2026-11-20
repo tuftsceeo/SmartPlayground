@@ -1,7 +1,7 @@
 ---
 title: Generated games end after a win instead of starting a new round
 date: 2026-11-14
-status: open (knowledge gap, no change made)
+status: fixed in code 2026-11-16 (S10), deployed 2026-11-18; not checked by a person
 devices: [Wand (Mock Wand), Splat host wand]
 components: [ChatBroadcast knowledge, generated games, lobby/host games]
 code:
@@ -41,3 +41,7 @@ automatically, forever.** Examples: `melody`, `cooking`, `freeze_dance`.
 State the rule in the shared knowledge (all game types, including lobby and Splat host games) and
 in the interview/brief wording ("ends a round", not "ends"). Consider a send-time check for a
 `play()` that returns outside the stop/lost events.
+
+## 2026-11-19: outcome
+
+Fixed in ChatBroadcast on 2026-11-16 (stress-test plan S10, commits `27d1f716` and `1077fd13`) and deployed with the hosted app on 2026-11-18. No person-checked result is recorded.

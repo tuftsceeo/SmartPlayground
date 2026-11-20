@@ -1,7 +1,7 @@
 ---
 title: Dial distribute fails just after the keyboard is built (D2); TypeError lines after a soft reset (D3)
 date: 2026-11-14
-status: open (draft from one log; S11 steps 2-4 will test it)
+status: open (not reproduced; S11 bench steps never run)
 devices: [BroadcastDial]
 components: [BDialFirmware/bdial_server.py, BDialFirmware/station_ui.py, BDialFirmware/code_link.py, m5ui port.py]
 code:
@@ -15,7 +15,7 @@ open:
 keywords: [keyboard, distribute, schedule queue full, code_req, ENX offer, timeout, send_fail, soft reset, TypeError, LVGL, S11]
 related:
   - Bag3/STRESS_TEST_FINDINGS_2026-11-14.md (D2, D3, S11 step 1)
-  - Bag3/STRESS_TEST_PREP_PLAN.md (S11)
+  - Bag3/Code/docs_and_design/2026-11-14-stress-test-prep-plan.md (S11)
 ---
 
 # Dial: distribute fails just after the keyboard is built, 2026-11-14
@@ -61,3 +61,7 @@ stays put. IDLE/WRITE is only reported; it does not gate serving. Host-tested on
 (`tools/test_game_upload.py`); not yet run on hardware. Fallback if the bench block fails:
 make `supportsJsonUpload` in `ChatBroadcast/js/device/jsonGameUpload.js` return `false`
 (back to raw-REPL upload, which restarts the Dial and can still trigger D3).
+
+## 2026-11-19: outcome
+
+The S11 bench steps were not run before the test. On 2026-11-17 another agent reported a JSON upload of 10 games, a distribute to 3 wands and a slot replace from the Dial with no stall seen (`Bag3/STRESS_TEST_UNATTENDED_2026-11-17.md`, "Earlier today"); the keyboard was not part of that run. D2 and D3 stay open.

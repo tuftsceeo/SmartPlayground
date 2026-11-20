@@ -1,7 +1,7 @@
 ---
 title: Simulator shows a game's start tag in the card tray when play does not need it
 date: 2026-11-14
-status: open (no change made)
+status: fixed in code 2026-11-16 (S10), deployed 2026-11-18; not checked by a person
 devices: [Simulator, Wand (Mock Wand), Splat host wand]
 components: [Simulator tag tray, runtime capabilities, generated games, ChatBroadcast knowledge]
 code:
@@ -37,3 +37,7 @@ in the tray.
 ## Direction (not decided)
 - Simulator: leave the game's own start tag out of the tray (the Simulator starts the game itself).
 - Knowledge: tell the model not to react to its own start tag during play.
+
+## 2026-11-19: outcome
+
+Fixed in ChatBroadcast on 2026-11-16 (stress-test plan S10, commits `27d1f716` and `1077fd13`) and deployed with the hosted app on 2026-11-18. No person-checked result is recorded.

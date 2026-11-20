@@ -1,7 +1,7 @@
 ---
 title: Splat host games under-count wands by one (host wand left out)
 date: 2026-11-14
-status: open (no change made)
+status: fixed in code 2026-11-16 (S10), deployed 2026-11-18; not checked by a person
 devices: [Splat host wand, Wand (Mock Wand)]
 components: [ChatBroadcast device line, GAME_SETTINGS, interview brief]
 code:
@@ -33,3 +33,7 @@ showed **2 wands, 4 Splats**. The game needs **3 wands**: 2 children's wands plu
 ## Direction (not decided)
 Show the host as its own item ("2 wands + 1 Splat host wand, 4 Splats") or add it to the total,
 and have the interview brief count it. Check every place the device line is built.
+
+## 2026-11-19: outcome
+
+Fixed in ChatBroadcast on 2026-11-16 (stress-test plan S10, commits `27d1f716` and `1077fd13`) and deployed with the hosted app on 2026-11-18. No person-checked result is recorded.
